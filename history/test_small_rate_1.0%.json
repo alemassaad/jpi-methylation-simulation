@@ -1,0 +1,284 @@
+{
+  "0": [
+    {
+      "cpg_sites": [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+      "methylation_proportion": 0,
+      "methylation_distribution": [1.0, 0.0, 0.0, 0.0, 0.0, 0.0],
+      "jsd": 0.0,
+      "age": 0,
+      "gene_size": 5,
+      "rate": 0.01
+    },
+    {
+      "cpg_sites": [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+      "methylation_proportion": 0,
+      "methylation_distribution": [1.0, 0.0, 0.0, 0.0, 0.0, 0.0],
+      "jsd": 0.0,
+      "age": 0,
+      "gene_size": 5,
+      "rate": 0.01
+    },
+    {
+      "cpg_sites": [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+      "methylation_proportion": 0,
+      "methylation_distribution": [1.0, 0.0, 0.0, 0.0, 0.0, 0.0],
+      "jsd": 0.0,
+      "age": 0,
+      "gene_size": 5,
+      "rate": 0.01
+    },
+    {
+      "cpg_sites": [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+      "methylation_proportion": 0,
+      "methylation_distribution": [1.0, 0.0, 0.0, 0.0, 0.0, 0.0],
+      "jsd": 0.0,
+      "age": 0,
+      "gene_size": 5,
+      "rate": 0.01
+    },
+    {
+      "cpg_sites": [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+      "methylation_proportion": 0,
+      "methylation_distribution": [1.0, 0.0, 0.0, 0.0, 0.0, 0.0],
+      "jsd": 0.0,
+      "age": 0,
+      "gene_size": 5,
+      "rate": 0.01
+    }
+  ],
+  "1": [
+    {
+      "cpg_sites": [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+      "methylation_proportion": 0,
+      "methylation_distribution": [1.0, 0.0, 0.0, 0.0, 0.0, 0.0],
+      "jsd": 0.0,
+      "age": 1,
+      "gene_size": 5,
+      "rate": 0.01
+    },
+    {
+      "cpg_sites": [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+      "methylation_proportion": 0,
+      "methylation_distribution": [1.0, 0.0, 0.0, 0.0, 0.0, 0.0],
+      "jsd": 0.0,
+      "age": 1,
+      "gene_size": 5,
+      "rate": 0.01
+    },
+    {
+      "cpg_sites": [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+      "methylation_proportion": 0,
+      "methylation_distribution": [1.0, 0.0, 0.0, 0.0, 0.0, 0.0],
+      "jsd": 0.0,
+      "age": 1,
+      "gene_size": 5,
+      "rate": 0.01
+    },
+    {
+      "cpg_sites": [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+      "methylation_proportion": 0,
+      "methylation_distribution": [1.0, 0.0, 0.0, 0.0, 0.0, 0.0],
+      "jsd": 0.0,
+      "age": 1,
+      "gene_size": 5,
+      "rate": 0.01
+    },
+    {
+      "cpg_sites": [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+      "methylation_proportion": 0,
+      "methylation_distribution": [1.0, 0.0, 0.0, 0.0, 0.0, 0.0],
+      "jsd": 0.0,
+      "age": 1,
+      "gene_size": 5,
+      "rate": 0.01
+    }
+  ],
+  "2": [
+    {
+      "cpg_sites": [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+      "methylation_proportion": 0,
+      "methylation_distribution": [1.0, 0.0, 0.0, 0.0, 0.0, 0.0],
+      "jsd": 0.0,
+      "age": 2,
+      "gene_size": 5,
+      "rate": 0.01
+    },
+    {
+      "cpg_sites": [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+      "methylation_proportion": 0,
+      "methylation_distribution": [1.0, 0.0, 0.0, 0.0, 0.0, 0.0],
+      "jsd": 0.0,
+      "age": 2,
+      "gene_size": 5,
+      "rate": 0.01
+    },
+    {
+      "cpg_sites": [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+      "methylation_proportion": 0,
+      "methylation_distribution": [1.0, 0.0, 0.0, 0.0, 0.0, 0.0],
+      "jsd": 0.0,
+      "age": 2,
+      "gene_size": 5,
+      "rate": 0.01
+    },
+    {
+      "cpg_sites": [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+      "methylation_proportion": 0,
+      "methylation_distribution": [1.0, 0.0, 0.0, 0.0, 0.0, 0.0],
+      "jsd": 0.0,
+      "age": 2,
+      "gene_size": 5,
+      "rate": 0.01
+    },
+    {
+      "cpg_sites": [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+      "methylation_proportion": 0,
+      "methylation_distribution": [1.0, 0.0, 0.0, 0.0, 0.0, 0.0],
+      "jsd": 0.0,
+      "age": 2,
+      "gene_size": 5,
+      "rate": 0.01
+    }
+  ],
+  "3": [
+    {
+      "cpg_sites": [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+      "methylation_proportion": 0,
+      "methylation_distribution": [1.0, 0.0, 0.0, 0.0, 0.0, 0.0],
+      "jsd": 0.0,
+      "age": 3,
+      "gene_size": 5,
+      "rate": 0.01
+    },
+    {
+      "cpg_sites": [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+      "methylation_proportion": 0,
+      "methylation_distribution": [1.0, 0.0, 0.0, 0.0, 0.0, 0.0],
+      "jsd": 0.0,
+      "age": 3,
+      "gene_size": 5,
+      "rate": 0.01
+    },
+    {
+      "cpg_sites": [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+      "methylation_proportion": 0,
+      "methylation_distribution": [1.0, 0.0, 0.0, 0.0, 0.0, 0.0],
+      "jsd": 0.0,
+      "age": 3,
+      "gene_size": 5,
+      "rate": 0.01
+    },
+    {
+      "cpg_sites": [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+      "methylation_proportion": 0,
+      "methylation_distribution": [1.0, 0.0, 0.0, 0.0, 0.0, 0.0],
+      "jsd": 0.0,
+      "age": 3,
+      "gene_size": 5,
+      "rate": 0.01
+    },
+    {
+      "cpg_sites": [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+      "methylation_proportion": 0,
+      "methylation_distribution": [1.0, 0.0, 0.0, 0.0, 0.0, 0.0],
+      "jsd": 0.0,
+      "age": 3,
+      "gene_size": 5,
+      "rate": 0.01
+    }
+  ],
+  "4": [
+    {
+      "cpg_sites": [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+      "methylation_proportion": 0,
+      "methylation_distribution": [1.0, 0.0, 0.0, 0.0, 0.0, 0.0],
+      "jsd": 0.0,
+      "age": 4,
+      "gene_size": 5,
+      "rate": 0.01
+    },
+    {
+      "cpg_sites": [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+      "methylation_proportion": 0,
+      "methylation_distribution": [1.0, 0.0, 0.0, 0.0, 0.0, 0.0],
+      "jsd": 0.0,
+      "age": 4,
+      "gene_size": 5,
+      "rate": 0.01
+    },
+    {
+      "cpg_sites": [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+      "methylation_proportion": 0,
+      "methylation_distribution": [1.0, 0.0, 0.0, 0.0, 0.0, 0.0],
+      "jsd": 0.0,
+      "age": 4,
+      "gene_size": 5,
+      "rate": 0.01
+    },
+    {
+      "cpg_sites": [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+      "methylation_proportion": 0,
+      "methylation_distribution": [1.0, 0.0, 0.0, 0.0, 0.0, 0.0],
+      "jsd": 0.0,
+      "age": 4,
+      "gene_size": 5,
+      "rate": 0.01
+    },
+    {
+      "cpg_sites": [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+      "methylation_proportion": 0,
+      "methylation_distribution": [1.0, 0.0, 0.0, 0.0, 0.0, 0.0],
+      "jsd": 0.0,
+      "age": 4,
+      "gene_size": 5,
+      "rate": 0.01
+    }
+  ],
+  "5": [
+    {
+      "cpg_sites": [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+      "methylation_proportion": 0,
+      "methylation_distribution": [1.0, 0.0, 0.0, 0.0, 0.0, 0.0],
+      "jsd": 0.0,
+      "age": 5,
+      "gene_size": 5,
+      "rate": 0.01
+    },
+    {
+      "cpg_sites": [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+      "methylation_proportion": 0,
+      "methylation_distribution": [1.0, 0.0, 0.0, 0.0, 0.0, 0.0],
+      "jsd": 0.0,
+      "age": 5,
+      "gene_size": 5,
+      "rate": 0.01
+    },
+    {
+      "cpg_sites": [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+      "methylation_proportion": 0,
+      "methylation_distribution": [1.0, 0.0, 0.0, 0.0, 0.0, 0.0],
+      "jsd": 0.0,
+      "age": 5,
+      "gene_size": 5,
+      "rate": 0.01
+    },
+    {
+      "cpg_sites": [0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0],
+      "methylation_proportion": 0.06666666666666667,
+      "methylation_distribution": [0.6666666666666666, 0.3333333333333333, 0.0, 0.0, 0.0, 0.0],
+      "jsd": 0.1908745046211096,
+      "age": 5,
+      "gene_size": 5,
+      "rate": 0.01
+    },
+    {
+      "cpg_sites": [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+      "methylation_proportion": 0,
+      "methylation_distribution": [1.0, 0.0, 0.0, 0.0, 0.0, 0.0],
+      "jsd": 0.0,
+      "age": 5,
+      "gene_size": 5,
+      "rate": 0.01
+    }
+  ]
+}

@@ -1,0 +1,9 @@
+.DS_Store
+*.bak
+*.tmp
+__pycache__/
+
+# Large simulation files (exceed GitHub's 100MB limit)
+history/*.json.gz
+# Keep small test files
+!history/test_*.json

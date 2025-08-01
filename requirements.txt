@@ -1,0 +1,6 @@
+# Core dependencies (none required for basic simulation)
+# Python 3.7+ standard library is sufficient for simulation
+
+# Plotting dependencies
+plotly>=5.0.0,<6.0.0
+kaleido==0.2.1

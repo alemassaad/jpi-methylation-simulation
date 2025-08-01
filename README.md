@@ -69,10 +69,10 @@ python test_small.py
 
 ### Visualizing Results
 
-Create plots from simulation output:
+Create plots from simulation output (automatically saved to `plots/` directory):
 
 ```bash
-# Create both JSD and methylation plots (separate PNGs)
+# Create both JSD and methylation plots (separate PNGs in plots/)
 python plot_history.py history/simulation_file.json.gz
 
 # Create only JSD plot
@@ -85,7 +85,7 @@ python plot_history.py history/simulation_file.json.gz --methylation-only
 python plot_history.py history/simulation_file.json.gz -o custom_name
 ```
 
-Plots show:
+Plots are saved to `plots/` directory and show:
 - Mean line (solid)
 - 25-75 percentile band (darker shading)
 - 5-95 percentile band (lighter shading)
@@ -126,12 +126,19 @@ Example structure:
 ## Project Structure
 
 ```
-jpi-summer-project/
-├── cell.py          # Core simulation classes (Cell, History) and math functions
-├── main.py          # Simulation runner script
-├── history/         # Output directory for simulation results
-├── README.md        # This file
-└── CLAUDE.md        # Guidance for AI assistants
+jpi-methylation-simulation/
+├── cell.py                    # Core simulation classes (Cell, History) and math functions
+├── main.py                    # Standard simulation runner
+├── run_large_fast_save.py     # Optimized large-scale simulation
+├── test_small.py              # Quick test script
+├── plot_history.py            # Visualization script
+├── requirements.txt           # Python dependencies
+├── history/                   # Simulation output directory
+│   └── *.json, *.json.gz     # Simulation data files
+├── plots/                     # Visualization output directory
+│   └── *_jsd.png, *_methylation.png  # Generated plots
+├── README.md                  # This file
+└── CLAUDE.md                  # Guidance for AI assistants
 ```
 
 ## Key Concepts

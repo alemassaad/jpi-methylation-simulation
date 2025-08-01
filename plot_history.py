@@ -482,7 +482,7 @@ def main():
     parser.add_argument('history_file', type=str, 
                         help='Path to history JSON file (can be .json or .json.gz)')
     parser.add_argument('-o', '--output', type=str, default=None,
-                        help='Output base name (default: same as input, creates _jsd.png and _methylation.png)')
+                        help='Output base name (default: same as input, creates _jsd.png and _methylation.png in plots/)')
     parser.add_argument('--jsd-only', action='store_true',
                         help='Only create JSD plot')
     parser.add_argument('--methylation-only', action='store_true',
@@ -499,6 +499,12 @@ def main():
         else:
             print(f"Error: File not found: {args.history_file}")
             return 1
+    
+    # Create plots directory if it doesn't exist
+    plots_dir = 'plots'
+    if not os.path.exists(plots_dir):
+        os.makedirs(plots_dir)
+        print(f"Created {plots_dir}/ directory")
     
     # Determine output base name
     if args.output is None:
@@ -521,7 +527,7 @@ def main():
         try:
             print("Creating JSD plot...")
             fig_jsd = create_jsd_plot(stats, filename)
-            jsd_output = f"{base_name}_jsd.png"
+            jsd_output = os.path.join(plots_dir, f"{base_name}_jsd.png")
             fig_jsd.write_image(jsd_output, width=1200, height=500, scale=2)
             print(f"  JSD plot saved to {jsd_output}")
         except Exception as e:
@@ -533,7 +539,7 @@ def main():
         try:
             print("Creating methylation plot...")
             fig_meth = create_methylation_plot(stats, filename)
-            meth_output = f"{base_name}_methylation.png"
+            meth_output = os.path.join(plots_dir, f"{base_name}_methylation.png")
             fig_meth.write_image(meth_output, width=1200, height=500, scale=2)
             print(f"  Methylation plot saved to {meth_output}")
         except Exception as e:

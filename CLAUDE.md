@@ -49,6 +49,7 @@ python plot_history.py baseline_rate_0.5%_m10000_n1000_t100.json.gz --jsd-only
 python plot_history.py baseline_rate_0.5%_m10000_n1000_t100.json.gz --methylation-only
 ```
 Creates separate PNG files with mean line and 5-95/25-75 percentile bands.
+All plots are automatically saved to the `plots/` directory.
 
 ### Dependencies
 ```bash

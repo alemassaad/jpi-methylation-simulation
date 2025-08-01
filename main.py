@@ -24,4 +24,4 @@ if __name__ == "__main__":
         
         print(f"Final average methylation proportion for rate {rate}: {statistics.mean(methylation_props):.2%}")
         print(f"Final average JSD for rate {rate}: {statistics.mean(jsd_scores):.4f}")
-        history.save_history(filename=filename + f"_{rate:.3%}")
+        history.save_history(filename=filename + f"_{rate:.3f}")

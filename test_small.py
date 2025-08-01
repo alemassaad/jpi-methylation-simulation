@@ -21,7 +21,7 @@ if __name__ == "__main__":
     history.age_multiple_years(t_max)
     
     # Save results
-    filename = f"test_small_rate_{rate:.1%}"
+    filename = f"test_small_rate_{rate:.3f}"
     history.save_history(filename)
     
     # Display final statistics

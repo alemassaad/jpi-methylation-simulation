@@ -118,7 +118,7 @@ def main():
     
     # Save history with timing (FAST VERSION)
     print("\nSaving results (compressed)...")
-    filename = f"baseline_rate_{rate:.1%}_m{m}_n{n}_t{t_max}"
+    filename = f"simulation_rate_{rate:.3f}_m{m}_n{n}_t{t_max}"
     save_time = save_history_fast(history, filename)
     
     # Total time

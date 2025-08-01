@@ -11,6 +11,7 @@ This is a Python-based methylation simulation project that models DNA methylatio
 - `test_small.py`: Quick test script with small parameters
 - `plot_history.py`: Visualization script creating PNG plots with percentile bands
 - Simulation output files: Compressed JSON files (`.json.gz`) saved in `history/` directory
+- Plots: PNG visualizations saved in `plots/` directory
 
 ## Key Commands
 
@@ -27,7 +28,7 @@ Runs simulations with rates 0.002, 0.005, 0.01 and saves uncompressed JSON files
 python run_large_fast_save.py
 ```
 Runs simulation with rate=0.5%, n=1000, m=10,000, t_max=100 with:
-- Progress tracking every year/5 years
+- Progress tracking every year/5 years with time estimates
 - Fast compressed JSON output (.json.gz)
 - ~10 minutes total runtime
 
@@ -39,14 +40,17 @@ Runs with rate=1%, n=15, m=5, t_max=5 for testing.
 
 ### Data Visualization
 ```bash
-# Create both JSD and methylation plots
-python plot_history.py baseline_rate_0.5%_m10000_n1000_t100.json.gz
+# Create both JSD and methylation plots (default)
+python plot_history.py simulation_rate_0.005_m10000_n1000_t100.json.gz
 
 # Create only JSD plot
-python plot_history.py baseline_rate_0.5%_m10000_n1000_t100.json.gz --jsd-only
+python plot_history.py simulation_rate_0.005_m10000_n1000_t100.json.gz --jsd-only
 
 # Create only methylation plot  
-python plot_history.py baseline_rate_0.5%_m10000_n1000_t100.json.gz --methylation-only
+python plot_history.py simulation_rate_0.005_m10000_n1000_t100.json.gz --methylation-only
+
+# Custom output name (creates custom_name_jsd.png and custom_name_methylation.png)
+python plot_history.py simulation_rate_0.005_m10000_n1000_t100.json.gz -o custom_name
 ```
 Creates separate PNG files with mean line and 5-95/25-75 percentile bands.
 All plots are automatically saved to the `plots/` directory.
@@ -58,6 +62,8 @@ pip install -r requirements.txt
 Installs:
 - plotly>=5.0.0,<6.0.0 (for visualization)
 - kaleido==0.2.1 (for PNG export)
+
+Note: Core simulation requires only Python 3.7+ standard library.
 
 ## Architecture & Code Structure
 
@@ -76,17 +82,31 @@ Installs:
    - Stores complete cell state (including cpg_sites, distributions, etc.) at each time point
    - Handles data persistence to JSON in the `history/` directory
    - Custom JSON formatting keeps cpg_sites arrays on single lines for compactness
+   - Provides methods: `run()`, `save()`, `load()` (static method)
 
 3. **Key Mathematical Functions**:
    - `KL_div`: Kullback-Leibler divergence calculation
    - `JS_div`: Jensen-Shannon divergence (symmetrized KL divergence)
 
-### Simulation Execution (main.py)
+### Simulation Execution Scripts
 
+**main.py**: Standard multi-rate runner
 - Imports necessary classes and constants from cell.py
 - Runs simulations with different methylation rates (0.002, 0.005, 0.01)
 - Extracts and displays final statistics (average methylation proportion and JSD)
-- Saves complete history data for each rate with percentage-based filenames (e.g., `simulation_history_0.200%.json`)
+- Saves complete history data for each rate with decimal filenames (e.g., `simulation_history_0.002.json`)
+
+**run_large_fast_save.py**: Optimized for large simulations
+- Hardcoded for rate=0.005 (0.5%)
+- Uses gzip compression for output
+- Includes progress tracking with time estimates
+- Outputs to `simulation_rate_0.005_m10000_n1000_t100.json.gz`
+
+**plot_history.py**: Visualization tool
+- Supports both compressed (.json.gz) and uncompressed (.json) files
+- Creates percentile-based plots (5-95 and 25-75 bands)
+- Exports to PNG using kaleido backend
+- Annotates plots with final statistics
 
 ## Important Constants
 
@@ -96,13 +116,34 @@ Installs:
 - `GENE_SIZE = 5`: Size of methylation genes
 - `BASELINE_METHYLATION_DISTRIBUTION`: Reference distribution for JSD calculations (list of floats)
 
+## Data Format
+
+Simulation output structure:
+```json
+{
+  "0": [  // Time point (year)
+    {
+      "cpg_sites": [0, 0, 0, ...],  // Array of N methylation states
+      "methylation_proportion": 0.0,
+      "methylation_distribution": [1.0, 0.0, 0.0, 0.0, 0.0, 0.0],
+      "jsd": 0.0,
+      "age": 0,
+      "gene_size": 5,
+      "rate": 0.01
+    },
+    // ... M cells total
+  ],
+  // ... T_MAX+1 time points
+}
+```
+
 ## Code Style & Best Practices
 
 1. **Type Hints**: All functions and methods have type annotations
 2. **Docstrings**: Classes and key methods have descriptive docstrings
 3. **Naming**: Use descriptive names (e.g., `cpg_sites` instead of `strain`)
-4. **File Organization**: Separate concerns - `cell.py` for library code, `main.py` for execution
-5. **Output Organization**: All simulation outputs go to `history/` directory
+4. **File Organization**: Separate concerns - `cell.py` for library code, execution scripts for specific use cases
+5. **Output Organization**: All simulation outputs go to `history/` directory, plots to `plots/`
 
 ## Common Tasks
 
@@ -125,11 +166,27 @@ GENE_SIZE = 10  # Changed from 5
 N = 1000  # Still divisible
 ```
 
+### Creating Custom Simulation Scripts
+Copy structure from `test_small.py` or `run_large_fast_save.py`:
+1. Import from cell.py
+2. Set custom parameters
+3. Create History instance
+4. Run simulation
+5. Save with descriptive filename
+
 ## Known Issues & Solutions
 
 1. **Reference Sharing Bug**: Always use `.copy()` when storing lists in dictionaries to avoid mutations affecting historical data
 2. **Type Consistency**: Use float literals (1.0, 0.0) for distribution lists to match type hints
 3. **Performance**: For large simulations (M=10,000, T_MAX=100), expect runtime of several minutes
+4. **Memory Usage**: Large simulations can use significant memory; compressed output helps with disk storage
+
+## Performance Notes
+
+- Standard simulation (M=10,000, T_MAX=100): ~10 minutes
+- Progress tracking: Every year for first 10 years, then every 5 years
+- Compressed output reduces file size by ~90%
+- Plotting large files may take 20-30 seconds
 
 ## Recent Changes
 
@@ -139,3 +196,4 @@ N = 1000  # Still divisible
 - Added comprehensive type hints and docstrings
 - Moved all output files to `history/` directory
 - Fixed methylation distribution to use floats for type consistency
+- Added `plots/` directory for visualization outputs

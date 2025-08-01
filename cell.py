@@ -74,11 +74,21 @@ class Cell:
         """Age the cell by one year, randomly methylating unmethylated sites.""" 
         self.age += 1
         
+        # Early exit if already fully methylated
+        if self.methylation_proportion >= 1.0:
+            return
+        
+        # Optimized: count methylated sites while updating
+        methylated_count = 0
         for i in range(self.n):
-            if self.cpg_sites[i] == 0 and random.random() < self.rate:
-                self.cpg_sites[i] = 1 
+            if self.cpg_sites[i] == 0:
+                if random.random() < self.rate:
+                    self.cpg_sites[i] = 1
+                    methylated_count += 1
+            else:
+                methylated_count += 1
                 
-        self.methylation_proportion = statistics.mean(self.cpg_sites)
+        self.methylation_proportion = methylated_count / self.n
         self.compute_methylation_distribution()
         self.JSD = JS_div(self.methylation_distribution, self.baseline_methylation_distribution)
         
@@ -93,9 +103,13 @@ class Cell:
         """Calculate the distribution of methylation levels across genes."""
         distribution = [0.0 for _ in range(0, self.gene_size + 1)]
         
+        # Optimized: avoid creating sublists, count methylated sites directly
         for i in range(0, self.n, self.gene_size):
-            group = self.cpg_sites[i: i+self.gene_size]
-            distribution[sum(group)] += 1
+            methylated_count = 0
+            for j in range(i, min(i + self.gene_size, self.n)):
+                if self.cpg_sites[j] == 1:
+                    methylated_count += 1
+            distribution[methylated_count] += 1
             
         total_mass = sum(distribution)
         if total_mass > 0:
@@ -106,9 +120,9 @@ class Cell:
     def to_dict(self) -> Dict[str, Any]:
         """Convert cell state to dictionary for serialization."""
         return {
-            'cpg_sites': self.cpg_sites.copy(),  # Make a copy!
+            'cpg_sites': self.cpg_sites[:],  # Faster slicing instead of copy()
             'methylation_proportion': self.methylation_proportion,
-            'methylation_distribution': self.methylation_distribution.copy(),  # Make a copy!
+            'methylation_distribution': self.methylation_distribution[:],  # Faster slicing instead of copy()
             'jsd': self.JSD,
             'age': self.age,
             'gene_size': self.gene_size,

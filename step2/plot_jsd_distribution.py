@@ -20,7 +20,10 @@ def load_snapshot(filepath):
     with gzip.open(filepath, 'rt') as f:
         data = json.load(f)
     
-    print(f"  Loaded {data['metadata']['num_cells']} cells from year {data['metadata']['extracted_year']}")
+    # Handle different metadata formats
+    num_cells = data['metadata'].get('num_cells', data['metadata'].get('final_cells', len(data['cells'])))
+    year = data['metadata'].get('extracted_year', data['metadata'].get('final_year', 'unknown'))
+    print(f"  Loaded {num_cells} cells from year {year}")
     return data
 
 
@@ -102,10 +105,14 @@ def create_jsd_combined_plot(snapshot_data, output_filename, n_bins=200):
     
     # Update layout
     metadata = snapshot_data['metadata']
+    year = metadata.get('extracted_year', metadata.get('final_year', 'unknown'))
+    num_cells = metadata.get('num_cells', metadata.get('final_cells', len(snapshot_data['cells'])))
+    source = metadata.get('source_file', 'division simulation')
+    
     fig.update_layout(
         title=dict(
-            text=f"JSD Distribution at Year {metadata['extracted_year']}<br>"
-                 f"<sub>{metadata['source_file']} | {metadata['num_cells']} cells</sub>",
+            text=f"JSD Distribution at Year {year}<br>"
+                 f"<sub>{source} | {num_cells} cells</sub>",
             font=dict(size=16)
         ),
         xaxis_title="Jensen-Shannon Divergence",

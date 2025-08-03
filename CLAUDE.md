@@ -10,8 +10,11 @@ This is a Python-based methylation simulation project that models DNA methylatio
 - `run_large_fast_save.py`: Optimized script for large-scale simulations with compressed output
 - `test_small.py`: Quick test script with small parameters
 - `plot_history.py`: Visualization script creating PNG plots with percentile bands
-- Simulation output files: Compressed JSON files (`.json.gz`) saved in `history/` directory
-- Plots: PNG visualizations saved in `plots/` directory
+- `tests/`: Reproducibility test suite with fixed random seeds
+- `step2/`: Cell division experiments and analysis scripts
+- `history/`: Directory containing simulation output files (compressed JSON `.json.gz`)
+- `plots/`: Directory containing PNG visualizations
+- `requirements.txt`: Python dependencies (plotly and kaleido for visualization only)
 
 ## Key Commands
 
@@ -55,6 +58,86 @@ python plot_history.py simulation_rate_0.005_m10000_n1000_t100.json.gz -o custom
 Creates separate PNG files with mean line and 5-95/25-75 percentile bands.
 All plots are automatically saved to the `plots/` directory.
 
+### Step 2: Cell Division Analysis
+
+**Extract a snapshot from existing simulation:**
+```bash
+cd step2
+python extract_snapshot.py ../history/simulation_rate_0.005_m10000_n1000_t100.json.gz 50 year50_snapshot.json.gz
+```
+Extracts all cells at year 50 and saves them as a snapshot for further analysis.
+
+**Plot JSD distribution:**
+```bash
+python plot_jsd_distribution.py year50_snapshot.json.gz 200  # 200 bins
+```
+Creates a step histogram showing JSD distribution across all cells.
+
+**NEW: Run cell division with separate lineage tracking:**
+```bash
+python sample_divide_age_lineages.py
+```
+- Loads year 50 snapshot
+- Samples 3 cells from each JSD decile (30 total)
+- Ages each cell SEPARATELY for 10 years with division
+- Creates 30 lineage files in `lineages/` directory
+- Each file contains 1,024 cells from one lineage
+
+**Plot individual lineage distributions:**
+```bash
+# Plot all lineages
+for file in lineages/lineage_*.json.gz; do
+    python plot_jsd_distribution.py "$file" 100
+done
+```
+
+### Step 3: Mixed Population Analysis
+
+**Extract year 60 from original simulation:**
+```bash
+cd step3
+python extract_year60_original.py
+```
+
+**Create 30 mixed individuals:**
+```bash
+python create_individuals.py
+```
+- Loads 30 lineage files from step2
+- For each lineage: mixes 1,024 lineage cells with 4,096 original cells (80-20 ratio)
+- Creates 30 "individuals" in `individuals/` directory
+- Each individual has 5,120 cells total
+
+**Create 30 control individuals:**
+```bash
+python create_control_individuals.py
+```
+- Samples 5,120 cells from original year 60 (without replacement per individual)
+- Creates 30 control individuals in `control_individuals/` directory
+
+**Plot comparison:**
+```bash
+python plot_distributions.py
+```
+- Compares mean JSD distributions between mixed and control individuals
+- Creates visualization showing both distributions with statistics
+
+### Testing
+
+**Run reproducibility tests:**
+```bash
+cd tests
+python test_reproducibility.py
+```
+Verifies that optimizations haven't changed simulation outputs using fixed random seeds.
+
+**Check against expected results:**
+```bash
+cd tests
+python test_reproducibility.py --check
+```
+Compares current simulation outputs against saved expected values to detect unintended changes.
+
 ### Dependencies
 ```bash
 pip install -r requirements.txt
@@ -94,7 +177,7 @@ Note: Core simulation requires only Python 3.7+ standard library.
 - Imports necessary classes and constants from cell.py
 - Runs simulations with different methylation rates (0.002, 0.005, 0.01)
 - Extracts and displays final statistics (average methylation proportion and JSD)
-- Saves complete history data for each rate with decimal filenames (e.g., `simulation_history_0.002.json`)
+- Saves complete history data for each rate with decimal filenames (e.g., `simulation_rate_0.002.json`)
 
 **run_large_fast_save.py**: Optimized for large simulations
 - Hardcoded for rate=0.005 (0.5%)
@@ -188,6 +271,33 @@ Copy structure from `test_small.py` or `run_large_fast_save.py`:
 - Compressed output reduces file size by ~90%
 - Plotting large files may take 20-30 seconds
 
+## Development Workflow
+
+### Before Making Changes
+1. Run reproducibility tests to establish baseline:
+   ```bash
+   cd tests && python test_reproducibility.py --check
+   ```
+2. Create a test script based on `test_small.py` for quick iteration
+
+### After Making Changes
+1. Run your test script to verify basic functionality
+2. Run reproducibility tests to check for unintended changes:
+   ```bash
+   cd tests && python test_reproducibility.py --check
+   ```
+3. If changes are intentional, update expected results:
+   ```bash
+   cd tests && python test_reproducibility.py  # Regenerates expected.json
+   ```
+4. Run a full simulation to verify performance hasn't degraded
+
+### Debugging Tips
+- Use `test_small.py` as a template for minimal reproducible examples
+- Check `cell.to_dict()` output for serialization issues (remember `.copy()` for lists)
+- For performance issues, profile `cell.py` methods (methylation and distribution calculations)
+- Compressed files can be inspected with: `zcat file.json.gz | python -m json.tool | head`
+
 ## Recent Changes
 
 - Renamed `main.py` to `cell.py` and created new `main.py` for separation of concerns
@@ -197,3 +307,10 @@ Copy structure from `test_small.py` or `run_large_fast_save.py`:
 - Moved all output files to `history/` directory
 - Fixed methylation distribution to use floats for type consistency
 - Added `plots/` directory for visualization outputs
+- Optimized `cell.py` methods for ~2x speedup:
+  - Replaced `statistics.mean()` with counter-based calculation
+  - Added early exit for fully methylated cells
+  - Optimized `compute_methylation_distribution()` to avoid sublists
+- Changed filenames from percentage format (0.5%) to decimal format (0.005)
+- Added `tests/` directory with reproducibility test suite
+- Created `step2/` for cell division experiments and analysis

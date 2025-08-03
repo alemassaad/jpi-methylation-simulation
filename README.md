@@ -91,6 +91,54 @@ Plots are saved to `plots/` directory and show:
 - 5-95 percentile band (lighter shading)
 - Final statistics annotation
 
+### Step 2: Cell Division Experiments
+
+The `step2/` directory contains scripts for analyzing cell division effects:
+
+**Extract a snapshot from simulation:**
+```bash
+cd step2
+python extract_snapshot.py ../history/simulation_rate_0.005_m10000_n1000_t100.json.gz 50 year50_snapshot.json.gz
+```
+
+**Plot JSD distribution at a specific year:**
+```bash
+python plot_jsd_distribution.py year50_snapshot.json.gz 200  # 200 bins
+```
+
+**Run cell division simulation with lineage tracking:**
+```bash
+python sample_divide_age_lineages.py
+```
+This improved script:
+- Samples 3 cells from each JSD decile (30 cells total)
+- Ages each cell SEPARATELY for 10 years with division
+- Creates 30 individual lineage files in `lineages/` directory
+- Each lineage contains 1,024 cells from one original cell
+- Enables tracking of individual cell lineages
+
+### Step 3: Mixed Population Analysis
+
+The `step3/` directory analyzes how lineage cells affect populations when mixed:
+
+**Create mixed individuals:**
+```bash
+cd step3
+python extract_year60_original.py  # Extract year 60 baseline
+python create_individuals.py       # Create 30 mixed individuals (80% original, 20% lineage)
+```
+
+**Create control individuals:**
+```bash
+python create_control_individuals.py  # Create 30 control individuals (100% original)
+```
+
+**Compare distributions:**
+```bash
+python plot_distributions.py
+```
+Generates a visualization comparing mean JSD between mixed and control populations.
+
 ### Customizing Parameters
 
 Edit constants in `cell.py`:
@@ -137,6 +185,24 @@ jpi-methylation-simulation/
 │   └── *.json, *.json.gz     # Simulation data files
 ├── plots/                     # Visualization output directory
 │   └── *_jsd.png, *_methylation.png  # Generated plots
+├── tests/                     # Reproducibility tests
+│   ├── test_reproducibility.py
+│   ├── test_reproducibility_expected.json
+│   └── test_reproducibility_README.md
+├── step2/                     # Cell division experiments
+│   ├── extract_snapshot.py    # Extract specific year from simulation
+│   ├── sample_divide_age_lineages.py # Age cells separately with lineage tracking
+│   ├── plot_jsd_distribution.py # Plot JSD distributions
+│   ├── lineages/              # 30 separate lineage files
+│   └── plots/                 # Visualization outputs
+├── step3/                     # Mixed population analysis
+│   ├── extract_year60_original.py # Extract year 60 baseline
+│   ├── create_individuals.py  # Create mixed individuals
+│   ├── create_control_individuals.py # Create control individuals
+│   ├── plot_distributions.py  # Compare distributions
+│   ├── individuals/           # 30 mixed individuals
+│   ├── control_individuals/   # 30 control individuals
+│   └── plots/                 # Comparison visualizations
 ├── README.md                  # This file
 └── CLAUDE.md                  # Guidance for AI assistants
 ```

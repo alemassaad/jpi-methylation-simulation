@@ -4,36 +4,51 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-This is a Python-based methylation simulation project that models DNA methylation patterns over time. The project consists of:
-- `cell.py`: Core simulation classes (Cell and History) and mathematical functions
-- `main.py`: Standard simulation runner for multiple methylation rates
-- `run_large_fast_save.py`: Optimized script for large-scale simulations with compressed output
-- `test_small.py`: Quick test script with small parameters
-- `plot_history.py`: Visualization script creating PNG plots with percentile bands
-- `tests/`: Reproducibility test suite with fixed random seeds
-- `step2/`: Cell division experiments and analysis scripts
-- `history/`: Directory containing simulation output files (compressed JSON `.json.gz`)
-- `plots/`: Directory containing PNG visualizations
+This is a Python-based methylation simulation project that models DNA methylation patterns over time. The project is organized into three sequential steps:
+
+1. **Step 1**: Base methylation simulation over 100 years
+2. **Step 2**: Cell division experiments with lineage tracking (year 50)
+3. **Step 3**: Mixed population analysis (year 60)
+
+### Directory Structure
+- `step1/`: Base simulation with core classes and runners
+  - `cell.py`: Core simulation classes (Cell and History) and mathematical functions
+  - `run_large_simulation.py`: Main simulation runner with CLI arguments
+  - `main.py`: Legacy multi-rate runner
+  - `test_small.py`: Quick test script
+  - `plot_history.py`: Visualization script
+  - `data/`: Simulation outputs
+- `step2/`: Cell division experiments
+  - `scripts/`: All executable scripts
+  - `data/`: Snapshots, lineages (mutant/control), plots
+- `step3/`: Mixed population analysis
+  - `scripts/`: All executable scripts
+  - `data/`: Snapshots, individuals (mutant/control), plots, results
+- `tests/`: Reproducibility test suite
 - `requirements.txt`: Python dependencies (plotly and kaleido for visualization only)
 
 ## Key Commands
 
-### Running Simulations
+### Step 1: Running Base Simulations
 
-**Standard simulation (multiple rates):**
+```bash
+cd step1
+```
+
+**Main simulation with CLI:**
+```bash
+python run_large_simulation.py --rate 0.005
+```
+Runs simulation with specified rate, n=1000, m=10,000, t_max=100:
+- Progress tracking with time estimates
+- Compressed JSON output to `data/`
+- Supports fractional rates (e.g., 0.0025 for 0.25%)
+
+**Legacy multi-rate simulation:**
 ```bash
 python main.py
 ```
-Runs simulations with rates 0.002, 0.005, 0.01 and saves uncompressed JSON files.
-
-**Large-scale optimized simulation:**
-```bash
-python run_large_fast_save.py
-```
-Runs simulation with rate=0.5%, n=1000, m=10,000, t_max=100 with:
-- Progress tracking every year/5 years with time estimates
-- Fast compressed JSON output (.json.gz)
-- ~10 minutes total runtime
+Runs simulations with rates 0.002, 0.005, 0.01.
 
 **Quick test:**
 ```bash
@@ -41,86 +56,72 @@ python test_small.py
 ```
 Runs with rate=1%, n=15, m=5, t_max=5 for testing.
 
-### Data Visualization
+**Data Visualization:**
 ```bash
-# Create both JSD and methylation plots (default)
-python plot_history.py simulation_rate_0.005_m10000_n1000_t100.json.gz
+# Create both JSD and methylation plots
+python plot_history.py data/simulation_rate_0.005000_m10000_n1000_t100.json.gz
 
 # Create only JSD plot
-python plot_history.py simulation_rate_0.005_m10000_n1000_t100.json.gz --jsd-only
+python plot_history.py data/simulation_rate_0.005000_m10000_n1000_t100.json.gz --jsd-only
 
-# Create only methylation plot  
-python plot_history.py simulation_rate_0.005_m10000_n1000_t100.json.gz --methylation-only
-
-# Custom output name (creates custom_name_jsd.png and custom_name_methylation.png)
-python plot_history.py simulation_rate_0.005_m10000_n1000_t100.json.gz -o custom_name
+# Custom output name
+python plot_history.py data/simulation_rate_0.005000_m10000_n1000_t100.json.gz -o custom_name
 ```
-Creates separate PNG files with mean line and 5-95/25-75 percentile bands.
-All plots are automatically saved to the `plots/` directory.
+Creates PNG files with mean line and 5-95/25-75 percentile bands.
 
-### Step 2: Cell Division Analysis
+### Step 2: Cell Division Experiments
 
-**Extract a snapshot from existing simulation:**
 ```bash
-cd step2
-python extract_snapshot.py ../history/simulation_rate_0.005_m10000_n1000_t100.json.gz 50 year50_snapshot.json.gz
+cd step2/scripts
 ```
-Extracts all cells at year 50 and saves them as a snapshot for further analysis.
+
+**Extract year 50 snapshot:**
+```bash
+python extract_snapshot.py --simulation ../../step1/data/simulation_rate_0.005000_m10000_n1000_t100.json.gz --year 50
+```
+Extracts all cells at specified year.
+
+**Create lineages (both mutant and control):**
+```bash
+python create_lineages.py --type both
+```
+- **Mutant lineages**: Samples 3 cells from each JSD decile (30 total)
+- **Control lineages**: Samples 30 cells uniformly from population
+- Ages each cell for 10 years with division
+- Creates 1,024 cells per lineage
+- Outputs to `data/lineages/mutant/` and `data/lineages/control/`
 
 **Plot JSD distribution:**
 ```bash
-python plot_jsd_distribution.py year50_snapshot.json.gz 200  # 200 bins
-```
-Creates a step histogram showing JSD distribution across all cells.
-
-**NEW: Run cell division with separate lineage tracking:**
-```bash
-python sample_divide_age_lineages.py
-```
-- Loads year 50 snapshot
-- Samples 3 cells from each JSD decile (30 total)
-- Ages each cell SEPARATELY for 10 years with division
-- Creates 30 lineage files in `lineages/` directory
-- Each file contains 1,024 cells from one lineage
-
-**Plot individual lineage distributions:**
-```bash
-# Plot all lineages
-for file in lineages/lineage_*.json.gz; do
-    python plot_jsd_distribution.py "$file" 100
-done
+python plot_jsd_distribution.py ../data/snapshots/year50_snapshot.json.gz 200
 ```
 
 ### Step 3: Mixed Population Analysis
 
+```bash
+cd step3/scripts
+```
+
 **Extract year 60 from original simulation:**
 ```bash
-cd step3
-python extract_year60_original.py
+python extract_year60_original.py --simulation ../../step1/data/simulation_rate_0.005000_m10000_n1000_t100.json.gz
 ```
 
-**Create 30 mixed individuals:**
+**Create mixed individuals (both types):**
 ```bash
-python create_individuals.py
+python create_individuals.py --type both
 ```
-- Loads 30 lineage files from step2
-- For each lineage: mixes 1,024 lineage cells with 4,096 original cells (80-20 ratio)
-- Creates 30 "individuals" in `individuals/` directory
-- Each individual has 5,120 cells total
-
-**Create 30 control individuals:**
-```bash
-python create_control_individuals.py
-```
-- Samples 5,120 cells from original year 60 (without replacement per individual)
-- Creates 30 control individuals in `control_individuals/` directory
+- Uses lineages from step2 (both mutant and control)
+- Each individual: 80% original year 60 cells + 20% lineage cells
+- Creates 30 individuals per type
+- Outputs to `data/individuals/mutant/` and `data/individuals/control/`
 
 **Plot comparison:**
 ```bash
 python plot_distributions.py
 ```
-- Compares mean JSD distributions between mixed and control individuals
-- Creates visualization showing both distributions with statistics
+- Compares mean JSD between mutant and control populations
+- Saves plots and statistics to `data/plots/` and `data/results/`
 
 ### Testing
 
@@ -131,12 +132,17 @@ python test_reproducibility.py
 ```
 Verifies that optimizations haven't changed simulation outputs using fixed random seeds.
 
-**Check against expected results:**
+**Test step pipelines:**
 ```bash
-cd tests
-python test_reproducibility.py --check
+# Test step 2
+cd step2/scripts
+python test_pipeline.py
+
+# Test step 3
+cd step3/scripts
+python test_pipeline.py
 ```
-Compares current simulation outputs against saved expected values to detect unintended changes.
+Runs complete pipelines with small test data.
 
 ### Dependencies
 ```bash
@@ -150,7 +156,7 @@ Note: Core simulation requires only Python 3.7+ standard library.
 
 ## Architecture & Code Structure
 
-### Simulation Architecture (cell.py)
+### Simulation Architecture (step1/cell.py)
 
 1. **Cell Class**: Models individual cell methylation states
    - Tracks methylation of N CpG sites (stored in `cpg_sites` array) grouped into genes of GENE_SIZE
@@ -171,33 +177,31 @@ Note: Core simulation requires only Python 3.7+ standard library.
    - `KL_div`: Kullback-Leibler divergence calculation
    - `JS_div`: Jensen-Shannon divergence (symmetrized KL divergence)
 
-### Simulation Execution Scripts
+### Step 1 Scripts
 
-**main.py**: Standard multi-rate runner
-- Imports necessary classes and constants from cell.py
-- Runs simulations with different methylation rates (0.002, 0.005, 0.01)
-- Extracts and displays final statistics (average methylation proportion and JSD)
-- Saves complete history data for each rate with decimal filenames (e.g., `simulation_rate_0.002.json`)
+**run_large_simulation.py**: Main simulation runner
+- Command-line interface with argparse
+- Supports custom methylation rates with 6 decimal precision
+- Progress tracking with time estimates
+- Compressed output to `data/` directory
 
-**run_large_fast_save.py**: Optimized for large simulations
-- Hardcoded for rate=0.005 (0.5%)
-- Uses gzip compression for output
-- Includes progress tracking with time estimates
-- Outputs to `simulation_rate_0.005_m10000_n1000_t100.json.gz`
+**main.py**: Legacy multi-rate runner
+- Runs simulations with rates 0.002, 0.005, 0.01
+- Saves to `data/` directory
 
 **plot_history.py**: Visualization tool
-- Supports both compressed (.json.gz) and uncompressed (.json) files
 - Creates percentile-based plots (5-95 and 25-75 bands)
 - Exports to PNG using kaleido backend
-- Annotates plots with final statistics
+- Supports --jsd-only and --methylation-only flags
 
 ## Important Constants
 
+Defined in `step1/cell.py`:
 - `N = 1000`: Number of methylation sites per cell
 - `M = 10_000`: Number of cells in simulation
 - `T_MAX = 100`: Maximum age in years
 - `GENE_SIZE = 5`: Size of methylation genes
-- `BASELINE_METHYLATION_DISTRIBUTION`: Reference distribution for JSD calculations (list of floats)
+- `BASELINE_METHYLATION_DISTRIBUTION`: Reference distribution for JSD calculations
 
 ## Data Format
 
@@ -225,37 +229,37 @@ Simulation output structure:
 1. **Type Hints**: All functions and methods have type annotations
 2. **Docstrings**: Classes and key methods have descriptive docstrings
 3. **Naming**: Use descriptive names (e.g., `cpg_sites` instead of `strain`)
-4. **File Organization**: Separate concerns - `cell.py` for library code, execution scripts for specific use cases
-5. **Output Organization**: All simulation outputs go to `history/` directory, plots to `plots/`
+4. **File Organization**: Each step has `scripts/` and `data/` subdirectories
+5. **Output Organization**: All outputs go to appropriate `data/` subdirectories
 
 ## Common Tasks
 
 ### Adding a New Methylation Rate
-Edit `main.py` and add to the rates list:
-```python
-rates = [0.002, 0.005, 0.01, 0.015]  # Added 0.015
+Use command-line argument:
+```bash
+python step1/run_large_simulation.py --rate 0.015
 ```
 
 ### Changing Population Size
-Edit constants in `cell.py`:
+Edit constants in `step1/cell.py`:
 ```python
 M = 5_000  # Reduced from 10_000 for faster testing
 ```
 
 ### Modifying Gene Size
-Change `GENE_SIZE` in `cell.py` and ensure `N` is divisible by it:
+Change `GENE_SIZE` in `step1/cell.py` and ensure `N` is divisible by it:
 ```python
 GENE_SIZE = 10  # Changed from 5
 N = 1000  # Still divisible
 ```
 
 ### Creating Custom Simulation Scripts
-Copy structure from `test_small.py` or `run_large_fast_save.py`:
-1. Import from cell.py
+Copy structure from `step1/test_small.py`:
+1. Import from `step1.cell`
 2. Set custom parameters
 3. Create History instance
 4. Run simulation
-5. Save with descriptive filename
+5. Save to `step1/data/` with descriptive filename
 
 ## Known Issues & Solutions
 
@@ -270,6 +274,7 @@ Copy structure from `test_small.py` or `run_large_fast_save.py`:
 - Progress tracking: Every year for first 10 years, then every 5 years
 - Compressed output reduces file size by ~90%
 - Plotting large files may take 20-30 seconds
+- Complete 3-step pipeline: ~20-30 minutes
 
 ## Development Workflow
 
@@ -293,24 +298,20 @@ Copy structure from `test_small.py` or `run_large_fast_save.py`:
 4. Run a full simulation to verify performance hasn't degraded
 
 ### Debugging Tips
-- Use `test_small.py` as a template for minimal reproducible examples
+- Use `step1/test_small.py` as a template for minimal reproducible examples
 - Check `cell.to_dict()` output for serialization issues (remember `.copy()` for lists)
-- For performance issues, profile `cell.py` methods (methylation and distribution calculations)
+- For performance issues, profile `step1/cell.py` methods
+- Test pipelines available in `step2/scripts/test_pipeline.py` and `step3/scripts/test_pipeline.py`
 - Compressed files can be inspected with: `zcat file.json.gz | python -m json.tool | head`
 
 ## Recent Changes
 
-- Renamed `main.py` to `cell.py` and created new `main.py` for separation of concerns
-- Changed `n_years` parameter to `t_max` throughout codebase
-- Fixed typo: `distrbution` → `distribution`
-- Added comprehensive type hints and docstrings
-- Moved all output files to `history/` directory
-- Fixed methylation distribution to use floats for type consistency
-- Added `plots/` directory for visualization outputs
-- Optimized `cell.py` methods for ~2x speedup:
-  - Replaced `statistics.mean()` with counter-based calculation
-  - Added early exit for fully methylated cells
-  - Optimized `compute_methylation_distribution()` to avoid sublists
-- Changed filenames from percentage format (0.5%) to decimal format (0.005)
-- Added `tests/` directory with reproducibility test suite
-- Created `step2/` for cell division experiments and analysis
+- **Major restructuring**: Organized project into 3 sequential steps
+- **Step 1**: Moved all simulation files to dedicated directory with `data/` subdirectory
+- **Step 2**: Unified lineage creation for both mutant (decile-based) and control (uniform)
+- **Step 3**: Updated to use step2's control lineages instead of creating its own
+- **CLI improvements**: Added command-line arguments to all major scripts
+- **Precision update**: Increased rate precision from 3 to 6 decimal places
+- **Directory structure**: Consistent `scripts/` and `data/` organization across steps
+- **Test pipelines**: Added test scripts for steps 2 and 3
+- **Gitignore**: Updated for new directory structure

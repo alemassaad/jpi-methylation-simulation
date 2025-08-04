@@ -4,6 +4,34 @@
 __pycache__/
 
 # Large simulation files (exceed GitHub's 100MB limit)
-history/*.json.gz
-# Keep small test files
-!history/test_*.json
+# Step 1 outputs
+step1/data/*.json.gz
+!step1/data/test_*.json
+
+# Step 2 data
+step2/data/snapshots/*.json.gz
+step2/data/lineages/**/*.json.gz
+!step2/data/snapshots/test_*.json.gz
+!step2/test_lineages/*.json.gz
+!step2/test_lineages_control/*.json.gz
+
+# Step 3 data
+step3/data/snapshots/*.json.gz
+step3/data/individuals/**/*.json.gz
+step3/data/test_individuals/**/*.json.gz
+!step3/data/test_snapshots/*.json.gz
+
+# Old data directory (if any)
+data/
+
+# Python cache
+*.pyc
+.pytest_cache/
+
+# IDE files
+.vscode/
+.idea/
+
+# Temporary plots during testing
+step*/plots/*.html
+step*/test_plots/

@@ -30,18 +30,22 @@ This is a Python-based methylation simulation project that models DNA methylatio
     - `test_reproducibility_expected.json`: Expected results
     - `test_reproducibility_README.md`: Test documentation
 - `step23/`: **RECOMMENDED** Unified pipeline
-  - `run_pipeline.py`: Main pipeline orchestrator
-  - `config/`: Configuration files
-    - `pipeline_config.yaml`: Default pipeline settings
+  - `run_pipeline.py`: Main pipeline orchestrator with 8-stage process
+  - `pipeline_utils.py`: Core utilities for sampling, growth, and mixing
+  - `pipeline_analysis.py`: Visualization and statistical analysis
+  - `pipeline_checkpoint.py`: Checkpoint tracking system for skip logic
+  - `__init__.py`: Package initialization
+  - `PIPELINE_DESIGN.md`: Original design document
   - `data/`: All outputs organized by rate
     - `rate_X.XXXXXX/`: Rate-specific directory
-      - `snapshots/`: Year 50 and 60 snapshots
+      - `pipeline_checkpoint.json`: Progress tracking and skip logic
+      - `snapshots/`: Year 50 and 60 snapshots (cached)
       - `individuals/`: All individual files
         - `mutant/`: 30 mutant individuals (decile-sampled)
         - `control1/`: 30 control individuals (uniform-sampled, grown)
         - `control2/`: 30 control individuals (pure year 60)
-      - `plots/`: Visualizations
-      - `results/`: Statistical analysis
+      - `plots/`: JSD distributions and comparisons
+      - `results/`: Statistical analysis and metadata
 - `step2/`: **LEGACY** Cell division experiments
   - `scripts/`: All executable scripts
     - `extract_snapshot.py`: Extract year from simulation
@@ -64,6 +68,192 @@ This is a Python-based methylation simulation project that models DNA methylatio
   - `data/`: Snapshots, individuals (mutant/control), plots, results
   - Legacy scripts for individual creation and testing
 - `requirements.txt`: Python dependencies (plotly and kaleido for visualization only)
+
+## Step23: Unified Pipeline (RECOMMENDED - Use This!)
+
+### Quick Start
+```bash
+cd step23
+python run_pipeline.py --rate 0.005 --simulation ../step1/data/simulation_rate_0.005000_m10000_n1000_t100.json.gz
+```
+
+### Detailed Pipeline Documentation
+
+#### Architecture
+The pipeline consists of 8 sequential stages, each with intelligent skip logic:
+1. Extract year 50 snapshot
+2. Plot year 50 JSD distribution  
+3. Create initial individuals (mutant & control1)
+4. Grow individuals for 10 years
+5. Extract year 60 snapshot
+6. Mix populations with year 60 cells
+7. Create control2 individuals
+8. Analyze and compare all groups
+
+#### Key Features
+- **Checkpoint System**: Tracks progress in `pipeline_checkpoint.json`
+- **Smart Skip Logic**: Automatically detects completed work
+- **In-place Operations**: No intermediate lineage files
+- **Efficient Caching**: Snapshots cached for reuse
+- **Clean Visualizations**: Simple scatter plots, enhanced statistics
+
+#### Command-Line Options
+```bash
+python run_pipeline.py \
+    --rate 0.005 \                      # Methylation rate (MUST match simulation)
+    --simulation path/to/sim.json.gz \  # Path to step1 simulation file
+    --n-individuals 30 \                 # Number of individuals per group (default: 30)
+    --growth-years 10 \                  # Years of growth 50→60 (default: 10)
+    --mix-ratio 80 \                     # % of year 60 cells in mix (default: 80)
+    --bins 200 \                         # Histogram bins for plots (default: 200)
+    --seed 42 \                          # Random seed (default: 42)
+    --output-dir data                    # Output directory (default: data)
+```
+
+#### Stage Details
+
+**Stage 1: Extract Year 50 Snapshot**
+- Extracts all cells at year 50
+- Saves to `snapshots/year50_snapshot.json.gz`
+- Skip: If file exists AND checkpoint confirms
+
+**Stage 2: Plot JSD Distribution**
+- Step histogram with filled area
+- Statistics: Mean, Median, SD, CV, MAD, 5%, 95%
+- X-axis: "JSD Score"
+- Rate shown as percentage
+- Bins in filename only
+
+**Stage 3: Create Individuals**
+- Mutant: 3 cells from each JSD decile (30 total)
+- Control1: 30 cells uniformly sampled
+- Skip: If all 30 files exist per group
+
+**Stage 4: Grow Individuals**
+- Model: Divide then age each year
+- Growth: 1→2→4→8...→1024 cells over 10 years
+- In-place file updates
+- Skip: If already at 1024 cells
+
+**Stage 5: Extract Year 60**
+- Same as Stage 1 for year 60
+
+**Stage 6: Mix Populations**
+- Samples year 60 cells WITHOUT replacement
+- Default: 80% year 60, 20% grown = 5120 cells
+- Skip: If cells > 1024 (already mixed)
+
+**Stage 7: Create Control2**
+- 30 individuals of pure year 60 cells
+- 5120 cells each (matches mixed size)
+- Skip: If all 30 files exist
+
+**Stage 8: Analysis**
+- Calculates mean JSD per individual
+- Simple scatter plots with jitter
+- T-tests between groups
+- Saves to `results/` and `plots/`
+
+#### Skip Logic Implementation
+
+**File-based checks:**
+```python
+# Check if individuals exist
+mutant_files = sorted(glob.glob(os.path.join(mutant_dir, "*.json.gz")))
+skip_mutant = len(mutant_files) == args.n_individuals
+
+# Check if grown
+with gzip.open(mutant_files[0], 'rt') as f:
+    data = json.load(f)
+    current_cells = len(data['cells'])
+    skip_growth = (current_cells == 2**args.growth_years)
+
+# Check if mixed
+skip_mixing = (current_cells > 2**args.growth_years)
+```
+
+**Checkpoint tracking:**
+```python
+checkpoint = PipelineCheckpoint("pipeline_checkpoint.json")
+checkpoint.mark_stage_complete("extract_year50", {"cells": 10000})
+if checkpoint.is_stage_complete("extract_year50"):
+    print("Skipping year 50 extraction")
+```
+
+#### Forcing Recreation
+```bash
+# Complete restart
+rm -rf data/rate_0.005000/
+
+# Recreate individuals only
+rm -rf data/rate_0.005000/individuals/
+
+# Recreate specific group
+rm -rf data/rate_0.005000/individuals/mutant/
+
+# Clear checkpoint to reprocess with existing files
+rm data/rate_0.005000/pipeline_checkpoint.json
+```
+
+#### Common Issues & Solutions
+
+**Pipeline hangs during growth:**
+- Large computation (10,000 cells × 1024)
+- Solution: Be patient or test with fewer individuals
+
+**KeyError: 'cpg_sites' during growth:**
+- Invalid cell structure
+- Solution: Use real cells from snapshots
+
+**Mixing fails "Need X cells but only Y available":**
+- Not enough year 60 cells
+- Solution: Adjust mix-ratio or check snapshot
+
+**Files exist but pipeline recreates:**
+- Checkpoint mismatch
+- Solution: Check pipeline_checkpoint.json
+
+#### Testing the Pipeline
+```bash
+# Quick test with minimal data
+python run_pipeline.py \
+    --rate 0.005 \
+    --simulation ../step1/data/simulation_rate_0.005000_m10000_n1000_t100.json.gz \
+    --n-individuals 3 \
+    --growth-years 2
+
+# Creates 3 individuals, grows to 4 cells each
+```
+
+#### Key Implementation Notes
+
+1. **Sampling without replacement:**
+   ```python
+   sampled_indices = random.sample(range(len(year60_cells)), n_to_add)
+   ```
+
+2. **Growth model:**
+   ```python
+   # Each year: divide then age
+   new_cells = [cell.copy() for cell in cells]  # Division
+   cells.extend(new_cells)
+   for cell in cells:
+       cell.age()  # Methylation
+   ```
+
+3. **File list bug fix:**
+   ```python
+   # Always get file lists (not conditional)
+   mutant_files = sorted(glob.glob(os.path.join(mutant_dir, "*.json.gz")))
+   control1_files = sorted(glob.glob(os.path.join(control1_dir, "*.json.gz")))
+   ```
+
+4. **Plot improvements:**
+   - Step histogram (not bar)
+   - CV and MAD statistics
+   - "JSD Score" label
+   - Rate as percentage
+   - Simple scatter (no violin)
 
 ## Key Commands
 
@@ -133,7 +323,12 @@ python run_pipeline.py \
 
 **Pipeline stages:**
 1. **Extract year 50 snapshot** → `data/rate_X/snapshots/year50_snapshot.json.gz`
-2. **Plot JSD distribution** → `data/rate_X/plots/year50_jsd_distribution.png`
+   - Skips extraction if file already exists (caching for faster reruns)
+2. **Plot JSD distribution** → `data/rate_X/plots/year50_jsd_distribution_Nbins.png`
+   - Step histogram with filled area (not bars)
+   - Statistics box showing: Mean, Median, SD, CV, MAD, 5%, 95%
+   - Subtitle displays cell count and methylation rate as percentage
+   - Filename includes number of bins for reference
 3. **Create individuals**:
    - Sample 30 mutant cells (3 per JSD decile)
    - Sample 30 control1 cells (uniform distribution)
@@ -143,14 +338,17 @@ python run_pipeline.py \
    - Year 1: 1→2 cells, Year 2: 2→4 cells, ..., Year 10: 512→1024 cells
    - Updates individual files directly (no separate lineage files)
 5. **Extract year 60 snapshot** → `data/rate_X/snapshots/year60_snapshot.json.gz`
+   - Also cached if already exists
 6. **Mix populations** (in-place):
-   - Add year 60 cells to reach mix ratio (default 80% year 60, 20% grown)
+   - Randomly samples year 60 cells WITHOUT replacement (4,096 from 10,000)
+   - Appends to grown cells to reach mix ratio (default 80% year 60, 20% grown)
    - Total: 5,120 cells per individual at 80-20 ratio
+   - Each individual gets different random sample from year 60
 7. **Create control2 individuals**: 30 pure year 60 samples (5,120 cells each)
 8. **Analysis**:
    - Calculate mean JSD per individual
    - Compare distributions: mutant vs control1 vs control2
-   - Generate plots and statistics
+   - Generate plots and statistics (PNG only, no HTML files)
 
 ### Step 2: Cell Division Experiments (LEGACY)
 
@@ -516,72 +714,81 @@ python batch_processor_step3.py
 
 ## Step23 Implementation Details
 
+### Key Features & Improvements
+
+1. **Efficient Caching**: Snapshots are cached - if year 50/60 files exist, they're loaded instead of re-extracted
+2. **Beautiful Plots**: 
+   - Step histograms with filled areas (matching original step2 style)
+   - Statistics box with: Mean, Median, SD, CV (coefficient of variation), MAD (median absolute deviation), 5%, 95%
+   - Methylation rate shown as percentage (e.g., "0.5% methylation rate")
+   - Clean subtitles (bins only in filename, not plot)
+   - High resolution (2400x1200 at scale=2)
+   - PNG only (no HTML files)
+3. **Smart Sampling**: 
+   - Year 60 cells sampled WITHOUT replacement for each individual
+   - Each individual gets different random sample
+   - Uses `random.sample()` for efficiency
+4. **In-Place Growth**: Individual files updated directly during growth (no separate lineage files)
+
 ### Pipeline Flow
 ```python
-# Pseudocode for the unified pipeline
+# Simplified pipeline flow with improvements
 def run_pipeline(rate, simulation_file, config):
-    # 1. Extract year 50 snapshot
-    year50_cells = extract_snapshot(simulation_file, year=50)
-    save_snapshot(year50_cells, f"data/rate_{rate}/snapshots/year50_snapshot.json.gz")
+    # 1. Extract year 50 snapshot (with caching)
+    if exists(year50_snapshot):
+        year50_cells = load_snapshot(year50_snapshot)
+    else:
+        year50_cells = extract_snapshot(simulation_file, year=50)
+        save_snapshot(year50_cells, year50_snapshot)
     
-    # 2. Plot JSD distribution
-    plot_jsd_distribution(year50_cells, bins=config['bins'])
+    # 2. Plot JSD distribution with enhanced stats
+    plot_jsd_distribution(year50_cells, bins=config['bins'], 
+                         filename=f"year50_jsd_distribution_{bins}bins.png",
+                         rate=rate)  # Shows as percentage in plot
     
     # 3. Create individuals (single cells)
     mutant_cells = sample_by_deciles(year50_cells, n=30)  # 3 per decile
     control1_cells = sample_uniform(year50_cells, n=30)
     
-    # Save as individual files (single cell each)
-    for i, cell in enumerate(mutant_cells):
-        save_individual([cell], f"data/rate_{rate}/individuals/mutant/individual_{i:02d}.json.gz")
-    for i, cell in enumerate(control1_cells):
-        save_individual([cell], f"data/rate_{rate}/individuals/control1/individual_{i:02d}.json.gz")
-    
-    # 4. Grow individuals (in-place)
+    # 4. Grow individuals (in-place modification)
     for year in range(1, 11):  # 10 years of growth
-        for ind_type in ['mutant', 'control1']:
-            for ind_file in glob(f"data/rate_{rate}/individuals/{ind_type}/*.json.gz"):
-                cells = load_individual(ind_file)
-                # Divide: each cell creates a copy
-                new_cells = []
-                for cell in cells:
-                    new_cells.extend([cell.copy(), cell.copy()])
-                # Age: all cells methylate
-                for cell in new_cells:
-                    cell.age()
-                # Save back to same file
-                save_individual(new_cells, ind_file)
+        for individual_file in all_individual_files:
+            cells = load_individual(individual_file)
+            # Divide: each cell creates a copy
+            new_cells = [copy.deepcopy(cell) for cell in cells] * 2
+            # Age: all cells methylate
+            for cell in new_cells:
+                cell.age_1_year()
+            # Save back to SAME file
+            save_individual(new_cells, individual_file)
     
-    # 5. Extract year 60 snapshot
-    year60_cells = extract_snapshot(simulation_file, year=60)
-    save_snapshot(year60_cells, f"data/rate_{rate}/snapshots/year60_snapshot.json.gz")
+    # 5. Extract year 60 snapshot (with caching)
+    if exists(year60_snapshot):
+        year60_cells = load_snapshot(year60_snapshot)
+    else:
+        year60_cells = extract_snapshot(simulation_file, year=60)
+        save_snapshot(year60_cells, year60_snapshot)
     
-    # 6. Mix populations (in-place)
-    mix_ratio = config['mix_ratio']  # e.g., 80
-    for ind_type in ['mutant', 'control1']:
-        for ind_file in glob(f"data/rate_{rate}/individuals/{ind_type}/*.json.gz"):
-            grown_cells = load_individual(ind_file)  # 1024 cells
-            n_grown = len(grown_cells)
-            n_total = int(n_grown * 100 / (100 - mix_ratio))  # Total cells needed
-            n_to_add = n_total - n_grown
-            
-            # Sample cells from year 60 to add
-            added_cells = random.sample(year60_cells, n_to_add)
-            all_cells = grown_cells + added_cells
-            
-            # Save mixed population
-            save_individual(all_cells, ind_file)
+    # 6. Mix populations (without replacement sampling)
+    for individual_file in mutant_and_control1_files:
+        grown_cells = load_individual(individual_file)  # 1,024 cells
+        n_to_add = calculate_cells_needed(grown_cells, mix_ratio)
+        
+        # Sample WITHOUT replacement from year 60
+        added_cells = random.sample(year60_cells, n_to_add)  # 4,096 cells
+        all_cells = grown_cells + added_cells  # Simple list concatenation
+        random.shuffle(all_cells)  # Mix them
+        
+        save_individual(all_cells, individual_file)  # Update in-place
     
-    # 7. Create control2 individuals (pure year 60)
-    n_cells_per_individual = 5120  # Same as mixed individuals
+    # 7. Create control2 (pure year 60, also without replacement)
     for i in range(30):
-        control2_cells = random.sample(year60_cells, n_cells_per_individual)
-        save_individual(control2_cells, f"data/rate_{rate}/individuals/control2/individual_{i:02d}.json.gz")
+        control2_cells = random.sample(year60_cells, 5120)
+        save_individual(control2_cells, control2_file)
     
-    # 8. Analysis
-    results = analyze_populations(rate)
-    save_results(results, f"data/rate_{rate}/results/")
-    plot_comparison(results, f"data/rate_{rate}/plots/")
+    # 8. Analysis with enhanced statistics
+    results = analyze_populations()  # Calculates mean JSD per individual
+    plot_comparison(results)  # Creates violin and box plots
 ```
 
 ### Key Implementation Considerations
@@ -593,16 +800,51 @@ def run_pipeline(rate, simulation_file, config):
 5. **Error Handling**: Graceful failure with informative messages
 6. **Parallelization**: Consider parallel processing for individual growth
 
-## Recent Changes
+## Recent Changes (August 7, 2024 Session)
 
-- **Major restructuring**: Organized project into 3 sequential steps
-- **Step 1**: Moved all simulation files to dedicated directory with `data/` subdirectory
-- **Step 2**: Unified lineage creation for both mutant (decile-based) and control (uniform)
-- **Step 3**: Updated to use step2's control lineages instead of creating its own
-- **Step23**: **NEW** Unified pipeline combining steps 2 and 3 for efficiency
-- **CLI improvements**: Added command-line arguments to all major scripts
-- **Batch processing**: Added batch processors for automated multi-rate processing
-- **Precision update**: Increased rate precision from 3 to 6 decimal places
-- **Directory structure**: Consistent `scripts/` and `data/` organization across steps
-- **Test pipelines**: Added test script for step 3
-- **Gitignore**: Updated for new directory structure
+### 🚀 Major Addition: Step23 Unified Pipeline
+- **Complete reimplementation** of steps 2 and 3 as single efficient pipeline
+- **Files created**:
+  - `run_pipeline.py`: 8-stage orchestrator with intelligent skip logic
+  - `pipeline_utils.py`: Core utilities for sampling, growth, and mixing
+  - `pipeline_analysis.py`: Visualization with enhanced statistics
+  - `pipeline_checkpoint.py`: JSON-based progress tracking system
+
+### 🎯 Skip Logic & Checkpoint System
+- **Smart skip detection**: Checks file existence AND cell counts
+- **Checkpoint tracking**: Records completed stages in JSON
+- **Critical bug fix**: File lists now always populated (was causing skip failures)
+- **Force recreation**: Can delete directories or checkpoint to restart
+
+### 📊 Visualization Improvements
+- **Step histograms**: Replaced bar plots with filled step plots
+- **Statistics box**: Added CV and MAD, removed IQR and Skew
+- **X-axis label**: Now "JSD Score" instead of verbose name
+- **Rate display**: Shows as percentage (e.g., "0.5% methylation rate")
+- **Clean subtitles**: Bins only in filename, not plot
+- **Simple scatter**: Replaced complex violin plots
+
+### 🔧 Implementation Details
+- **Sampling**: WITHOUT replacement using `random.sample()`
+- **In-place updates**: No intermediate lineage files
+- **Snapshot caching**: Automatic reuse when files exist
+- **Growth model**: Divide (copy) then age (methylate) each year
+- **File structure**: All cells have required fields (cpg_sites, rate, etc.)
+
+### 📝 Documentation
+- **README.md**: Comprehensive step23 section with examples
+- **CLAUDE.md**: This exhaustive implementation guide
+- **Inline docs**: All functions properly documented
+
+### 📁 Directory Reorganization
+- ✅ Moved step2 and step3 to `legacy/` directory  
+- ✅ Positioned step23 as the recommended approach
+
+## Previous Changes (Earlier Sessions)
+- **Major restructuring**: Organized into 3 sequential steps
+- **Step 1**: Dedicated directory with `data/` subdirectory
+- **Step 2**: Unified lineage creation
+- **Step 3**: Uses step2's control lineages
+- **CLI improvements**: Command-line arguments added
+- **Batch processing**: Automated multi-rate processing
+- **Precision**: Rate precision to 6 decimal places

@@ -23,9 +23,9 @@ The project supports two pipeline approaches:
 3. **Step 3**: Mix aged lineages with original year 60 cells to analyze population dynamics
 
 ### Unified Step23 Pipeline (Recommended)
-A streamlined pipeline that combines steps 2 and 3 into a single, efficient process:
+A streamlined pipeline that combines steps 2 and 3 into a single, efficient process with intelligent skip logic:
 1. **Step 1**: Run base methylation simulation over 100 years (same as legacy)
-2. **Step23**: Unified pipeline for cell sampling, growth, mixing, and analysis
+2. **Step23**: Unified pipeline for cell sampling, growth, mixing, and analysis with checkpoint tracking
 
 ## Installation
 
@@ -99,12 +99,15 @@ python plot_history.py data/simulation_rate_0.005000_m10000_n1000_t100.json.gz
 
 ### Step23: Unified Pipeline (Recommended)
 
-Complete pipeline from cell sampling to analysis:
+Complete pipeline from cell sampling to analysis with intelligent skip logic and checkpoint tracking:
 
 ```bash
 cd step23
 
-# Run with default parameters
+# First run - creates everything
+python run_pipeline.py --rate 0.005 --simulation ../step1/data/simulation_rate_0.005000_m10000_n1000_t100.json.gz
+
+# Subsequent runs - automatically skips completed stages
 python run_pipeline.py --rate 0.005 --simulation ../step1/data/simulation_rate_0.005000_m10000_n1000_t100.json.gz
 
 # Run with custom parameters
@@ -113,24 +116,64 @@ python run_pipeline.py \
     --simulation ../step1/data/simulation_rate_0.005000_m10000_n1000_t100.json.gz \
     --bins 300 \
     --mix-ratio 80 \
+    --n-individuals 30 \
+    --growth-years 10 \
     --seed 42
 ```
 
-**Pipeline stages:**
-1. **Extract year 50 snapshot** from original simulation
-2. **Plot JSD distribution** with configurable bins
+**Pipeline stages with skip logic:**
+1. **Extract year 50 snapshot** 
+   - Cached in `snapshots/year50_snapshot.json.gz`
+   - Skipped if exists and checkpoint confirms completion
+2. **Plot JSD distribution** 
+   - Step histogram with filled area
+   - Statistics box: Mean, Median, SD, CV (coefficient of variation), MAD (median absolute deviation), 5%, 95%
+   - X-axis labeled "JSD Score"
+   - Shows methylation rate as percentage (e.g., "0.5% methylation rate")
+   - Bins shown only in filename, not plot subtitle
 3. **Create individuals**:
-   - 30 mutant individuals (3 cells per JSD decile)
-   - 30 control1 individuals (uniform sampling)
+   - 30 mutant individuals (3 cells sampled from each JSD decile)
+   - 30 control1 individuals (uniform sampling across population)
+   - Skipped if all 30 files exist for each group
 4. **Grow individuals** for 10 years (age 50→60):
-   - Each year: cells divide then methylate
-   - Results in 1,024 cells per individual
-5. **Extract year 60 snapshot** from original simulation
+   - Each year: cells divide (creating copies) then age (methylate)
+   - Growth progression: 1→2→4→8→16→32→64→128→256→512→1024 cells
+   - Files updated in-place (no separate lineage files)
+   - Skipped if individuals already have 1024 cells
+5. **Extract year 60 snapshot**
+   - Cached in `snapshots/year60_snapshot.json.gz`
+   - Skipped if exists and checkpoint confirms completion
 6. **Mix populations**:
-   - Add year 60 cells to reach configured ratio (default 80% year 60, 20% grown)
+   - Samples year 60 cells WITHOUT replacement using `random.sample()`
+   - Adds cells to reach configured ratio (default 80% year 60, 20% grown)
    - Final size: 5,120 cells per individual (at 80-20 ratio)
-7. **Create control2 individuals**: 30 individuals of pure year 60 cells
-8. **Analysis**: Compare mean JSD distributions across all three groups
+   - Skipped if individuals have more than 1024 cells (already mixed)
+7. **Create control2 individuals**: 
+   - 30 individuals of pure year 60 cells (5,120 cells each)
+   - Skipped if all 30 control2 files exist
+8. **Analysis**: 
+   - Compare mean JSD distributions across all three groups
+   - Simple scatter plots with jittered points (no violin plots)
+   - Statistical t-tests between groups
+   - Results saved to `results/` directory
+
+**Checkpoint System:**
+- Pipeline progress tracked in `pipeline_checkpoint.json`
+- Records completed stages, parameters, and file information
+- Enables precise skip decisions and pipeline resumption
+- Automatically detects what needs to be done vs what can be skipped
+
+**Force Recreation:**
+```bash
+# Force complete recreation
+rm -rf data/rate_0.005000/
+
+# Force recreation of specific group
+rm -rf data/rate_0.005000/individuals/mutant/
+
+# Force recreation of all individuals
+rm -rf data/rate_0.005000/individuals/
+```
 
 ### Step 2: Cell Division Experiments (Legacy)
 
@@ -220,18 +263,21 @@ jpi-methylation-simulation/
 │   └── data/                 # Simulation outputs
 │       └── *.json.gz         # Compressed simulation data
 ├── step23/                    # Unified pipeline (RECOMMENDED)
-│   ├── run_pipeline.py       # Main pipeline script
-│   ├── config/
-│   │   └── pipeline_config.yaml # Default configuration
+│   ├── run_pipeline.py       # Main pipeline orchestrator
+│   ├── pipeline_utils.py    # Core utilities (sampling, growth, mixing)
+│   ├── pipeline_analysis.py # Visualization and statistics
+│   ├── pipeline_checkpoint.py # Checkpoint tracking system
+│   ├── __init__.py          # Package initialization
 │   └── data/
 │       └── rate_X.XXXXXX/    # Rate-specific outputs
-│           ├── snapshots/    # Year 50 & 60 snapshots
+│           ├── pipeline_checkpoint.json # Progress tracking
+│           ├── snapshots/    # Cached year 50 & 60 snapshots
 │           ├── individuals/
-│           │   ├── mutant/   # 30 mutant individuals
-│           │   ├── control1/ # 30 control1 individuals (grown)
+│           │   ├── mutant/   # 30 mutant individuals (decile-based)
+│           │   ├── control1/ # 30 control1 individuals (uniform)
 │           │   └── control2/ # 30 control2 individuals (pure year 60)
 │           ├── plots/        # JSD distributions & comparisons
-│           └── results/      # Statistical analysis
+│           └── results/      # Statistical analysis & metadata
 ├── step2/                     # Cell division experiments (LEGACY)
 │   ├── scripts/
 │   │   ├── extract_snapshot.py    # Extract year from simulation

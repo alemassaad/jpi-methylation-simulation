@@ -1,0 +1,83 @@
+# Batch processing configuration for Step 2
+
+processing:
+  # Year to extract from simulations
+  year_to_extract: 50
+  
+  # Which components to process
+  create_snapshot: true
+  create_lineages: true
+  create_plots: true
+  
+  # Number of parallel jobs (1 = sequential)
+  parallel_jobs: 1
+  
+  # Timeout settings (in seconds)
+  timeouts:
+    snapshot: 300      # 5 minutes
+    lineages: 3600     # 60 minutes
+    plots: 300         # 5 minutes
+
+paths:
+  # Input directory containing simulation files
+  input_dir: "../../step1/data"
+  
+  # Base output directory
+  output_base: "../data"
+  
+  # State file location
+  state_file: ".batch_state.json"
+
+filters:
+  # Which rates to process
+  # Options: "all" or list like [0.001, 0.005, 0.010]
+  rates: "all"
+  
+  # Skip existing outputs
+  skip_existing: true
+  
+  # Skip failed simulations from previous runs
+  skip_failed: false
+
+logging:
+  # Logging level: DEBUG, INFO, WARNING, ERROR
+  level: "INFO"
+  
+  # Log to console as well as file
+  console: true
+  
+  # Log directory
+  log_dir: "logs"
+
+advanced:
+  # Retry failed operations
+  retry_failed: true
+  max_retries: 2
+  
+  # Save state after each simulation
+  checkpoint_interval: 1
+  
+  # Minimum disk space required (GB)
+  min_disk_space: 20.0
+  
+  # Clean up intermediate files
+  cleanup_temp: false
+
+# Lineage creation settings
+lineages:
+  # Type of lineages to create
+  type: "both"  # Options: "mutant", "control", "both"
+  
+  # Number of cells per decile (for mutant lineages)
+  cells_per_decile: 3
+  
+  # Total number of control lineages
+  num_control: 30
+
+# Plotting settings
+plots:
+  # Number of bins for JSD distribution plots
+  jsd_bins: 200
+  
+  # Plot format
+  format: "png"

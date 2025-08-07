@@ -1,0 +1,50 @@
+[2025-08-05 01:50:14] INFO     | Logging initialized. Log file: logs/batch_run_20250805_015014.log
+[2025-08-05 01:50:14] INFO     | ============================================================
+[2025-08-05 01:50:14] INFO     | STEP 3 BATCH PROCESSING STARTED
+[2025-08-05 01:50:14] INFO     | Start time: 2025-08-05 01:50:14
+[2025-08-05 01:50:14] INFO     | ============================================================
+[2025-08-05 01:50:14] INFO     | Phase 1: Discovery
+[2025-08-05 01:50:14] INFO     |   ├── Found 2 completed Step 2 rates
+[2025-08-05 01:50:14] INFO     |   ├── Rate 0.003000: Found simulation and lineages
+[2025-08-05 01:50:14] INFO     |   ├── Rate 0.005000: Found simulation and lineages
+[2025-08-05 01:50:14] INFO     | Selected 2 rates to process: ['0.003000', '0.005000']
+[2025-08-05 01:50:14] INFO     | 
+Phase 2: Validation
+[2025-08-05 01:50:14] INFO     |   ├── Disk space: 24.7 GB available
+[2025-08-05 01:50:14] INFO     | 
+Phase 3: Processing
+[2025-08-05 01:50:14] INFO     | 
+Skipping rate 0.003000 (1/2) - already completed
+[2025-08-05 01:50:14] INFO     | 
+Processing rate 0.005000 (2/2)
+[2025-08-05 01:50:14] INFO     |   ├── Year 60 snapshot already exists, skipping
+[2025-08-05 01:50:14] ERROR    | Rate 0.005000 failed: Failed to create individuals: Traceback (most recent call last):
+  File "/Users/alessandromassaad/jpi-methylation-simulation/step3/scripts/create_individuals.py", line 251, in <module>
+    main()
+  File "/Users/alessandromassaad/jpi-methylation-simulation/step3/scripts/create_individuals.py", line 217, in main
+    snapshot_data = load_snapshot(args.year60_snapshot)
+  File "/Users/alessandromassaad/jpi-methylation-simulation/step3/scripts/create_individuals.py", line 26, in load_snapshot
+    data = json.load(f)
+  File "/Users/alessandromassaad/opt/anaconda3/lib/python3.9/json/__init__.py", line 293, in load
+    return loads(fp.read(),
+  File "/Users/alessandromassaad/opt/anaconda3/lib/python3.9/gzip.py", line 300, in read
+    return self._buffer.read(size)
+  File "/Users/alessandromassaad/opt/anaconda3/lib/python3.9/gzip.py", line 506, in read
+    raise EOFError("Compressed file ended before the "
+EOFError: Compressed file ended before the end-of-stream marker was reached
+
+[2025-08-05 01:50:14] INFO     | 
+============================================================
+[2025-08-05 01:50:14] INFO     | STEP 3 BATCH PROCESSING SUMMARY
+[2025-08-05 01:50:14] INFO     | ============================================================
+[2025-08-05 01:50:14] INFO     | Start time: 2025-08-05 01:50:14
+[2025-08-05 01:50:14] INFO     | End time: 2025-08-05 01:50:14
+[2025-08-05 01:50:14] INFO     | Duration: 0:00:00.192256
+[2025-08-05 01:50:14] INFO     | 
+Processed: 0
+[2025-08-05 01:50:14] INFO     | Failed: 1
+[2025-08-05 01:50:14] INFO     | Completed rates: ['0.003000']
+[2025-08-05 01:50:14] INFO     | 
+Failed rates: ['0.005000']
+[2025-08-05 01:50:14] INFO     | 
+Output directory: ../data

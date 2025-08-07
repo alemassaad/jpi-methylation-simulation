@@ -271,9 +271,12 @@ def analyze_populations(mutant_dir, control1_dir, control2_dir, output_dir):
 
 
 def create_comparison_plot(mutant_jsds, control1_jsds, control2_jsds, output_path):
-    """Create a simple scatter plot comparing all three distributions."""
+    """Create a clean scatter plot comparing all three distributions."""
     
     print(f"\n  Creating comparison plot...")
+    
+    # Set random seed for consistent jitter
+    np.random.seed(42)
     
     # Create figure
     fig = go.Figure()
@@ -284,9 +287,8 @@ def create_comparison_plot(mutant_jsds, control1_jsds, control2_jsds, output_pat
         x=x_mutant,
         y=mutant_jsds,
         mode='markers',
-        name='Mutant (Decile-based)',
-        marker=dict(color='#1f77b4', size=10, opacity=0.6),
-        showlegend=True
+        name='Mutant',
+        marker=dict(color='#1f77b4', size=10, opacity=0.6)
     ))
     
     # Add control1 points with jitter
@@ -295,9 +297,8 @@ def create_comparison_plot(mutant_jsds, control1_jsds, control2_jsds, output_pat
         x=x_control1,
         y=control1_jsds,
         mode='markers',
-        name='Control1 (Uniform)',
-        marker=dict(color='#ff7f0e', size=10, opacity=0.6),
-        showlegend=True
+        name='Control1',
+        marker=dict(color='#ff7f0e', size=10, opacity=0.6)
     ))
     
     # Add control2 points with jitter
@@ -306,45 +307,173 @@ def create_comparison_plot(mutant_jsds, control1_jsds, control2_jsds, output_pat
         x=x_control2,
         y=control2_jsds,
         mode='markers',
-        name='Control2 (Pure Year 60)',
-        marker=dict(color='#2ca02c', size=10, opacity=0.6),
-        showlegend=True
+        name='Control2',
+        marker=dict(color='#2ca02c', size=10, opacity=0.6)
     ))
     
-    # Add mean lines
-    fig.add_hline(y=np.mean(mutant_jsds), line_dash="dash", line_color="#1f77b4", 
-                  annotation_text=f"Mutant mean: {np.mean(mutant_jsds):.4f}",
-                  annotation_position="left")
-    fig.add_hline(y=np.mean(control1_jsds), line_dash="dash", line_color="#ff7f0e",
-                  annotation_text=f"Control1 mean: {np.mean(control1_jsds):.4f}",
-                  annotation_position="right")
-    fig.add_hline(y=np.mean(control2_jsds), line_dash="dash", line_color="#2ca02c",
-                  annotation_text=f"Control2 mean: {np.mean(control2_jsds):.4f}",
-                  annotation_position="right")
+    # Calculate means and quantiles for horizontal lines
+    mutant_mean = np.mean(mutant_jsds)
+    control1_mean = np.mean(control1_jsds)
+    control2_mean = np.mean(control2_jsds)
     
-    # Update layout
+    # Calculate quantiles
+    mutant_q5, mutant_q25, mutant_q75, mutant_q95 = np.percentile(mutant_jsds, [5, 25, 75, 95])
+    control1_q5, control1_q25, control1_q75, control1_q95 = np.percentile(control1_jsds, [5, 25, 75, 95])
+    control2_q5, control2_q25, control2_q75, control2_q95 = np.percentile(control2_jsds, [5, 25, 75, 95])
+    
+    # Add quantile lines for mutant
+    # 5-95 range (very light, dotted)
+    fig.add_shape(type="line", x0=-0.15, x1=0.15, y0=mutant_q5, y1=mutant_q5,
+                  line=dict(color="#1f77b4", width=1, dash="dot"), opacity=0.3)
+    fig.add_shape(type="line", x0=-0.15, x1=0.15, y0=mutant_q95, y1=mutant_q95,
+                  line=dict(color="#1f77b4", width=1, dash="dot"), opacity=0.3)
+    
+    # 25-75 range (slightly darker, dashed)
+    fig.add_shape(type="line", x0=-0.15, x1=0.15, y0=mutant_q25, y1=mutant_q25,
+                  line=dict(color="#1f77b4", width=1.5, dash="dash"), opacity=0.5)
+    fig.add_shape(type="line", x0=-0.15, x1=0.15, y0=mutant_q75, y1=mutant_q75,
+                  line=dict(color="#1f77b4", width=1.5, dash="dash"), opacity=0.5)
+    
+    # Add quantile lines for control1
+    # 5-95 range (very light, dotted)
+    fig.add_shape(type="line", x0=0.85, x1=1.15, y0=control1_q5, y1=control1_q5,
+                  line=dict(color="#ff7f0e", width=1, dash="dot"), opacity=0.3)
+    fig.add_shape(type="line", x0=0.85, x1=1.15, y0=control1_q95, y1=control1_q95,
+                  line=dict(color="#ff7f0e", width=1, dash="dot"), opacity=0.3)
+    
+    # 25-75 range (slightly darker, dashed)
+    fig.add_shape(type="line", x0=0.85, x1=1.15, y0=control1_q25, y1=control1_q25,
+                  line=dict(color="#ff7f0e", width=1.5, dash="dash"), opacity=0.5)
+    fig.add_shape(type="line", x0=0.85, x1=1.15, y0=control1_q75, y1=control1_q75,
+                  line=dict(color="#ff7f0e", width=1.5, dash="dash"), opacity=0.5)
+    
+    # Add quantile lines for control2
+    # 5-95 range (very light, dotted)
+    fig.add_shape(type="line", x0=1.85, x1=2.15, y0=control2_q5, y1=control2_q5,
+                  line=dict(color="#2ca02c", width=1, dash="dot"), opacity=0.3)
+    fig.add_shape(type="line", x0=1.85, x1=2.15, y0=control2_q95, y1=control2_q95,
+                  line=dict(color="#2ca02c", width=1, dash="dot"), opacity=0.3)
+    
+    # 25-75 range (slightly darker, dashed)
+    fig.add_shape(type="line", x0=1.85, x1=2.15, y0=control2_q25, y1=control2_q25,
+                  line=dict(color="#2ca02c", width=1.5, dash="dash"), opacity=0.5)
+    fig.add_shape(type="line", x0=1.85, x1=2.15, y0=control2_q75, y1=control2_q75,
+                  line=dict(color="#2ca02c", width=1.5, dash="dash"), opacity=0.5)
+    
+    # Add mean lines (solid, prominent) - these go last to be on top
+    fig.add_shape(type="line", x0=-0.2, x1=0.2, y0=mutant_mean, y1=mutant_mean,
+                  line=dict(color="#1f77b4", width=3))
+    fig.add_shape(type="line", x0=0.8, x1=1.2, y0=control1_mean, y1=control1_mean,
+                  line=dict(color="#ff7f0e", width=3))
+    fig.add_shape(type="line", x0=1.8, x1=2.2, y0=control2_mean, y1=control2_mean,
+                  line=dict(color="#2ca02c", width=3))
+    
+    # Calculate comprehensive statistics for annotations
+    # Mutant stats
+    mutant_median = np.median(mutant_jsds)
+    mutant_std = np.std(mutant_jsds)
+    mutant_cv = mutant_std / mutant_mean if mutant_mean != 0 else 0
+    mutant_mad = np.median(np.abs(mutant_jsds - mutant_median))
+    
+    # Control1 stats
+    control1_median = np.median(control1_jsds)
+    control1_std = np.std(control1_jsds)
+    control1_cv = control1_std / control1_mean if control1_mean != 0 else 0
+    control1_mad = np.median(np.abs(control1_jsds - control1_median))
+    
+    # Control2 stats
+    control2_median = np.median(control2_jsds)
+    control2_std = np.std(control2_jsds)
+    control2_cv = control2_std / control2_mean if control2_mean != 0 else 0
+    control2_mad = np.median(np.abs(control2_jsds - control2_median))
+    
+    # Determine y position for annotations (below the lowest points)
+    all_jsds = np.concatenate([mutant_jsds, control1_jsds, control2_jsds])
+    y_min = np.min(all_jsds)
+    y_max = np.max(all_jsds)
+    y_range = y_max - y_min
+    annotation_y = y_min - 0.08 * y_range  # Slightly more space for more lines
+    
+    # Add comprehensive statistics text below each group
+    fig.add_annotation(
+        x=0, y=annotation_y,
+        text=(f"Mean: {mutant_mean:.4f}<br>"
+              f"Median: {mutant_median:.4f}<br>"
+              f"SD: {mutant_std:.4f}<br>"
+              f"CV: {mutant_cv:.3f}<br>"
+              f"MAD: {mutant_mad:.4f}<br>"
+              f"5%: {mutant_q5:.4f}<br>"
+              f"95%: {mutant_q95:.4f}"),
+        showarrow=False,
+        font=dict(size=9, color="#1f77b4"),
+        align="center",
+        xanchor="center",
+        yanchor="top"
+    )
+    
+    fig.add_annotation(
+        x=1, y=annotation_y,
+        text=(f"Mean: {control1_mean:.4f}<br>"
+              f"Median: {control1_median:.4f}<br>"
+              f"SD: {control1_std:.4f}<br>"
+              f"CV: {control1_cv:.3f}<br>"
+              f"MAD: {control1_mad:.4f}<br>"
+              f"5%: {control1_q5:.4f}<br>"
+              f"95%: {control1_q95:.4f}"),
+        showarrow=False,
+        font=dict(size=9, color="#ff7f0e"),
+        align="center",
+        xanchor="center",
+        yanchor="top"
+    )
+    
+    fig.add_annotation(
+        x=2, y=annotation_y,
+        text=(f"Mean: {control2_mean:.4f}<br>"
+              f"Median: {control2_median:.4f}<br>"
+              f"SD: {control2_std:.4f}<br>"
+              f"CV: {control2_cv:.3f}<br>"
+              f"MAD: {control2_mad:.4f}<br>"
+              f"5%: {control2_q5:.4f}<br>"
+              f"95%: {control2_q95:.4f}"),
+        showarrow=False,
+        font=dict(size=9, color="#2ca02c"),
+        align="center",
+        xanchor="center",
+        yanchor="top"
+    )
+    
+    # Clean layout with proper spacing
     fig.update_layout(
-        title="JSD Distribution Comparison: Three Groups",
+        title=dict(
+            text="Mean JSD Distribution Comparison",
+            font=dict(size=16),
+            x=0.5,
+            xanchor='center'
+        ),
         xaxis=dict(
             tickmode='array',
             tickvals=[0, 1, 2],
-            ticktext=['Mutant<br>(Decile-based)', 'Control1<br>(Uniform)', 'Control2<br>(Pure Year 60)'],
-            range=[-0.5, 2.5]
+            ticktext=['Mutant', 'Control1', 'Control2'],
+            range=[-0.5, 2.5],
+            showgrid=False,
+            title=""
         ),
-        yaxis=dict(title="Mean JSD per Individual"),
-        showlegend=True,
-        width=1000,
-        height=600,
+        yaxis=dict(
+            title='Mean JSD per Individual',
+            showgrid=True,
+            gridcolor='lightgray',
+            range=[annotation_y - 0.02, y_max + 0.01]
+        ),
         plot_bgcolor='white',
-        paper_bgcolor='white'
+        showlegend=False,
+        height=700,  # Increased height for stats
+        width=700,
+        margin=dict(l=80, r=40, t=60, b=150)  # Increased bottom margin for stats
     )
-    
-    # Update axes
-    fig.update_xaxes(showgrid=False, zeroline=False)
-    fig.update_yaxes(showgrid=True, gridcolor='lightgray', zeroline=True, zerolinecolor='lightgray')
     
     # Save PNG only (no HTML)
     if os.path.dirname(output_path):
         os.makedirs(os.path.dirname(output_path), exist_ok=True)
-    fig.write_image(output_path, width=1000, height=600, scale=2)
+    fig.write_image(output_path, width=700, height=700, scale=2)
     print(f"    Saved plot to {output_path}")

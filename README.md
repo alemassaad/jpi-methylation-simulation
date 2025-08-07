@@ -15,11 +15,17 @@ The simulation models:
 
 ## Pipeline Overview
 
-The project is organized into three sequential steps:
+The project supports two pipeline approaches:
 
+### Original 3-Step Pipeline (Legacy)
 1. **Step 1**: Run base methylation simulation over 100 years
 2. **Step 2**: Extract cells at year 50, perform cell division experiments with lineage tracking
 3. **Step 3**: Mix aged lineages with original year 60 cells to analyze population dynamics
+
+### Unified Step23 Pipeline (Recommended)
+A streamlined pipeline that combines steps 2 and 3 into a single, efficient process:
+1. **Step 1**: Run base methylation simulation over 100 years (same as legacy)
+2. **Step23**: Unified pipeline for cell sampling, growth, mixing, and analysis
 
 ## Installation
 
@@ -40,6 +46,18 @@ This installs:
 
 ## Quick Start
 
+### Recommended: Unified Pipeline
+```bash
+# Step 1: Run base simulation
+cd step1
+python run_large_simulation.py --rate 0.005
+
+# Step23: Complete analysis pipeline
+cd ../step23
+python run_pipeline.py --rate 0.005 --simulation ../step1/data/simulation_rate_0.005000_m10000_n1000_t100.json.gz
+```
+
+### Legacy: Original 3-Step Pipeline
 ```bash
 # Step 1: Run simulation
 cd step1
@@ -79,7 +97,42 @@ python test_small.py
 python plot_history.py data/simulation_rate_0.005000_m10000_n1000_t100.json.gz
 ```
 
-### Step 2: Cell Division Experiments
+### Step23: Unified Pipeline (Recommended)
+
+Complete pipeline from cell sampling to analysis:
+
+```bash
+cd step23
+
+# Run with default parameters
+python run_pipeline.py --rate 0.005 --simulation ../step1/data/simulation_rate_0.005000_m10000_n1000_t100.json.gz
+
+# Run with custom parameters
+python run_pipeline.py \
+    --rate 0.005 \
+    --simulation ../step1/data/simulation_rate_0.005000_m10000_n1000_t100.json.gz \
+    --bins 300 \
+    --mix-ratio 80 \
+    --seed 42
+```
+
+**Pipeline stages:**
+1. **Extract year 50 snapshot** from original simulation
+2. **Plot JSD distribution** with configurable bins
+3. **Create individuals**:
+   - 30 mutant individuals (3 cells per JSD decile)
+   - 30 control1 individuals (uniform sampling)
+4. **Grow individuals** for 10 years (age 50→60):
+   - Each year: cells divide then methylate
+   - Results in 1,024 cells per individual
+5. **Extract year 60 snapshot** from original simulation
+6. **Mix populations**:
+   - Add year 60 cells to reach configured ratio (default 80% year 60, 20% grown)
+   - Final size: 5,120 cells per individual (at 80-20 ratio)
+7. **Create control2 individuals**: 30 individuals of pure year 60 cells
+8. **Analysis**: Compare mean JSD distributions across all three groups
+
+### Step 2: Cell Division Experiments (Legacy)
 
 Extract cells and perform division experiments:
 
@@ -101,7 +154,7 @@ Lineage creation:
 - **Control lineages**: Samples 30 cells uniformly from population
 - Each lineage undergoes 10 years of division, resulting in 1,024 cells
 
-### Step 3: Mixed Population Analysis
+### Step 3: Mixed Population Analysis (Legacy)
 
 Analyze mixed populations:
 
@@ -166,19 +219,32 @@ jpi-methylation-simulation/
 │   ├── plot_history.py       # Visualization script
 │   └── data/                 # Simulation outputs
 │       └── *.json.gz         # Compressed simulation data
-├── step2/                     # Cell division experiments
+├── step23/                    # Unified pipeline (RECOMMENDED)
+│   ├── run_pipeline.py       # Main pipeline script
+│   ├── config/
+│   │   └── pipeline_config.yaml # Default configuration
+│   └── data/
+│       └── rate_X.XXXXXX/    # Rate-specific outputs
+│           ├── snapshots/    # Year 50 & 60 snapshots
+│           ├── individuals/
+│           │   ├── mutant/   # 30 mutant individuals
+│           │   ├── control1/ # 30 control1 individuals (grown)
+│           │   └── control2/ # 30 control2 individuals (pure year 60)
+│           ├── plots/        # JSD distributions & comparisons
+│           └── results/      # Statistical analysis
+├── step2/                     # Cell division experiments (LEGACY)
 │   ├── scripts/
 │   │   ├── extract_snapshot.py    # Extract year from simulation
 │   │   ├── create_lineages.py     # Create mutant & control lineages
 │   │   ├── plot_jsd_distribution.py # Plot JSD distributions
-│   │   └── test_pipeline.py       # Test the pipeline
+│   │   └── batch_processor.py     # Batch processing
 │   └── data/
 │       ├── snapshots/        # Year snapshots
 │       ├── lineages/
 │       │   ├── mutant/       # 30 decile-based lineages
 │       │   └── control/      # 30 uniform lineages
 │       └── plots/            # Visualization outputs
-├── step3/                     # Mixed population analysis
+├── step3/                     # Mixed population analysis (LEGACY)
 │   ├── scripts/
 │   │   ├── extract_year60_original.py # Extract year 60
 │   │   ├── create_individuals.py      # Create mixed populations

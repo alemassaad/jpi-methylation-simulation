@@ -22,10 +22,13 @@ The project supports two pipeline approaches:
 2. **Step 2**: Extract cells at year 50, perform cell division experiments with lineage tracking
 3. **Step 3**: Mix aged lineages with original year 60 cells to analyze population dynamics
 
-### Unified Step23 Pipeline (Recommended)
-A streamlined pipeline that combines steps 2 and 3 into a single, efficient process with intelligent skip logic:
+### Unified Step23 Pipeline V2 (Recommended)
+A streamlined pipeline that combines steps 2 and 3 into a single, efficient process with:
+- **Flexible quantile sampling**: Configure number of quantiles and cells per quantile
+- **Intelligent skip logic**: Detects completed stages and partial states
+- **Improved visualizations**: Clean scatter plots with comprehensive statistics
 1. **Step 1**: Run base methylation simulation over 100 years (same as legacy)
-2. **Step23**: Unified pipeline for cell sampling, growth, mixing, and analysis with checkpoint tracking
+2. **Step23**: Unified pipeline for cell sampling, growth, mixing, and analysis
 
 ## Installation
 
@@ -52,9 +55,13 @@ This installs:
 cd step1
 python run_large_simulation.py --rate 0.005
 
-# Step23: Complete analysis pipeline
+# Step23: Complete analysis pipeline (V2 with flexible quantiles)
 cd ../step23
-python run_pipeline.py --rate 0.005 --simulation ../step1/data/simulation_rate_0.005000_m10000_n1000_t100.json.gz
+python run_pipeline_v2.py --rate 0.005 --simulation ../step1/data/simulation_rate_0.005000_m10000_n1000_t100.json.gz
+
+# Quick test with 4 individuals (quartiles)
+python run_pipeline_v2.py --rate 0.005 --simulation ../step1/data/simulation_rate_0.005000_m10000_n1000_t100.json.gz \
+    --n-quantiles 4 --cells-per-quantile 1 --growth-years 2
 ```
 
 ### Legacy: Original 3-Step Pipeline
@@ -97,29 +104,36 @@ python test_small.py
 python plot_history.py data/simulation_rate_0.005000_m10000_n1000_t100.json.gz
 ```
 
-### Step23: Unified Pipeline (Recommended)
+### Step23: Unified Pipeline V2 (Recommended)
 
-Complete pipeline from cell sampling to analysis with intelligent skip logic and checkpoint tracking:
+Complete pipeline from cell sampling to analysis with flexible quantile sampling and improved skip logic:
 
 ```bash
 cd step23
 
-# First run - creates everything
-python run_pipeline.py --rate 0.005 --simulation ../step1/data/simulation_rate_0.005000_m10000_n1000_t100.json.gz
+# Standard run with defaults (10 deciles × 3 cells = 30 individuals)
+python run_pipeline_v2.py --rate 0.005 --simulation ../step1/data/simulation_rate_0.005000_m10000_n1000_t100.json.gz
 
-# Subsequent runs - automatically skips completed stages
-python run_pipeline.py --rate 0.005 --simulation ../step1/data/simulation_rate_0.005000_m10000_n1000_t100.json.gz
+# Quick test with 4 individuals (quartiles)
+python run_pipeline_v2.py --rate 0.005 --simulation ../step1/data/*.json.gz \
+    --n-quantiles 4 --cells-per-quantile 1 --growth-years 2
 
-# Run with custom parameters
-python run_pipeline.py \
+# Full run with custom parameters
+python run_pipeline_v2.py \
     --rate 0.005 \
     --simulation ../step1/data/simulation_rate_0.005000_m10000_n1000_t100.json.gz \
-    --bins 300 \
-    --mix-ratio 80 \
-    --n-individuals 30 \
-    --growth-years 10 \
+    --n-quantiles 10 \           # Number of quantiles (10 = deciles, 4 = quartiles)
+    --cells-per-quantile 3 \      # Cells sampled per quantile
+    --growth-years 10 \           # Years to grow (defaults to 10, matching 50→60 gap)
+    --mix-ratio 80 \              # % of year 60 cells in mix
+    --bins 200 \                  # Histogram bins
     --seed 42
 ```
+
+**Important Notes:**
+- `--growth-years` defaults to 10 (matching the year 50→60 gap) and should normally not be changed
+- Use `--n-quantiles 4 --cells-per-quantile 1` for quick testing (4 individuals)
+- The pipeline intelligently skips completed stages on subsequent runs
 
 **Pipeline stages with skip logic:**
 1. **Extract year 50 snapshot** 
@@ -153,7 +167,10 @@ python run_pipeline.py \
    - Skipped if all 30 control2 files exist
 8. **Analysis**: 
    - Compare mean JSD distributions across all three groups
-   - Simple scatter plots with jittered points (no violin plots)
+   - Clean scatter plots with:
+     - Jittered points for each individual
+     - Horizontal lines showing mean (solid), 25-75% (dashed), and 5-95% (dotted) ranges
+     - Comprehensive statistics below each group: Mean, Median, SD, CV, MAD, 5%, 95%
    - Statistical t-tests between groups
    - Results saved to `results/` directory
 

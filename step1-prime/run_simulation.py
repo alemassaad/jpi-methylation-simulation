@@ -38,8 +38,8 @@ def parse_arguments():
     # Optional parameters
     parser.add_argument('-o', '--output', type=str, default=None,
                         help='Output filename (auto-generated if not specified)')
-    parser.add_argument('--seed', type=int, default=None,
-                        help='Random seed for reproducibility')
+    parser.add_argument('--seed', type=int, default=42,
+                        help='Random seed for reproducibility (default: 42, use -1 for no seed)')
     parser.add_argument('--no-save', action='store_true',
                         help='Run simulation without saving results')
     
@@ -57,7 +57,7 @@ def main():
     t_max = args.years
     gene_size = args.gene_size
     growth_years = args.growth_years
-    seed = args.seed
+    seed = args.seed if args.seed != -1 else None  # -1 means no seed
     
     # Validate parameters
     if n % gene_size != 0:

@@ -316,7 +316,8 @@ class PetriDish:
         
         # Generate filename if not provided
         if filename is None:
-            seed_str = f"_seed{self.seed}" if self.seed is not None else ""
+            # Always include seed info in filename
+            seed_str = f"_seed{self.seed}" if self.seed is not None else "_noseed"
             # Use actual final population count, not target
             final_pop = len(self.cells)
             # Include growth_years in filename

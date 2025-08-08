@@ -37,8 +37,8 @@ N = 1000
 RATE = 0.005
 GENE_SIZE = 5
 BASELINE_METHYLATION_DISTRIBUTION = [1.0] + [0.0 for _ in range(GENE_SIZE)]
-TARGET_POPULATION = 2**13  # 8192
 T_MAX = 100
+DEFAULT_GROWTH_YEARS = 13  # Default growth phase duration
 
 
 class Cell:
@@ -149,7 +149,7 @@ class PetriDish:
     """
     
     def __init__(self, rate: float = RATE, n: int = N, gene_size: int = GENE_SIZE, 
-                 seed: int = None, target_population: int = TARGET_POPULATION) -> None:
+                 seed: int = None, growth_years: int = DEFAULT_GROWTH_YEARS) -> None:
         """
         Initialize petri dish with a single unmethylated cell.
         
@@ -158,8 +158,14 @@ class PetriDish:
             n: Number of CpG sites per cell
             gene_size: Number of sites per gene
             seed: Random seed for reproducibility
-            target_population: Target population for steady state
+            growth_years: Years of exponential growth (target = 2^growth_years cells)
         """
+        # Validate growth_years
+        if growth_years < 1:
+            raise ValueError(f"growth_years must be >= 1, got {growth_years}")
+        if growth_years > 20:
+            raise ValueError(f"growth_years must be <= 20 (max 1M cells), got {growth_years}")
+        
         if seed is not None:
             random.seed(seed)
             
@@ -167,7 +173,8 @@ class PetriDish:
         self.n = n
         self.gene_size = gene_size
         self.seed = seed
-        self.target_population = target_population
+        self.growth_years = growth_years
+        self.target_population = 2 ** growth_years  # Calculate from growth_years
         self.reached_target = False  # Initialize here
         
         # Start with single unmethylated cell
@@ -278,7 +285,8 @@ class PetriDish:
         print(f"  Methylation rate: {self.rate:.3%}")
         print(f"  CpG sites per cell: {self.n}")
         print(f"  Gene size: {self.gene_size}")
-        print(f"  Target population: {self.target_population}")
+        print(f"  Growth years: {self.growth_years}")
+        print(f"  Target population: {self.target_population} (2^{self.growth_years})")
         print(f"  Max years: {t_max}")
         print(f"  Random seed: {self.seed}")
         print("="*60)
@@ -311,7 +319,8 @@ class PetriDish:
             seed_str = f"_seed{self.seed}" if self.seed is not None else ""
             # Use actual final population count, not target
             final_pop = len(self.cells)
-            filename = f"simulation_rate_{self.rate:.6f}_m{final_pop}_n{self.n}_t{self.year}{seed_str}"
+            # Include growth_years in filename
+            filename = f"simulation_rate_{self.rate:.6f}_g{self.growth_years}_m{final_pop}_n{self.n}_t{self.year}{seed_str}"
         
         filepath = os.path.join(directory, filename + ".json.gz")
         print(f"\nSaving compressed history to {filepath}")

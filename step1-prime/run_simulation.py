@@ -12,7 +12,7 @@ Usage:
 
 import argparse
 import time
-from cell import PetriDish, RATE, N, GENE_SIZE, TARGET_POPULATION, T_MAX
+from cell import PetriDish, RATE, N, GENE_SIZE, DEFAULT_GROWTH_YEARS, T_MAX
 
 
 def parse_arguments():
@@ -31,8 +31,9 @@ def parse_arguments():
                         help='Number of years to simulate')
     parser.add_argument('-g', '--gene-size', type=int, default=GENE_SIZE,
                         help='Size of genes (sites per gene)')
-    parser.add_argument('--target', type=int, default=TARGET_POPULATION,
-                        help='Target population for steady state (default: 2^13 = 8192)')
+    parser.add_argument('--growth-years', type=int, default=DEFAULT_GROWTH_YEARS,
+                        help='Years of exponential growth phase (target = 2^growth_years cells). '
+                             'Default: 13 (8192 cells). Range: 1-20')
     
     # Optional parameters
     parser.add_argument('-o', '--output', type=str, default=None,
@@ -55,7 +56,7 @@ def main():
     n = args.sites
     t_max = args.years
     gene_size = args.gene_size
-    target_population = args.target
+    growth_years = args.growth_years
     seed = args.seed
     
     # Validate parameters
@@ -63,11 +64,10 @@ def main():
         print(f"Error: Number of sites ({n}) must be divisible by gene size ({gene_size})")
         return 1
     
-    # Check if target is a power of 2
-    import math
-    if not (target_population > 0 and (target_population & (target_population - 1)) == 0):
-        print(f"Warning: Target population {target_population} is not a power of 2")
-        print(f"  Suggested values: {2**12} (4096), {2**13} (8192), {2**14} (16384)")
+    # Validate growth_years
+    if growth_years < 1 or growth_years > 20:
+        print(f"Error: growth-years must be between 1 and 20, got {growth_years}")
+        return 1
     
     # Start timing
     start_time = time.time()
@@ -79,7 +79,7 @@ def main():
         n=n,
         gene_size=gene_size,
         seed=seed,
-        target_population=target_population
+        growth_years=growth_years
     )
     
     # Run simulation

@@ -62,7 +62,7 @@ def test_population_doubling():
     """Test 1.1: Verify population doubles correctly during growth phase."""
     test_name = "Population Doubling"
     try:
-        petri = PetriDish(rate=0.01, n=100, gene_size=5, seed=42, growth_years=4)  # target=16
+        petri = PetriDish(rate=0.01, n=100, gene_size=5, seed=42, growth_phase=4)  # target=16
         
         # Expected populations for years 0-4
         expected = {0: 1, 1: 2, 2: 4, 3: 8, 4: 16}
@@ -120,7 +120,7 @@ def test_methylation_during_growth():
     """Test 1.3: Verify methylation accumulates during growth phase."""
     test_name = "Methylation During Growth"
     try:
-        petri = PetriDish(rate=0.1, n=100, gene_size=5, seed=42, growth_years=3)  # target=8
+        petri = PetriDish(rate=0.1, n=100, gene_size=5, seed=42, growth_phase=3)  # target=8
         
         # Run for 3 years (1->2->4->8 cells)
         jsd_values = []
@@ -152,7 +152,7 @@ def test_population_maintenance():
     """Test 2.1: Verify population stays around target in steady state."""
     test_name = "Population Maintenance"
     try:
-        petri = PetriDish(rate=0.01, n=100, gene_size=5, seed=42, growth_years=4)  # target=16
+        petri = PetriDish(rate=0.01, n=100, gene_size=5, seed=42, growth_phase=4)  # target=16
         
         # Run to year 15 (steady state starts at year 4)
         for _ in range(15):
@@ -176,7 +176,7 @@ def test_culling_statistics():
     """Test 2.2: Verify culling gives approximately 50% survival."""
     test_name = "Culling Statistics"
     try:
-        petri = PetriDish(rate=0.01, n=100, gene_size=5, seed=42, growth_years=4)  # target=16
+        petri = PetriDish(rate=0.01, n=100, gene_size=5, seed=42, growth_phase=4)  # target=16
         
         # Get to steady state
         for _ in range(4):
@@ -213,36 +213,50 @@ def test_phase_transition():
     """Test 2.3: Verify transition from growth to steady state."""
     test_name = "Phase Transition"
     try:
-        petri = PetriDish(rate=0.01, n=100, gene_size=5, seed=42, growth_years=4)  # target=16
+        petri = PetriDish(rate=0.01, n=100, gene_size=5, seed=42, growth_phase=4)  # target=16
         
         # Year 3: should be growth (starts with 4, ends with 8 cells)
         for _ in range(3):
             petri.simulate_year()
         
-        # After year 3, we have 8 cells, still in growth
-        if petri.reached_target:
-            results.record(test_name, False, "reached_target True before reaching target")
+        # After year 3, we're still in growth phase (year 3 <= growth_phase 4)
+        if petri.year > petri.growth_phase:
+            results.record(test_name, False, f"In steady state too early (year {petri.year})")
             return
         
-        # Year 4: starts with 8, divides to 16, should trigger reached_target
+        # Check we have 8 cells after year 3
+        if len(petri.cells) != 8:
+            results.record(test_name, False, f"Wrong population at year 3: {len(petri.cells)}, expected 8")
+            return
+        
+        # Year 4: completes growth phase (divides to 16)
         petri.simulate_year()
         
-        # Now we should have reached target (16 cells)
-        if not petri.reached_target:
-            # Check current population to debug
-            current_pop = len(petri.cells)
+        # Now we should be at year 4 (last growth year)
+        if petri.year != petri.growth_phase:
             results.record(test_name, False, 
-                         f"reached_target False after year 4 (pop={current_pop}, target=16)")
+                         f"Year mismatch: year={petri.year}, growth_phase={petri.growth_phase}")
             return
         
-        # Manually reduce population to test persistence
-        petri.cells = petri.cells[:10]
+        # Check we have 16 cells (2^4)
+        current_pop = len(petri.cells)
+        if current_pop != 16:
+            results.record(test_name, False,
+                         f"Wrong population at year 4: {current_pop}, expected 16")
+            return
         
-        # Year 5: should stay in steady state despite low population
+        # Year 5: should be in steady state
         petri.simulate_year()
         
-        if not petri.reached_target:
-            results.record(test_name, False, "reached_target reset after population drop")
+        # Now year should be > growth_phase
+        if petri.year <= petri.growth_phase:
+            results.record(test_name, False, f"Should be in steady state at year {petri.year}")
+            return
+        
+        # Population should have been culled (not exactly 16)
+        year5_pop = len(petri.cells)
+        if year5_pop == 32:  # Would be 32 if still growing without culling
+            results.record(test_name, False, "No culling occurred in steady state")
             return
         
         results.record(test_name, True)
@@ -356,7 +370,7 @@ def test_json_structure():
     """Test 4.1: Verify JSON output structure is correct."""
     test_name = "JSON Structure"
     try:
-        petri = PetriDish(rate=0.01, n=100, gene_size=5, seed=42, growth_years=3)  # target=8
+        petri = PetriDish(rate=0.01, n=100, gene_size=5, seed=42, growth_phase=3)  # target=8
         
         # Run for 5 years
         for _ in range(5):
@@ -437,7 +451,7 @@ def test_file_saving_loading():
     try:
         # Create temporary directory
         with tempfile.TemporaryDirectory() as tmpdir:
-            petri = PetriDish(rate=0.01, n=100, gene_size=5, seed=42, growth_years=2)  # target=4
+            petri = PetriDish(rate=0.01, n=100, gene_size=5, seed=42, growth_phase=2)  # target=4
             
             # Run for 3 years
             for _ in range(3):
@@ -465,7 +479,7 @@ def test_file_saving_loading():
                 results.record(test_name, False, "Year 2 not in loaded data")
                 return
             
-            # Year 2 should have 4 cells for growth_years=2
+            # Year 2 should have 4 cells for growth_phase=2
             if len(loaded['2']) != 4:
                 results.record(test_name, False, f"Year 2 has {len(loaded['2'])} cells, expected 4")
                 return
@@ -488,13 +502,13 @@ def test_same_seed_same_results():
         
         # Run simulation twice with same seed - reset seed each time
         random.seed(12345)
-        petri1 = PetriDish(rate=0.1, n=100, gene_size=5, seed=12345, growth_years=3)  # target=8
+        petri1 = PetriDish(rate=0.1, n=100, gene_size=5, seed=12345, growth_phase=3)  # target=8
         for _ in range(5):
             petri1.simulate_year()
             
         # Reset and run again
         random.seed(12345)
-        petri2 = PetriDish(rate=0.1, n=100, gene_size=5, seed=12345, growth_years=3)  # target=8
+        petri2 = PetriDish(rate=0.1, n=100, gene_size=5, seed=12345, growth_phase=3)  # target=8
         for _ in range(5):
             petri2.simulate_year()
         
@@ -523,8 +537,8 @@ def test_different_seeds_different_results():
     test_name = "Different Seeds Different Results"
     try:
         # Run simulation twice with different seeds
-        petri1 = PetriDish(rate=0.1, n=100, gene_size=5, seed=111, growth_years=4)  # target=16
-        petri2 = PetriDish(rate=0.1, n=100, gene_size=5, seed=999, growth_years=4)  # target=16
+        petri1 = PetriDish(rate=0.1, n=100, gene_size=5, seed=111, growth_phase=4)  # target=16
+        petri2 = PetriDish(rate=0.1, n=100, gene_size=5, seed=999, growth_phase=4)  # target=16
         
         # Run to steady state and beyond
         for _ in range(6):
@@ -563,7 +577,7 @@ def test_very_small_population():
     """Test 6.1: Verify simulation works with very small target population."""
     test_name = "Very Small Population"
     try:
-        petri = PetriDish(rate=0.01, n=50, gene_size=5, seed=42, growth_years=1)  # target=2
+        petri = PetriDish(rate=0.01, n=50, gene_size=5, seed=42, growth_phase=1)  # target=2
         
         # Run for 5 years
         for _ in range(5):
@@ -590,7 +604,7 @@ def test_high_methylation_rate():
     """Test 6.2: Verify simulation handles high methylation rate."""
     test_name = "High Methylation Rate"
     try:
-        petri = PetriDish(rate=0.9, n=100, gene_size=5, seed=42, growth_years=2)  # target=4
+        petri = PetriDish(rate=0.9, n=100, gene_size=5, seed=42, growth_phase=2)  # target=4
         
         # Run for 3 years
         for _ in range(3):
@@ -637,7 +651,7 @@ def test_step23_compatible_format():
     test_name = "Step23 Compatible Format"
     try:
         with tempfile.TemporaryDirectory() as tmpdir:
-            petri = PetriDish(rate=0.01, n=100, gene_size=5, seed=42, growth_years=3)  # target=8
+            petri = PetriDish(rate=0.01, n=100, gene_size=5, seed=42, growth_phase=3)  # target=8
             
             # Run simulation
             for _ in range(10):
@@ -677,7 +691,7 @@ def test_statistics_extraction():
     """Test 7.2: Verify statistics can be calculated from output."""
     test_name = "Statistics Extraction"
     try:
-        petri = PetriDish(rate=0.05, n=100, gene_size=5, seed=42, growth_years=3)  # target=8
+        petri = PetriDish(rate=0.05, n=100, gene_size=5, seed=42, growth_phase=3)  # target=8
         
         # Run simulation
         for _ in range(5):
@@ -719,42 +733,42 @@ def test_statistics_extraction():
 # SECTION 8: GROWTH YEARS PARAMETER TESTS
 # ==============================================================================
 
-def test_growth_years_parameter():
-    """Test 8.1: Verify growth_years correctly sets target population."""
+def test_growth_phase_parameter():
+    """Test 8.1: Verify growth_phase correctly sets target population."""
     test_name = "Growth Years Parameter"
     try:
         test_configs = [
-            {'growth_years': 1, 'expected_target': 2},
-            {'growth_years': 2, 'expected_target': 4},
-            {'growth_years': 3, 'expected_target': 8},
-            {'growth_years': 4, 'expected_target': 16},
-            {'growth_years': 5, 'expected_target': 32},
+            {'growth_phase': 1, 'expected_target': 2},
+            {'growth_phase': 2, 'expected_target': 4},
+            {'growth_phase': 3, 'expected_target': 8},
+            {'growth_phase': 4, 'expected_target': 16},
+            {'growth_phase': 5, 'expected_target': 32},
         ]
         
         for config in test_configs:
-            growth_years = config['growth_years']
+            growth_phase = config['growth_phase']
             expected = config['expected_target']
             
             petri = PetriDish(rate=0.01, n=50, gene_size=5, seed=42, 
-                            growth_years=growth_years)
+                            growth_phase=growth_phase)
             
             # Check target calculation
             if petri.target_population != expected:
                 results.record(test_name, False, 
-                             f"growth_years={growth_years}: "
+                             f"growth_phase={growth_phase}: "
                              f"expected target={expected}, got {petri.target_population}")
                 return
             
             # Run simulation to verify it reaches target
-            for _ in range(growth_years):
+            for _ in range(growth_phase):
                 petri.simulate_year()
             
             # Should have reached target
             actual_pop = len(petri.cells)
             if actual_pop != expected:
                 results.record(test_name, False,
-                             f"growth_years={growth_years}: "
-                             f"expected {expected} cells at year {growth_years}, got {actual_pop}")
+                             f"growth_phase={growth_phase}: "
+                             f"expected {expected} cells at year {growth_phase}, got {actual_pop}")
                 return
         
         results.record(test_name, True)
@@ -762,8 +776,8 @@ def test_growth_years_parameter():
         results.record(test_name, False, str(e))
 
 
-def test_growth_years_validation():
-    """Test 8.2: Verify growth_years validation."""
+def test_growth_phase_validation():
+    """Test 8.2: Verify growth_phase validation."""
     test_name = "Growth Years Validation"
     try:
         # Test invalid values
@@ -771,9 +785,9 @@ def test_growth_years_validation():
         
         for value in invalid_values:
             try:
-                petri = PetriDish(growth_years=value)
+                petri = PetriDish(growth_phase=value)
                 results.record(test_name, False, 
-                             f"No error for growth_years={value}")
+                             f"No error for growth_phase={value}")
                 return
             except ValueError:
                 pass  # Expected
@@ -782,10 +796,10 @@ def test_growth_years_validation():
         valid_values = [1, 13, 20]
         for value in valid_values:
             try:
-                petri = PetriDish(growth_years=value, n=50, gene_size=5)
+                petri = PetriDish(growth_phase=value, n=50, gene_size=5)
             except ValueError:
                 results.record(test_name, False,
-                             f"Unexpected error for valid growth_years={value}")
+                             f"Unexpected error for valid growth_phase={value}")
                 return
         
         results.record(test_name, True)
@@ -797,32 +811,53 @@ def test_growth_to_steady_transition():
     """Test 8.3: Verify transition from growth to steady state at correct time."""
     test_name = "Growth to Steady Transition"
     try:
-        growth_years = 3  # Target = 8 cells
+        growth_phase = 3  # Target = 8 cells
         petri = PetriDish(rate=0.01, n=50, gene_size=5, seed=42, 
-                         growth_years=growth_years)
+                         growth_phase=growth_phase)
         
         # Year 1-3: Should be growth phase
-        for year in range(1, growth_years + 1):
+        for year in range(1, growth_phase + 1):
             petri.simulate_year()
-            if petri.reached_target and year < growth_years:
+            # During growth phase, year should match loop counter
+            if petri.year != year:
                 results.record(test_name, False,
-                             f"Reached target too early at year {year}")
+                             f"Year mismatch: expected {year}, got {petri.year}")
+                return
+            
+            # Check population is doubling correctly
+            expected_pop = 2 ** year
+            actual_pop = len(petri.cells)
+            if actual_pop != expected_pop:
+                results.record(test_name, False,
+                             f"Year {year}: expected {expected_pop} cells, got {actual_pop}")
                 return
         
-        # After growth_years, should have reached target
-        if not petri.reached_target:
+        # After growth_phase years, should be at year growth_phase with 2^growth_phase cells
+        if petri.year != growth_phase:
             results.record(test_name, False,
-                         f"Not reached target after {growth_years} years")
+                         f"Year not at growth_phase after {growth_phase} years (year={petri.year})")
+            return
+        
+        if len(petri.cells) != 2 ** growth_phase:
+            results.record(test_name, False,
+                         f"Wrong population: {len(petri.cells)}, expected {2**growth_phase}")
             return
         
         # Year 4: Should be steady state
         petri.simulate_year()
+        
+        # Check we're in steady state (year > growth_phase)
+        if petri.year <= growth_phase:
+            results.record(test_name, False,
+                         f"Not in steady state at year {petri.year}")
+            return
+        
         year4_pop = len(petri.cells)
         
         # Should have done division + culling (not exact 8, but not 16 either)
-        if year4_pop == 16:  # Would be 16 if still growing
+        if year4_pop == 16:  # Would be 16 if still growing without culling
             results.record(test_name, False,
-                         "Still in growth phase after reaching target")
+                         "Population suggests still in growth phase (no culling)")
             return
         
         results.record(test_name, True)
@@ -831,16 +866,16 @@ def test_growth_to_steady_transition():
 
 
 def test_steady_state_with_different_growth():
-    """Test 8.4: Verify steady state works with different growth_years."""
+    """Test 8.4: Verify steady state works with different growth_phase."""
     test_name = "Steady State Different Growth"
     try:
-        for growth_years in [2, 3, 4]:  # Test different values
+        for growth_phase in [2, 3, 4]:  # Test different values
             petri = PetriDish(rate=0.01, n=50, gene_size=5, seed=42,
-                            growth_years=growth_years)
-            target = 2 ** growth_years
+                            growth_phase=growth_phase)
+            target = 2 ** growth_phase
             
             # Run past growth phase
-            for _ in range(growth_years + 5):  # +5 years steady state
+            for _ in range(growth_phase + 5):  # +5 years steady state
                 petri.simulate_year()
             
             # Check final population is around target
@@ -850,7 +885,7 @@ def test_steady_state_with_different_growth():
             max_allowed = target * 3  # More lenient for small populations
             if final_pop < min_allowed or final_pop > max_allowed:
                 results.record(test_name, False,
-                             f"growth_years={growth_years}: "
+                             f"growth_phase={growth_phase}: "
                              f"final pop {final_pop} far from target {target}")
                 return
         
@@ -859,8 +894,8 @@ def test_steady_state_with_different_growth():
         results.record(test_name, False, str(e))
 
 
-def test_filename_includes_growth_years():
-    """Test 8.5: Verify filename includes growth_years parameter."""
+def test_filename_includes_growth_phase():
+    """Test 8.5: Verify filename includes growth_phase parameter."""
     test_name = "Filename Includes Growth Years"
     try:
         import tempfile
@@ -868,7 +903,7 @@ def test_filename_includes_growth_years():
         
         with tempfile.TemporaryDirectory() as tmpdir:
             petri = PetriDish(rate=0.01, n=50, gene_size=5, seed=42,
-                            growth_years=3)
+                            growth_phase=3)
             
             # Run simulation
             for _ in range(5):
@@ -878,10 +913,10 @@ def test_filename_includes_growth_years():
             filepath = petri.save_history(directory=tmpdir)
             filename = os.path.basename(filepath)
             
-            # Should include g3 for growth_years=3
+            # Should include g3 for growth_phase=3
             if "_g3_" not in filename:
                 results.record(test_name, False,
-                             f"Filename missing growth_years: {filename}")
+                             f"Filename missing growth_phase: {filename}")
                 return
             
             # Verify it's parseable
@@ -896,10 +931,10 @@ def test_filename_includes_growth_years():
 
 
 def test_backwards_compatibility():
-    """Test 8.6: Verify default growth_years=13 maintains compatibility."""
+    """Test 8.6: Verify default growth_phase=13 maintains compatibility."""
     test_name = "Backwards Compatibility"
     try:
-        # Create with defaults (should use growth_years=13)
+        # Create with defaults (should use growth_phase=13)
         petri = PetriDish(rate=0.01, n=50, gene_size=5, seed=42)
         
         # Check target is 8192 (2^13)
@@ -908,9 +943,9 @@ def test_backwards_compatibility():
                          f"Default target is {petri.target_population}, expected 8192")
             return
         
-        if petri.growth_years != 13:
+        if petri.growth_phase != 13:
             results.record(test_name, False,
-                         f"Default growth_years is {petri.growth_years}, expected 13")
+                         f"Default growth_phase is {petri.growth_phase}, expected 13")
             return
         
         results.record(test_name, True)
@@ -918,13 +953,13 @@ def test_backwards_compatibility():
         results.record(test_name, False, str(e))
 
 
-def test_full_pipeline_with_growth_years():
-    """Test 8.7: Complete simulation with custom growth_years."""
+def test_full_pipeline_with_growth_phase():
+    """Test 8.7: Complete simulation with custom growth_phase."""
     test_name = "Full Pipeline Growth Years"
     try:
-        # Quick test with growth_years=3
+        # Quick test with growth_phase=3
         petri = PetriDish(rate=0.05, n=50, gene_size=5, seed=123,
-                         growth_years=3)  # Target = 8
+                         growth_phase=3)  # Target = 8
         
         # Run full simulation
         petri.run_simulation(t_max=10)
@@ -1003,13 +1038,13 @@ def run_all_tests():
     test_statistics_extraction()
     
     print("\n--- GROWTH YEARS TESTS ---")
-    test_growth_years_parameter()
-    test_growth_years_validation()
+    test_growth_phase_parameter()
+    test_growth_phase_validation()
     test_growth_to_steady_transition()
     test_steady_state_with_different_growth()
-    test_filename_includes_growth_years()
+    test_filename_includes_growth_phase()
     test_backwards_compatibility()
-    test_full_pipeline_with_growth_years()
+    test_full_pipeline_with_growth_phase()
     
     # Print summary
     all_passed = results.summary()

@@ -13,12 +13,26 @@ The simulation models:
 - Cell division with lineage tracking
 - Mixed population experiments
 
+## Simulation Approaches
+
+The project offers two different simulation starting points:
+
+### Step 1: Traditional Simulation
+Starts with 10,000 unmethylated cells and tracks them over 100 years. All cells age in parallel without division.
+
+### Step 1-Prime: Biologically Realistic Simulation (NEW)
+Starts with a single unmethylated cell that undergoes exponential growth through division, then maintains homeostasis:
+- **Growth Phase**: Cell population doubles each year (1→2→4→8...)
+- **Steady State**: Population maintained through division and random culling
+- **Configurable Growth**: Choose target population via `--growth-phase` parameter
+- **More Realistic**: Models actual cellular population dynamics
+
 ## Pipeline Overview
 
-The project supports two pipeline approaches:
+After running either Step 1 or Step 1-Prime, you can analyze the results:
 
 ### Original 3-Step Pipeline (Legacy)
-1. **Step 1**: Run base methylation simulation over 100 years
+1. **Step 1/1-Prime**: Run base methylation simulation
 2. **Step 2**: Extract cells at year 50, perform cell division experiments with lineage tracking
 3. **Step 3**: Mix aged lineages with original year 60 cells to analyze population dynamics
 
@@ -27,7 +41,7 @@ A streamlined pipeline that combines steps 2 and 3 into a single, efficient proc
 - **Flexible quantile sampling**: Configure number of quantiles and cells per quantile
 - **Intelligent skip logic**: Detects completed stages and partial states
 - **Improved visualizations**: Clean scatter plots with comprehensive statistics
-1. **Step 1**: Run base methylation simulation over 100 years (same as legacy)
+1. **Step 1/1-Prime**: Run base methylation simulation
 2. **Step23**: Unified pipeline for cell sampling, growth, mixing, and analysis
 
 ## Installation
@@ -49,9 +63,23 @@ This installs:
 
 ## Quick Start
 
-### Recommended: Unified Pipeline
+### Option A: Biologically Realistic Simulation (Step 1-Prime)
 ```bash
-# Step 1: Run base simulation
+# Run simulation starting from 1 cell, growing to 8192 cells (2^13)
+cd step1-prime
+python run_simulation.py --rate 0.005 --years 100 --growth-phase 13
+
+# Quick test with smaller population (16 cells)
+python run_simulation.py --rate 0.01 --years 20 --growth-phase 4 --seed 42
+
+# Step23: Analyze results
+cd ../step23
+python run_pipeline_v2.py --rate 0.005 --simulation ../step1-prime/data/simulation_rate_0.005000_g13_m*_n1000_t100_seed42.json.gz
+```
+
+### Option B: Traditional Simulation (Step 1)
+```bash
+# Step 1: Run base simulation with 10,000 cells
 cd step1
 python run_large_simulation.py --rate 0.005
 
@@ -84,9 +112,62 @@ python plot_distributions.py
 
 ## Detailed Usage
 
-### Step 1: Base Simulation
+### Step 1-Prime: Biologically Realistic Simulation (Recommended)
 
-Run methylation simulation over time:
+Simulates cellular population dynamics starting from a single cell:
+
+```bash
+cd step1-prime
+
+# Standard simulation (8192 cells, 100 years)
+python run_simulation.py --rate 0.005 --years 100 --growth-phase 13 --seed 42
+
+# Parameters:
+# --rate: Methylation rate per site per year (0.005 = 0.5%)
+# --years: Total simulation time
+# --growth-phase: Years of exponential growth (final population = 2^growth-phase)
+# --seed: Random seed (default 42, use -1 for no seed)
+# --sites: Number of CpG sites per cell (default 1000)
+# --gene-size: Sites per gene (default 5)
+
+# Examples with different population sizes:
+python run_simulation.py --growth-phase 10  # 1024 cells (2^10)
+python run_simulation.py --growth-phase 13  # 8192 cells (2^13) - default
+python run_simulation.py --growth-phase 15  # 32768 cells (2^15)
+
+# Run comprehensive test suite
+python tests/test_comprehensive.py  # 26 tests covering all functionality
+python tests/test_edge_cases.py     # 10 edge case tests
+```
+
+#### Growth Phase vs Steady State
+
+**Growth Phase (Years 1 to growth-phase):**
+- Population doubles each year through cell division
+- All cells divide synchronously
+- Deterministic population size: exactly 2^year cells
+- Models embryonic/developmental growth
+
+**Steady State (Years growth-phase+1 onwards):**
+- Population maintained around target size
+- Each year: cells divide (double), then ~50% randomly culled
+- Stochastic population size varies around 2^growth-phase
+- Models adult tissue homeostasis
+
+#### Output Format
+
+Filenames include all key parameters:
+```
+simulation_rate_0.005000_g13_m8192_n1000_t100_seed42.json.gz
+                    ^      ^    ^     ^     ^      ^
+                    |      |    |     |     |      |
+                 rate  growth final  sites years  seed
+                       phase  pop
+```
+
+### Step 1: Traditional Simulation
+
+Run methylation simulation with fixed population:
 
 ```bash
 cd step1
@@ -237,6 +318,27 @@ Individual creation:
 
 ## Customizing Parameters
 
+### Step 1-Prime Parameters
+
+Edit constants in `step1-prime/cell.py` or use CLI arguments:
+- `N`: Number of CpG sites per cell (default: 1000)
+- `RATE`: Default methylation rate (default: 0.005)
+- `GENE_SIZE`: Number of CpG sites per gene (default: 5)
+- `T_MAX`: Maximum simulation time in years (default: 100)
+- `DEFAULT_GROWTH_PHASE`: Default growth phase duration (default: 13)
+
+CLI arguments for `run_simulation.py`:
+- `--rate`: Methylation rate (0.0-1.0)
+- `--sites`: Number of CpG sites
+- `--years`: Simulation duration
+- `--gene-size`: Sites per gene
+- `--growth-phase`: Growth phase duration (1-20)
+- `--seed`: Random seed (default 42, -1 for none)
+- `--output`: Custom output filename
+- `--no-save`: Run without saving results
+
+### Step 1 Parameters
+
 Edit constants in `step1/cell.py`:
 - `N`: Number of CpG sites per cell (default: 1000)
 - `M`: Number of cells in population (default: 10,000)  
@@ -271,7 +373,15 @@ Example structure:
 
 ```
 jpi-methylation-simulation/
-├── step1/                     # Base methylation simulation
+├── step1-prime/               # Biologically realistic simulation (NEW)
+│   ├── cell.py               # Core classes (Cell, PetriDish)
+│   ├── run_simulation.py     # Main CLI runner
+│   ├── tests/                # Comprehensive test suite
+│   │   ├── test_comprehensive.py  # 26 main tests
+│   │   └── test_edge_cases.py     # 10 edge case tests
+│   └── data/                 # Simulation outputs
+│       └── *.json.gz         # Compressed simulation data
+├── step1/                     # Traditional simulation (10,000 cells)
 │   ├── cell.py               # Core simulation classes (Cell, History)
 │   ├── run_large_simulation.py # Main simulation runner with CLI
 │   ├── main.py               # Legacy multi-rate runner
@@ -339,6 +449,27 @@ CpG sites are grouped into genes. The distribution tracks how many genes have 0,
 
 ### Jensen-Shannon Divergence (JSD)
 A symmetric measure of the difference between the cell's methylation distribution and a baseline distribution. Used to quantify how far a cell has diverged from the expected pattern.
+
+### Step 1-Prime Specific Concepts
+
+#### Growth Phase
+The initial period where the cell population doubles each year through synchronous division. Duration is controlled by the `--growth-phase` parameter. During this phase:
+- Population size is deterministic: exactly 2^year cells
+- All cells divide before methylation occurs
+- Models developmental/embryonic growth
+
+#### Steady State (Homeostasis)
+After the growth phase, the population is maintained around the target size through:
+- Cell division (doubling the population)
+- Random culling (~50% survival rate)
+- Methylation of surviving cells
+- Models adult tissue maintenance
+
+#### Time-Based State Transitions
+Unlike population-based decisions, state transitions are determined by time:
+- If `year <= growth_phase`: Growth phase behavior
+- If `year > growth_phase`: Steady state behavior
+- This prevents flip-flopping between states due to random population variations
 
 ## Mathematical Background
 

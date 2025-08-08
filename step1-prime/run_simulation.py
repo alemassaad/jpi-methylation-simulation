@@ -12,7 +12,7 @@ Usage:
 
 import argparse
 import time
-from cell import PetriDish, RATE, N, GENE_SIZE, DEFAULT_GROWTH_YEARS, T_MAX
+from cell import PetriDish, RATE, N, GENE_SIZE, DEFAULT_GROWTH_PHASE, T_MAX
 
 
 def parse_arguments():
@@ -31,9 +31,9 @@ def parse_arguments():
                         help='Number of years to simulate')
     parser.add_argument('-g', '--gene-size', type=int, default=GENE_SIZE,
                         help='Size of genes (sites per gene)')
-    parser.add_argument('--growth-years', type=int, default=DEFAULT_GROWTH_YEARS,
-                        help='Years of exponential growth phase (target = 2^growth_years cells). '
-                             'Default: 13 (8192 cells). Range: 1-20')
+    parser.add_argument('--growth-phase', type=int, default=DEFAULT_GROWTH_PHASE,
+                        help='Duration of growth phase in years (cells double each year). '
+                             'Final population = 2^growth_phase. Default: 13 (8192 cells). Range: 1-20')
     
     # Optional parameters
     parser.add_argument('-o', '--output', type=str, default=None,
@@ -56,7 +56,7 @@ def main():
     n = args.sites
     t_max = args.years
     gene_size = args.gene_size
-    growth_years = args.growth_years
+    growth_phase = args.growth_phase
     seed = args.seed if args.seed != -1 else None  # -1 means no seed
     
     # Validate parameters
@@ -64,9 +64,9 @@ def main():
         print(f"Error: Number of sites ({n}) must be divisible by gene size ({gene_size})")
         return 1
     
-    # Validate growth_years
-    if growth_years < 1 or growth_years > 20:
-        print(f"Error: growth-years must be between 1 and 20, got {growth_years}")
+    # Validate growth_phase
+    if growth_phase < 1 or growth_phase > 20:
+        print(f"Error: growth-phase must be between 1 and 20, got {growth_phase}")
         return 1
     
     # Start timing
@@ -79,7 +79,7 @@ def main():
         n=n,
         gene_size=gene_size,
         seed=seed,
-        growth_years=growth_years
+        growth_phase=growth_phase
     )
     
     # Run simulation

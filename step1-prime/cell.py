@@ -38,7 +38,7 @@ RATE = 0.005
 GENE_SIZE = 5
 BASELINE_METHYLATION_DISTRIBUTION = [1.0] + [0.0 for _ in range(GENE_SIZE)]
 T_MAX = 100
-DEFAULT_GROWTH_YEARS = 13  # Default growth phase duration
+DEFAULT_GROWTH_PHASE = 13  # Default growth phase duration in years
 
 
 class Cell:
@@ -149,7 +149,7 @@ class PetriDish:
     """
     
     def __init__(self, rate: float = RATE, n: int = N, gene_size: int = GENE_SIZE, 
-                 seed: int = None, growth_years: int = DEFAULT_GROWTH_YEARS) -> None:
+                 seed: int = None, growth_phase: int = DEFAULT_GROWTH_PHASE) -> None:
         """
         Initialize petri dish with a single unmethylated cell.
         
@@ -158,13 +158,13 @@ class PetriDish:
             n: Number of CpG sites per cell
             gene_size: Number of sites per gene
             seed: Random seed for reproducibility
-            growth_years: Years of exponential growth (target = 2^growth_years cells)
+            growth_phase: Duration of growth phase in years (target = 2^growth_phase cells)
         """
-        # Validate growth_years
-        if growth_years < 1:
-            raise ValueError(f"growth_years must be >= 1, got {growth_years}")
-        if growth_years > 20:
-            raise ValueError(f"growth_years must be <= 20 (max 1M cells), got {growth_years}")
+        # Validate growth_phase
+        if growth_phase < 1:
+            raise ValueError(f"growth_phase must be >= 1, got {growth_phase}")
+        if growth_phase > 20:
+            raise ValueError(f"growth_phase must be <= 20 (max 1M cells), got {growth_phase}")
         
         if seed is not None:
             random.seed(seed)
@@ -173,9 +173,8 @@ class PetriDish:
         self.n = n
         self.gene_size = gene_size
         self.seed = seed
-        self.growth_years = growth_years
-        self.target_population = 2 ** growth_years  # Calculate from growth_years
-        self.reached_target = False  # Initialize here
+        self.growth_phase = growth_phase
+        self.target_population = 2 ** growth_phase  # Calculate from growth_phase
         
         # Start with single unmethylated cell
         self.cells = [Cell(n=n, rate=rate, gene_size=gene_size)]
@@ -221,18 +220,15 @@ class PetriDish:
         
     def age_cells_growth_phase(self) -> None:
         """
-        Age cells during growth phase (years 1-13).
+        Age cells during growth phase.
         Process: divide → methylate
         """
         self.divide_cells()
-        # Check if we've reached target after division
-        if len(self.cells) >= self.target_population:
-            self.reached_target = True
         self.methylate_cells()
         
     def age_cells_steady_state(self) -> None:
         """
-        Age cells during steady state (years 14+).
+        Age cells during steady state (after growth phase).
         Process: divide → cull → methylate
         """
         self.divide_cells()      # 8192 → 16384
@@ -242,25 +238,28 @@ class PetriDish:
     def simulate_year(self) -> None:
         """
         Simulate one year of population dynamics.
-        Chooses appropriate aging strategy based on population size.
+        Chooses appropriate aging strategy based on current year.
         """
         self.year += 1
         print(f"\nYear {self.year}:")
         
-        current_population = len(self.cells)
-        
-        # Check if we've ever reached the target
-        if current_population >= self.target_population:
-            self.reached_target = True
-        
-        if not self.reached_target:
+        if self.year <= self.growth_phase:
             # Growth phase: simple division and methylation
-            print(f"  Growth phase (current: {current_population}, target: {self.target_population})")
+            print(f"  Growth phase (year {self.year} of {self.growth_phase})")
             self.age_cells_growth_phase()
+            # Show it's predictable during growth
+            expected = 2 ** self.year
+            actual = len(self.cells)
+            if actual == expected:
+                print(f"  Final count: {actual} cells (predictable: 2^{self.year})")
+            else:
+                print(f"  Final count: {actual} cells (expected: {expected})")
         else:
             # Steady state: division, culling, methylation
-            print(f"  Steady state phase (maintaining ~{self.target_population} cells)")
+            print(f"  Steady state phase")
             self.age_cells_steady_state()
+            # Show it's random during steady state
+            print(f"  Final count: {len(self.cells)} cells (random ~{self.target_population})")
             
         # Store current state after all operations
         self.history[str(self.year)] = [cell.to_dict() for cell in self.cells]
@@ -268,7 +267,6 @@ class PetriDish:
         # Report statistics
         jsd_values = [cell.JSD for cell in self.cells]
         mean_jsd = statistics.mean(jsd_values) if jsd_values else 0.0
-        print(f"  Final count: {len(self.cells)} cells")
         print(f"  Mean JSD: {mean_jsd:.4f}")
         
     def run_simulation(self, t_max: int = T_MAX) -> None:
@@ -285,8 +283,8 @@ class PetriDish:
         print(f"  Methylation rate: {self.rate:.3%}")
         print(f"  CpG sites per cell: {self.n}")
         print(f"  Gene size: {self.gene_size}")
-        print(f"  Growth years: {self.growth_years}")
-        print(f"  Target population: {self.target_population} (2^{self.growth_years})")
+        print(f"  Growth phase: {self.growth_phase} years")
+        print(f"  Target population: {self.target_population} (2^{self.growth_phase})")
         print(f"  Max years: {t_max}")
         print(f"  Random seed: {self.seed}")
         print("="*60)
@@ -320,8 +318,8 @@ class PetriDish:
             seed_str = f"_seed{self.seed}" if self.seed is not None else "_noseed"
             # Use actual final population count, not target
             final_pop = len(self.cells)
-            # Include growth_years in filename
-            filename = f"simulation_rate_{self.rate:.6f}_g{self.growth_years}_m{final_pop}_n{self.n}_t{self.year}{seed_str}"
+            # Include growth_phase in filename
+            filename = f"simulation_rate_{self.rate:.6f}_g{self.growth_phase}_m{final_pop}_n{self.n}_t{self.year}{seed_str}"
         
         filepath = os.path.join(directory, filename + ".json.gz")
         print(f"\nSaving compressed history to {filepath}")

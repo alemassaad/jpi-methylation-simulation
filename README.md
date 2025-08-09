@@ -1,55 +1,26 @@
 # DNA Methylation Simulation
 
-A Python-based simulation framework for modeling DNA methylation patterns in cells over time. This project simulates how CpG sites become methylated as cells age, tracking the distribution of methylation across genes and calculating divergence from baseline patterns.
+A biologically realistic simulation framework for modeling DNA methylation patterns and epigenetic drift over time. This project uses object-oriented design to simulate how cells accumulate methylation through growth, division, and homeostasis.
 
 ## Overview
 
 The simulation models:
-- Individual cells with configurable numbers of CpG sites
-- Stochastic methylation events over time
-- Methylation distribution across genes
-- Jensen-Shannon divergence (JSD) from baseline methylation patterns
-- Population-level statistics across thousands of cells
-- Cell division with lineage tracking
+- Single-cell origin with exponential growth and homeostasis
+- Stochastic methylation accumulation (epigenetic drift)
+- Cell division with methylation pattern inheritance
+- Population dynamics and steady-state maintenance
+- Quantile-based stratified sampling
 - Mixed population experiments
+- Jensen-Shannon divergence (JSD) from baseline patterns
 
-## Simulation Approaches
+## Main Pipeline: Step1-Prime → Step23-Prime
 
-The project offers two different simulation starting points:
-
-### Step 1: Traditional Simulation
-Starts with 10,000 unmethylated cells and tracks them over 100 years. All cells age in parallel without division.
-
-### Step 1-Prime: Biologically Realistic Simulation (NEW)
-Starts with a single unmethylated cell that undergoes exponential growth through division, then maintains homeostasis:
-- **Growth Phase**: Cell population doubles each year (1→2→4→8...)
-- **Steady State**: Population maintained through division and random culling
-- **Configurable Growth**: Choose target population via `--growth-phase` parameter
-- **More Realistic**: Models actual cellular population dynamics
-
-## Pipeline Overview
-
-After running either Step 1 or Step 1-Prime, you can analyze the results:
-
-### Original 3-Step Pipeline (Legacy)
-1. **Step 1/1-Prime**: Run base methylation simulation
-2. **Step 2**: Extract cells at year 50, perform cell division experiments with lineage tracking
-3. **Step 3**: Mix aged lineages with original year 60 cells to analyze population dynamics
-
-### Unified Step23 Pipeline V2 (Recommended)
-A streamlined pipeline that combines steps 2 and 3 into a single, efficient process with:
-- **Flexible quantile sampling**: Configure number of quantiles and cells per quantile
-- **Intelligent skip logic**: Detects completed stages and partial states
-- **Improved visualizations**: Clean scatter plots with comprehensive statistics
-1. **Step 1/1-Prime**: Run base methylation simulation
-2. **Step23**: Unified pipeline for cell sampling, growth, mixing, and analysis
-
-### Step23-Prime: Refactored Pipeline
-A cleaner OOP implementation using PetriDish and Cell objects:
-- **Object-Oriented**: Uses Cell and PetriDish classes for cleaner code
-- **Fully Reproducible**: Proper random seeding ensures deterministic results
-- **Validated**: Produces statistically equivalent results to original step23
-- **Well-Tested**: Comprehensive test suite for reproducibility and validation
+The prime pipeline is our production-ready implementation featuring:
+- **Biological Realism**: Single cell → exponential growth → homeostasis
+- **Clean Architecture**: Object-oriented Cell and PetriDish classes
+- **Full Reproducibility**: Comprehensive random seeding
+- **Hierarchical Organization**: Parameter-based directory structure with MD5 hashing
+- **Dynamic Configuration**: Flexible snapshot years and growth parameters
 
 ## Installation
 
@@ -67,72 +38,47 @@ pip install -r requirements.txt
 This installs:
 - `plotly` (>=5.0.0, <6.0.0) - For data visualization
 - `kaleido` (0.2.1) - For PNG export
+- `scipy` - For statistical analysis
+- `numpy` - For numerical operations
 
 ## Quick Start
 
-### Option A: Biologically Realistic Simulation (Step 1-Prime)
+### Step 1-Prime: Biologically Realistic Simulation
 ```bash
 # Run simulation starting from 1 cell, growing to 8192 cells (2^13)
 cd step1-prime
-python run_simulation.py --rate 0.005 --years 100 --growth-phase 13
+python run_simulation.py --rate 0.005 --years 100 --growth-phase 13 --seed 42
 
-# Quick test with smaller population (16 cells)
-python run_simulation.py --rate 0.01 --years 20 --growth-phase 4 --seed 42
-
-# Step23: Analyze results
-cd ../step23
-python run_pipeline_v2.py --rate 0.005 --simulation ../step1-prime/data/simulation_rate_0.005000_g13_m*_n1000_t100_seed42.json.gz
+# Output will be in hierarchical structure:
+# data/rate_0.00500/grow13-sites1000-years100-seed42-XXXX/simulation.json.gz
 ```
 
-### Option B: Traditional Simulation (Step 1)
+### Step23-Prime: Analysis Pipeline
 ```bash
-# Step 1: Run base simulation with 10,000 cells
-cd step1
-python run_large_simulation.py --rate 0.005
-
-# Step23: Complete analysis pipeline (V2 with flexible quantiles)
-cd ../step23
-python run_pipeline_v2.py --rate 0.005 --simulation ../step1/data/simulation_rate_0.005000_m10000_n1000_t100.json.gz
-
-# Quick test with 4 individuals (quartiles)
-python run_pipeline_v2.py --rate 0.005 --simulation ../step1/data/simulation_rate_0.005000_m10000_n1000_t100.json.gz \
-    --n-quantiles 4 --cells-per-quantile 1 --growth-years 2
-```
-
-### Option C: Step23-Prime Refactored Pipeline
-```bash
-# Use with either step1 or step1-prime simulations
 cd step23-prime
-python run_pipeline.py --rate 0.005 --simulation ../step1/data/simulation_rate_0.005000_m10000_n1000_t100.json.gz
 
-# Test reproducibility
-python test_reproducibility_robust.py
+# Standard analysis (30 individuals from 10 deciles)
+python run_pipeline.py --rate 0.005 \
+    --simulation ../step1-prime/data/rate_0.00500/grow13-*/simulation.json.gz \
+    --snapshot-year 50 --growth-years 10 --seed 42
 
-# Compare with original step23
-python generate_comparison_report.py
-```
+# Quick test (4 individuals from quartiles, 2 years growth)
+python run_pipeline.py --rate 0.005 \
+    --simulation ../step1-prime/data/rate_0.00500/grow13-*/simulation.json.gz \
+    --n-quantiles 4 --cells-per-quantile 1 --growth-years 2
 
-### Legacy: Original 3-Step Pipeline
-```bash
-# Step 1: Run simulation
-cd step1
-python run_large_simulation.py --rate 0.005
-
-# Step 2: Create lineages from year 50
-cd ../step2/scripts
-python extract_snapshot.py
-python create_lineages.py --type both
-
-# Step 3: Create mixed populations and analyze
-cd ../../step3/scripts
-python extract_year60_original.py
-python create_individuals.py --type both
-python plot_distributions.py
+# Output structure:
+# data/rate_0.00500-grow13-sites1000-years100/
+#   └── snap50-quant10x3-grow10-mix80-seed42-XXXX/
+#       ├── snapshots/     # Cached year 50 and 60 extracts
+#       ├── individuals/   # Mutant, Control1, Control2 populations
+#       ├── plots/         # JSD distributions and comparisons
+#       └── results/       # Statistical analyses
 ```
 
 ## Detailed Usage
 
-### Step 1-Prime: Biologically Realistic Simulation (Recommended)
+### Step 1-Prime: Biologically Realistic Simulation
 
 Simulates cellular population dynamics starting from a single cell:
 
@@ -154,10 +100,6 @@ python run_simulation.py --rate 0.005 --years 100 --growth-phase 13 --seed 42
 python run_simulation.py --growth-phase 10  # 1024 cells (2^10)
 python run_simulation.py --growth-phase 13  # 8192 cells (2^13) - default
 python run_simulation.py --growth-phase 15  # 32768 cells (2^15)
-
-# Run comprehensive test suite
-python tests/test_comprehensive.py  # 26 tests covering all functionality
-python tests/test_edge_cases.py     # 10 edge case tests
 ```
 
 #### Growth Phase vs Steady State
@@ -174,289 +116,112 @@ python tests/test_edge_cases.py     # 10 edge case tests
 - Stochastic population size varies around 2^growth-phase
 - Models adult tissue homeostasis
 
-#### Output Format
+### Step23-Prime: Analysis Pipeline
 
-Filenames include all key parameters:
-```
-simulation_rate_0.005000_g13_m8192_n1000_t100_seed42.json.gz
-                    ^      ^    ^     ^     ^      ^
-                    |      |    |     |     |      |
-                 rate  growth final  sites years  seed
-                       phase  pop
-```
-
-### Step 1: Traditional Simulation
-
-Run methylation simulation with fixed population:
+Complete pipeline from cell sampling to analysis:
 
 ```bash
-cd step1
+cd step23-prime
 
-# Run with default parameters (rate=0.005, n=1000, m=10000, t=100)
-python run_large_simulation.py
-
-# Run with custom methylation rate
-python run_large_simulation.py --rate 0.01
-
-# Quick test with small parameters
-python test_small.py
-
-# Visualize results
-python plot_history.py data/simulation_rate_0.005000_m10000_n1000_t100.json.gz
-```
-
-### Step23: Unified Pipeline V2 (Recommended)
-
-Complete pipeline from cell sampling to analysis with flexible quantile sampling and improved skip logic:
-
-```bash
-cd step23
-
-# Standard run with defaults (10 deciles × 3 cells = 30 individuals)
-python run_pipeline_v2.py --rate 0.005 --simulation ../step1/data/simulation_rate_0.005000_m10000_n1000_t100.json.gz
-
-# Quick test with 4 individuals (quartiles)
-python run_pipeline_v2.py --rate 0.005 --simulation ../step1/data/*.json.gz \
-    --n-quantiles 4 --cells-per-quantile 1 --growth-years 2
-
-# Full run with custom parameters
-python run_pipeline_v2.py \
+# Full run with all parameters
+python run_pipeline.py \
     --rate 0.005 \
-    --simulation ../step1/data/simulation_rate_0.005000_m10000_n1000_t100.json.gz \
-    --n-quantiles 10 \           # Number of quantiles (10 = deciles, 4 = quartiles)
-    --cells-per-quantile 3 \      # Cells sampled per quantile
-    --growth-years 10 \           # Years to grow (defaults to 10, matching 50→60 gap)
-    --mix-ratio 80 \              # % of year 60 cells in mix
-    --bins 200 \                  # Histogram bins
-    --seed 42
+    --simulation ../step1-prime/data/rate_0.00500/grow13-*/simulation.json.gz \
+    --snapshot-year 50 \        # First snapshot year (default: 50)
+    --growth-years 10 \         # Years to grow individuals (default: 10)
+    --n-quantiles 10 \          # Number of quantiles for sampling
+    --cells-per-quantile 3 \    # Cells sampled per quantile
+    --mix-ratio 80 \            # % of snapshot cells in final mix
+    --bins 200 \                # Histogram bins for JSD plot
+    --seed 42                   # Random seed for reproducibility
 ```
 
-**Important Notes:**
-- `--growth-years` defaults to 10 (matching the year 50→60 gap) and should normally not be changed
-- Use `--n-quantiles 4 --cells-per-quantile 1` for quick testing (4 individuals)
-- The pipeline intelligently skips completed stages on subsequent runs
+**Pipeline Stages:**
 
-**Pipeline stages with skip logic:**
-1. **Extract year 50 snapshot** 
-   - Cached in `snapshots/year50_snapshot.json.gz`
-   - Skipped if exists and checkpoint confirms completion
-2. **Plot JSD distribution** 
-   - Step histogram with filled area
-   - Statistics box: Mean, Median, SD, CV (coefficient of variation), MAD (median absolute deviation), 5%, 95%
-   - X-axis labeled "JSD Score"
-   - Shows methylation rate as percentage (e.g., "0.5% methylation rate")
-   - Bins shown only in filename, not plot subtitle
-3. **Create individuals**:
-   - 30 mutant individuals (3 cells sampled from each JSD decile)
-   - 30 control1 individuals (uniform sampling across population)
-   - Skipped if all 30 files exist for each group
-4. **Grow individuals** for 10 years (age 50→60):
-   - Each year: cells divide (creating copies) then age (methylate)
-   - Growth progression: 1→2→4→8→16→32→64→128→256→512→1024 cells
-   - Files updated in-place (no separate lineage files)
-   - Skipped if individuals already have 1024 cells
-5. **Extract year 60 snapshot**
-   - Cached in `snapshots/year60_snapshot.json.gz`
-   - Skipped if exists and checkpoint confirms completion
-6. **Mix populations**:
-   - Samples year 60 cells WITHOUT replacement using `random.sample()`
-   - Adds cells to reach configured ratio (default 80% year 60, 20% grown)
-   - Final size: 5,120 cells per individual (at 80-20 ratio)
-   - Skipped if individuals have more than 1024 cells (already mixed)
-7. **Create control2 individuals**: 
-   - 30 individuals of pure year 60 cells (5,120 cells each)
-   - Skipped if all 30 control2 files exist
-8. **Analysis**: 
-   - Compare mean JSD distributions across all three groups
-   - Clean scatter plots with:
-     - Jittered points for each individual
-     - Horizontal lines showing mean (solid), 25-75% (dashed), and 5-95% (dotted) ranges
-     - Comprehensive statistics below each group: Mean, Median, SD, CV, MAD, 5%, 95%
-   - Statistical t-tests between groups
-   - Results saved to `results/` directory
+1. **Extract First Snapshot** (e.g., year 50)
+   - Cached in `snapshots/year{N}_snapshot.json.gz`
+   
+2. **Plot JSD Distribution**
+   - Step histogram with statistics overlay
+   - Mean, Median, SD, CV, MAD, 5%, 95%
+   
+3. **Create Initial Individuals**
+   - Mutant: Quantile-based sampling (e.g., 3 from each decile)
+   - Control1: Uniform random sampling
+   
+4. **Grow Individuals**
+   - Cell division + methylation for N years
+   - Growth: 1→2→4→...→2^N cells
+   
+5. **Extract Second Snapshot** (first_snapshot + growth_years)
+   - Age-aligned with grown individuals
+   
+6. **Mix Populations**
+   - Add snapshot cells to grown individuals
+   - Default: 80% snapshot, 20% grown
+   
+7. **Create Control2**
+   - Pure second snapshot cells
+   - Same total count as mixed populations
+   
+8. **Analysis & Visualization**
+   - Scatter plots with statistical overlays
+   - T-tests between all group pairs
+   - Cell-level and individual-level distributions
 
-**Checkpoint System:**
-- Pipeline progress tracked in `pipeline_checkpoint.json`
-- Records completed stages, parameters, and file information
-- Enables precise skip decisions and pipeline resumption
-- Automatically detects what needs to be done vs what can be skipped
+## Key Features
 
-**Force Recreation:**
-```bash
-# Force complete recreation
-rm -rf data/rate_0.005000/
+### Hierarchical Directory Structure
+```
+step1-prime output:
+data/rate_0.00500/grow13-sites1000-years100-seed42-XXXX/simulation.json.gz
 
-# Force recreation of specific group
-rm -rf data/rate_0.005000/individuals/mutant/
-
-# Force recreation of all individuals
-rm -rf data/rate_0.005000/individuals/
+step23-prime output:
+data/rate_0.00500-grow13-sites1000-years100/
+  └── snap50-quant10x3-grow10-mix80-seed42-XXXX/
+      ├── snapshots/
+      ├── individuals/
+      ├── plots/
+      └── results/
 ```
 
-### Step 2: Cell Division Experiments (Legacy)
+### Full Reproducibility
+- Global random seeding at pipeline start
+- NumPy seeding for all array operations
+- Deterministic file I/O and sampling
+- MD5 hashing for unique directory names
 
-Extract cells and perform division experiments:
+### Object-Oriented Design
+```python
+# Cell class - individual cell methylation
+cell = Cell(n=1000, rate=0.005)
+cell.methylate()  # Apply stochastic methylation
+daughter = cell.create_daughter_cell()  # Mitosis
 
-```bash
-cd step2/scripts
-
-# Extract year 50 snapshot from simulation
-python extract_snapshot.py --year 50
-
-# Create both mutant and control lineages
-python create_lineages.py --type both
-
-# Plot JSD distribution of a snapshot
-python plot_jsd_distribution.py ../data/snapshots/year50_snapshot.json.gz 200
-```
-
-Lineage creation:
-- **Mutant lineages**: Samples 3 cells from each JSD decile (30 total)
-- **Control lineages**: Samples 30 cells uniformly from population
-- Each lineage undergoes 10 years of division, resulting in 1,024 cells
-
-### Step 3: Mixed Population Analysis (Legacy)
-
-Analyze mixed populations:
-
-```bash
-cd step3/scripts
-
-# Extract year 60 from original simulation
-python extract_year60_original.py
-
-# Create mixed individuals (both mutant and control)
-python create_individuals.py --type both
-
-# Plot comparison
-python plot_distributions.py
-```
-
-Individual creation:
-- Each individual: 80% original year 60 cells + 20% lineage cells
-- Creates 30 individuals for both mutant and control groups
-
-## Customizing Parameters
-
-### Step 1-Prime Parameters
-
-Edit constants in `step1-prime/cell.py` or use CLI arguments:
-- `N`: Number of CpG sites per cell (default: 1000)
-- `RATE`: Default methylation rate (default: 0.005)
-- `GENE_SIZE`: Number of CpG sites per gene (default: 5)
-- `T_MAX`: Maximum simulation time in years (default: 100)
-- `DEFAULT_GROWTH_PHASE`: Default growth phase duration (default: 13)
-
-CLI arguments for `run_simulation.py`:
-- `--rate`: Methylation rate (0.0-1.0)
-- `--sites`: Number of CpG sites
-- `--years`: Simulation duration
-- `--gene-size`: Sites per gene
-- `--growth-phase`: Growth phase duration (1-20)
-- `--seed`: Random seed (default 42, -1 for none)
-- `--output`: Custom output filename
-- `--no-save`: Run without saving results
-
-### Step 1 Parameters
-
-Edit constants in `step1/cell.py`:
-- `N`: Number of CpG sites per cell (default: 1000)
-- `M`: Number of cells in population (default: 10,000)  
-- `T_MAX`: Maximum simulation time in years (default: 100)
-- `GENE_SIZE`: Number of CpG sites per gene (default: 5)
-- `RATE`: Default methylation rate (default: 0.01)
-
-## Output Format
-
-Simulations produce compressed JSON files (`.json.gz`) with structure:
-
-Example structure:
-```json
-{
-  "0": [
-    {
-      "cpg_sites": [0, 0, 0, ...],
-      "methylation_proportion": 0.0,
-      "methylation_distribution": [1.0, 0.0, 0.0, 0.0, 0.0, 0.0],
-      "jsd": 0.0,
-      "age": 0,
-      "gene_size": 5,
-      "rate": 0.01
-    },
-    ...
-  ],
-  ...
-}
+# PetriDish class - population management
+petri = PetriDish(rate=0.005, growth_phase=13)
+petri.divide_cells()  # Population doubles
+petri.methylate_cells()  # Apply methylation
+petri.random_cull_cells()  # Homeostatic culling
 ```
 
 ## Project Structure
 
 ```
 jpi-methylation-simulation/
-├── step1-prime/               # Biologically realistic simulation (NEW)
+├── step1-prime/               # Main simulation (NEW)
 │   ├── cell.py               # Core classes (Cell, PetriDish)
 │   ├── run_simulation.py     # Main CLI runner
-│   ├── tests/                # Comprehensive test suite
-│   │   ├── test_comprehensive.py  # 26 main tests
-│   │   └── test_edge_cases.py     # 10 edge case tests
-│   └── data/                 # Simulation outputs
-│       └── *.json.gz         # Compressed simulation data
-├── step1/                     # Traditional simulation (10,000 cells)
-│   ├── cell.py               # Core simulation classes (Cell, History)
-│   ├── run_large_simulation.py # Main simulation runner with CLI
-│   ├── main.py               # Legacy multi-rate runner
-│   ├── test_small.py         # Quick test script
-│   ├── plot_history.py       # Visualization script
-│   └── data/                 # Simulation outputs
-│       └── *.json.gz         # Compressed simulation data
-├── step23/                    # Unified pipeline (RECOMMENDED)
-│   ├── run_pipeline.py       # Main pipeline orchestrator
-│   ├── pipeline_utils.py    # Core utilities (sampling, growth, mixing)
-│   ├── pipeline_analysis.py # Visualization and statistics
-│   ├── pipeline_checkpoint.py # Checkpoint tracking system
-│   ├── __init__.py          # Package initialization
-│   └── data/
-│       └── rate_X.XXXXXX/    # Rate-specific outputs
-│           ├── pipeline_checkpoint.json # Progress tracking
-│           ├── snapshots/    # Cached year 50 & 60 snapshots
-│           ├── individuals/
-│           │   ├── mutant/   # 30 mutant individuals (decile-based)
-│           │   ├── control1/ # 30 control1 individuals (uniform)
-│           │   └── control2/ # 30 control2 individuals (pure year 60)
-│           ├── plots/        # JSD distributions & comparisons
-│           └── results/      # Statistical analysis & metadata
-├── step2/                     # Cell division experiments (LEGACY)
-│   ├── scripts/
-│   │   ├── extract_snapshot.py    # Extract year from simulation
-│   │   ├── create_lineages.py     # Create mutant & control lineages
-│   │   ├── plot_jsd_distribution.py # Plot JSD distributions
-│   │   └── batch_processor.py     # Batch processing
-│   └── data/
-│       ├── snapshots/        # Year snapshots
-│       ├── lineages/
-│       │   ├── mutant/       # 30 decile-based lineages
-│       │   └── control/      # 30 uniform lineages
-│       └── plots/            # Visualization outputs
-├── step3/                     # Mixed population analysis (LEGACY)
-│   ├── scripts/
-│   │   ├── extract_year60_original.py # Extract year 60
-│   │   ├── create_individuals.py      # Create mixed populations
-│   │   ├── plot_distributions.py      # Compare distributions
-│   │   └── test_pipeline.py          # Test the pipeline
-│   └── data/
-│       ├── snapshots/        # Year 60 snapshots
-│       ├── individuals/
-│       │   ├── mutant/       # 30 mixed mutant individuals
-│       │   └── control/      # 30 mixed control individuals
-│       ├── plots/            # Comparison visualizations
-│       └── results/          # Analysis results
-├── tests/                     # Reproducibility tests
-│   ├── test_reproducibility.py
-│   └── test_reproducibility_expected.json
+│   └── data/                 # Hierarchical output structure
+├── step23-prime/              # Main analysis pipeline (NEW)
+│   ├── run_pipeline.py       # Pipeline orchestrator
+│   ├── pipeline_utils.py     # Cell/PetriDish utilities
+│   ├── pipeline_analysis.py  # Visualization functions
+│   ├── path_utils.py         # Path parsing/generation
+│   └── data/                 # Hierarchical output structure
 ├── requirements.txt           # Python dependencies
 ├── README.md                  # This file
-├── CLAUDE.md                  # Guidance for AI assistants
-└── .gitignore                # Git ignore patterns
+└── CLAUDE.md                  # AI assistant guidance
 ```
 
 ## Key Concepts
@@ -470,26 +235,8 @@ CpG sites are grouped into genes. The distribution tracks how many genes have 0,
 ### Jensen-Shannon Divergence (JSD)
 A symmetric measure of the difference between the cell's methylation distribution and a baseline distribution. Used to quantify how far a cell has diverged from the expected pattern.
 
-### Step 1-Prime Specific Concepts
-
-#### Growth Phase
-The initial period where the cell population doubles each year through synchronous division. Duration is controlled by the `--growth-phase` parameter. During this phase:
-- Population size is deterministic: exactly 2^year cells
-- All cells divide before methylation occurs
-- Models developmental/embryonic growth
-
-#### Steady State (Homeostasis)
-After the growth phase, the population is maintained around the target size through:
-- Cell division (doubling the population)
-- Random culling (~50% survival rate)
-- Methylation of surviving cells
-- Models adult tissue maintenance
-
-#### Time-Based State Transitions
-Unlike population-based decisions, state transitions are determined by time:
-- If `year <= growth_phase`: Growth phase behavior
-- If `year > growth_phase`: Steady state behavior
-- This prevents flip-flopping between states due to random population variations
+### Epigenetic Drift
+The gradual accumulation of methylation changes over time, modeled through stochastic methylation events.
 
 ## Mathematical Background
 
@@ -497,9 +244,45 @@ The simulation uses:
 - **Kullback-Leibler (KL) divergence**: Measures difference between probability distributions
 - **Jensen-Shannon (JS) divergence**: Symmetric version of KL divergence, calculated as the average of KL divergences to the midpoint distribution
 
-## Contributing
+---
 
-Feel free to submit issues or pull requests. Please ensure any changes maintain compatibility with the existing data format and include appropriate documentation.
+## Alternative Pipelines (Historical Reference)
+
+### Legacy Pipeline Versions
+
+For backward compatibility and historical reference, the original pipelines are preserved:
+
+#### Step23 Pipeline V2 (Unified, Pre-OOP)
+The precursor to step23-prime, using dictionary-based data structures:
+```bash
+cd step23
+python run_pipeline_v2.py --rate 0.005 \
+    --simulation ../step1/data/simulation_rate_0.005000_m10000_n1000_t100.json.gz
+```
+
+#### Original 3-Step Pipeline
+The initial implementation with separate steps:
+```bash
+# Step 1: Traditional simulation (10,000 cells)
+cd step1
+python run_large_simulation.py --rate 0.005
+
+# Step 2: Cell division experiments
+cd ../step2/scripts
+python extract_snapshot.py --year 50
+python create_lineages.py --type both
+
+# Step 3: Mixed population analysis
+cd ../../step3/scripts
+python extract_year60_original.py
+python create_individuals.py --type both
+python plot_distributions.py
+```
+
+These legacy versions are maintained for:
+- Reproducibility of earlier results
+- Validation of the prime pipeline
+- Historical documentation
 
 ## License
 

@@ -209,16 +209,22 @@ petri.random_cull_cells()  # Homeostatic culling
 
 ```
 jpi-methylation-simulation/
-├── step1-prime/               # Main simulation (NEW)
+├── step1-prime/               # Main simulation (PRODUCTION)
 │   ├── cell.py               # Core classes (Cell, PetriDish)
 │   ├── run_simulation.py     # Main CLI runner
+│   ├── plot_history.py       # Time-series visualization
 │   └── data/                 # Hierarchical output structure
-├── step23-prime/              # Main analysis pipeline (NEW)
+├── step23-prime/              # Main analysis pipeline (PRODUCTION)
 │   ├── run_pipeline.py       # Pipeline orchestrator
 │   ├── pipeline_utils.py     # Cell/PetriDish utilities
 │   ├── pipeline_analysis.py  # Visualization functions
 │   ├── path_utils.py         # Path parsing/generation
 │   └── data/                 # Hierarchical output structure
+├── legacy/                    # Historical implementations
+│   ├── step1/                # Traditional simulation
+│   ├── step2/                # Original division experiments
+│   ├── step3/                # Original mixing analysis
+│   └── step23/               # Pre-OOP unified pipeline
 ├── requirements.txt           # Python dependencies
 ├── README.md                  # This file
 └── CLAUDE.md                  # AI assistant guidance
@@ -250,30 +256,30 @@ The simulation uses:
 
 ### Legacy Pipeline Versions
 
-For backward compatibility and historical reference, the original pipelines are preserved:
+For backward compatibility and historical reference, the original pipelines are preserved in the `legacy/` directory:
 
 #### Step23 Pipeline V2 (Unified, Pre-OOP)
 The precursor to step23-prime, using dictionary-based data structures:
 ```bash
-cd step23
+cd legacy/step23
 python run_pipeline_v2.py --rate 0.005 \
-    --simulation ../legacy/step1/data/simulation_rate_0.005000_m10000_n1000_t100.json.gz
+    --simulation ../step1/data/simulation_rate_0.005000_m10000_n1000_t100.json.gz
 ```
 
 #### Original 3-Step Pipeline
 The initial implementation with separate steps:
 ```bash
 # Step 1: Traditional simulation (10,000 cells)
-cd step1
+cd legacy/step1
 python run_large_simulation.py --rate 0.005
 
 # Step 2: Cell division experiments
-cd ../step2/scripts
+cd legacy/step2/scripts
 python extract_snapshot.py --year 50
 python create_lineages.py --type both
 
 # Step 3: Mixed population analysis
-cd ../../step3/scripts
+cd legacy/step3/scripts
 python extract_year60_original.py
 python create_individuals.py --type both
 python plot_distributions.py

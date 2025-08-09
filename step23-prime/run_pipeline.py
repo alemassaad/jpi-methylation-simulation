@@ -40,12 +40,16 @@ from pipeline_analysis import (
     analyze_populations_from_dishes,
     plot_cell_level_distributions
 )
+from path_utils import parse_step1_simulation_path, generate_step23_output_dir
 
 
 def run_pipeline(args):
     """
     Main pipeline orchestrator using PetriDish objects.
     """
+    # Calculate snapshot years (always dynamic now)
+    first_snapshot_year = args.snapshot_year
+    second_snapshot_year = args.snapshot_year + args.growth_years
     
     start_time = time.time()
     
@@ -60,12 +64,17 @@ def run_pipeline(args):
     # SETUP
     # ========================================================================
     
+    # Parse simulation parameters from input file
+    sim_params = parse_step1_simulation_path(args.simulation)
+    if not sim_params:
+        print(f"Error: Could not parse simulation parameters from {args.simulation}")
+        sys.exit(1)
+    
     # Calculate total expected individuals
     expected_individuals = args.n_quantiles * args.cells_per_quantile
     
-    # Setup output directories
-    rate_str = f"rate_{args.rate:.6f}"
-    base_dir = os.path.join(args.output_dir, rate_str)
+    # Generate hierarchical output directory
+    base_dir = generate_step23_output_dir(args, sim_params)
     
     snapshots_dir = os.path.join(base_dir, "snapshots")
     individuals_dir = os.path.join(base_dir, "individuals")
@@ -89,28 +98,29 @@ def run_pipeline(args):
     print(f"Cells per quantile: {args.cells_per_quantile}")
     print(f"Total individuals: {expected_individuals} per group")
     print(f"Growth years: {args.growth_years} (target: {2**args.growth_years} cells)")
-    print(f"Mix ratio: {args.mix_ratio}% year 60, {100-args.mix_ratio}% grown")
+    print(f"Snapshot years: {first_snapshot_year} → {second_snapshot_year} (growth: {args.growth_years} years)")
+    print(f"Mix ratio: {args.mix_ratio}% year {second_snapshot_year}, {100-args.mix_ratio}% grown")
     print(f"Seed: {args.seed}")
     print("=" * 80)
     
     # ========================================================================
-    # STAGE 1: Extract Year 50 Snapshot
+    # STAGE 1: Extract First Snapshot
     # ========================================================================
     print(f"\n{'='*60}")
-    print("STAGE 1: Extract Year 50 Snapshot")
+    print(f"STAGE 1: Extract Year {first_snapshot_year} Snapshot")
     print(f"{'='*60}")
     
-    year50_path = os.path.join(snapshots_dir, "year50_snapshot.json.gz")
+    first_snapshot_path = os.path.join(snapshots_dir, f"year{first_snapshot_year}_snapshot.json.gz")
     
-    if os.path.exists(year50_path) and not args.force_reload:
-        print(f"  ⏭ Loading existing snapshot from {year50_path}...")
-        year50_cells = load_snapshot_cells(year50_path)
-        print(f"  Loaded {len(year50_cells)} Cell objects")
+    if os.path.exists(first_snapshot_path) and not args.force_reload:
+        print(f"  ⏭ Loading existing snapshot from {first_snapshot_path}...")
+        first_snapshot_cells = load_snapshot_cells(first_snapshot_path)
+        print(f"  Loaded {len(first_snapshot_cells)} Cell objects")
     else:
-        print(f"  ✓ Extracting year 50 from simulation...")
-        year50_cells = load_snapshot_as_cells(args.simulation, 50)
-        save_snapshot_cells(year50_cells, year50_path)
-        print(f"  Cached {len(year50_cells)} cells for future use")
+        print(f"  ✓ Extracting year {first_snapshot_year} from simulation...")
+        first_snapshot_cells = load_snapshot_as_cells(args.simulation, first_snapshot_year)
+        save_snapshot_cells(first_snapshot_cells, first_snapshot_path)
+        print(f"  Cached {len(first_snapshot_cells)} cells for future use")
     
     # ========================================================================
     # STAGE 2: Plot JSD Distribution
@@ -119,8 +129,8 @@ def run_pipeline(args):
     print("STAGE 2: Plot JSD Distribution")
     print(f"{'='*60}")
     
-    plot_path = os.path.join(plots_dir, f"year50_jsd_distribution_{args.bins}bins.png")
-    plot_jsd_distribution_from_cells(year50_cells, args.bins, plot_path, rate=args.rate)
+    plot_path = os.path.join(plots_dir, f"year{first_snapshot_year}_jsd_distribution_{args.bins}bins.png")
+    plot_jsd_distribution_from_cells(first_snapshot_cells, args.bins, plot_path, rate=args.rate)
     
     # ========================================================================
     # STAGE 3: Create Initial Individuals (as PetriDish objects)
@@ -141,7 +151,7 @@ def run_pipeline(args):
         print(f"\n  ✓ Creating {expected_individuals} mutant individuals...")
         print(f"  Sampling by quantiles ({args.n_quantiles} quantiles, {args.cells_per_quantile} each)...")
         
-        sampled = sample_by_quantiles(year50_cells, 
+        sampled = sample_by_quantiles(first_snapshot_cells, 
                                      n_quantiles=args.n_quantiles,
                                      cells_per_quantile=args.cells_per_quantile,
                                      seed=args.seed)
@@ -184,7 +194,7 @@ def run_pipeline(args):
         print(f"\n  ✓ Creating {expected_individuals} control1 individuals...")
         print(f"  Sampling uniformly...")
         
-        sampled_cells = sample_uniform(year50_cells, n_samples=expected_individuals, 
+        sampled_cells = sample_uniform(first_snapshot_cells, n_samples=expected_individuals, 
                                       seed=args.seed + 1000)
         
         for i, cell in enumerate(sampled_cells):
@@ -286,23 +296,23 @@ def run_pipeline(args):
                     save_petri_dish(petri, filepath)
     
     # ========================================================================
-    # STAGE 5: Extract Year 60 Snapshot
+    # STAGE 5: Extract Second Snapshot (Year 60 or dynamic)
     # ========================================================================
     print(f"\n{'='*60}")
-    print("STAGE 5: Extract Year 60 Snapshot")
+    print(f"STAGE 5: Extract Year {second_snapshot_year} Snapshot")
     print(f"{'='*60}")
     
-    year60_path = os.path.join(snapshots_dir, "year60_snapshot.json.gz")
+    second_snapshot_path = os.path.join(snapshots_dir, f"year{second_snapshot_year}_snapshot.json.gz")
     
-    if os.path.exists(year60_path) and not args.force_reload:
-        print(f"  ⏭ Loading existing snapshot from {year60_path}...")
-        year60_cells = load_snapshot_cells(year60_path)
-        print(f"  Loaded {len(year60_cells)} Cell objects")
+    if os.path.exists(second_snapshot_path) and not args.force_reload:
+        print(f"  ⏭ Loading existing snapshot from {second_snapshot_path}...")
+        second_snapshot_cells = load_snapshot_cells(second_snapshot_path)
+        print(f"  Loaded {len(second_snapshot_cells)} Cell objects")
     else:
-        print(f"  ✓ Extracting year 60 from simulation...")
-        year60_cells = load_snapshot_as_cells(args.simulation, 60)
-        save_snapshot_cells(year60_cells, year60_path)
-        print(f"  Cached {len(year60_cells)} cells for future use")
+        print(f"  ✓ Extracting year {second_snapshot_year} from simulation...")
+        second_snapshot_cells = load_snapshot_as_cells(args.simulation, second_snapshot_year)
+        save_snapshot_cells(second_snapshot_cells, second_snapshot_path)
+        print(f"  Cached {len(second_snapshot_cells)} cells for future use")
     
     # ========================================================================
     # STAGE 6: Mix Populations
@@ -316,7 +326,7 @@ def run_pipeline(args):
     expected_final_cells = int(grown_cells / ((100 - args.mix_ratio) / 100))
     
     print(f"  Target size after mixing: {expected_final_cells} cells")
-    print(f"  Mix ratio: {args.mix_ratio}% from year 60")
+    print(f"  Mix ratio: {args.mix_ratio}% from year {second_snapshot_year}")
     
     # Check mutant mix state
     mutant_state = check_petri_files_state(mutant_dir, expected_cells_after_growth)
@@ -324,7 +334,7 @@ def run_pipeline(args):
     if mutant_state['all_above']:
         print(f"\n  ⏭ Mutant individuals already mixed")
     else:
-        print(f"\n  ✓ Mixing mutant individuals with year 60 cells...")
+        print(f"\n  ✓ Mixing mutant individuals with year {second_snapshot_year} cells...")
         
         # Reload current state
         mutant_dishes = load_all_petri_dishes(mutant_dir)
@@ -333,7 +343,7 @@ def run_pipeline(args):
             if len(petri.cells) == expected_cells_after_growth:
                 print(f"    Individual {i:02d}: Mixing {len(petri.cells)} → {expected_final_cells} cells")
                 
-                total_cells = mix_petri_with_snapshot(petri, year60_cells,
+                total_cells = mix_petri_with_snapshot(petri, second_snapshot_cells,
                                                      mix_ratio=args.mix_ratio / 100,
                                                      seed=args.seed + 100 + i)
                 
@@ -356,7 +366,7 @@ def run_pipeline(args):
     if control1_state['all_above']:
         print(f"\n  ⏭ Control1 individuals already mixed")
     else:
-        print(f"\n  ✓ Mixing control1 individuals with year 60 cells...")
+        print(f"\n  ✓ Mixing control1 individuals with year {second_snapshot_year} cells...")
         
         # Reload current state
         control1_dishes = load_all_petri_dishes(control1_dir)
@@ -365,7 +375,7 @@ def run_pipeline(args):
             if len(petri.cells) == expected_cells_after_growth:
                 print(f"    Individual {i:02d}: Mixing {len(petri.cells)} → {expected_final_cells} cells")
                 
-                total_cells = mix_petri_with_snapshot(petri, year60_cells,
+                total_cells = mix_petri_with_snapshot(petri, second_snapshot_cells,
                                                      mix_ratio=args.mix_ratio / 100,
                                                      seed=args.seed + 200 + i)
                 
@@ -394,14 +404,14 @@ def run_pipeline(args):
         print(f"  ⏭ Control2 individuals exist ({control2_state['total_files']} files)")
         control2_dishes = load_all_petri_dishes(control2_dir)
     else:
-        print(f"  ✓ Creating {expected_individuals} control2 individuals...")
-        print(f"    Each with {expected_final_cells} pure year 60 cells")
+        print(f"  ✓ Creating {expected_individuals} control2 individuals (pure year {second_snapshot_year})...")
+        print(f"    Each with {expected_final_cells} pure year {second_snapshot_year} cells")
         
         for i in range(expected_individuals):
             print(f"    Creating individual {i+1}/{expected_individuals}")
             
             # Create PetriDish with pure year 60 cells
-            petri = create_pure_snapshot_petri(year60_cells, n_cells=expected_final_cells,
+            petri = create_pure_snapshot_petri(second_snapshot_cells, n_cells=expected_final_cells,
                                               rate=args.rate, seed=args.seed + 300 + i)
             
             # Add metadata
@@ -516,11 +526,13 @@ def main():
     parser.add_argument("--cells-per-quantile", type=int, default=3,
                        help="Number of cells to sample per quantile")
     
-    # Growth and mixing parameters
+    # Snapshot and growth parameters
+    parser.add_argument("--snapshot-year", type=int, default=50,
+                       help="Year for first snapshot (default: 50)")
     parser.add_argument("--growth-years", type=int, default=10,
                        help="Number of years to grow individuals")
     parser.add_argument("--mix-ratio", type=int, default=80,
-                       help="Percentage of year 60 cells in mix (0-100)")
+                       help="Percentage of second snapshot cells in mix (0-100)")
     
     # Visualization parameters
     parser.add_argument("--bins", type=int, default=200,
@@ -556,6 +568,22 @@ def main():
     if args.cells_per_quantile < 1:
         print(f"Error: cells-per-quantile must be at least 1, got {args.cells_per_quantile}")
         sys.exit(1)
+    
+    # Validate snapshot years
+    if args.snapshot_year < 0:
+        print(f"Error: snapshot-year must be non-negative, got {args.snapshot_year}")
+        sys.exit(1)
+    
+    if args.growth_years < 0:
+        print(f"Error: growth-years must be non-negative, got {args.growth_years}")
+        sys.exit(1)
+    
+    # Check if simulation is long enough (basic check - more detailed check in run_pipeline)
+    second_snapshot = args.snapshot_year + args.growth_years
+    # We can't check the actual simulation length here without loading it,
+    # but we can warn about obviously problematic values
+    if second_snapshot > 200:
+        print(f"Warning: Second snapshot year {second_snapshot} seems very high. Make sure your simulation runs that long.")
     
     # Run pipeline
     run_pipeline(args)

@@ -257,7 +257,7 @@ The precursor to step23-prime, using dictionary-based data structures:
 ```bash
 cd step23
 python run_pipeline_v2.py --rate 0.005 \
-    --simulation ../step1/data/simulation_rate_0.005000_m10000_n1000_t100.json.gz
+    --simulation ../legacy/step1/data/simulation_rate_0.005000_m10000_n1000_t100.json.gz
 ```
 
 #### Original 3-Step Pipeline

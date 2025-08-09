@@ -186,9 +186,9 @@ ls -la step23-prime/data/rate_*/snap*/
 ## Legacy Pipelines (Historical Reference Only)
 
 ### Legacy Directories
-- `step1/`: Traditional simulation (10,000 cells, no growth)
-- `step2/`, `step3/`: Original multi-step approach
-- `step23/`: Pre-OOP unified pipeline
+- `legacy/step1/`: Traditional simulation (10,000 cells, no growth)
+- `legacy/step2/`, `legacy/step3/`: Original multi-step approach
+- `legacy/step23/`: Pre-OOP unified pipeline
 - `legacy/`: Archived old implementations
 
 These are maintained only for:

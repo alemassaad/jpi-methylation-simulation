@@ -1,0 +1,14 @@
+{
+  "created": "2025-08-07T13:26:25.721420",
+  "stages": {},
+  "parameters": {
+    "rate": 0.005,
+    "n_quantiles": 5,
+    "cells_per_quantile": 2,
+    "expected_individuals": 10,
+    "growth_years": 3,
+    "mix_ratio": 80,
+    "seed": 42
+  },
+  "files": {}
+}

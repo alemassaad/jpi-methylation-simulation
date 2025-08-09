@@ -44,6 +44,13 @@ A streamlined pipeline that combines steps 2 and 3 into a single, efficient proc
 1. **Step 1/1-Prime**: Run base methylation simulation
 2. **Step23**: Unified pipeline for cell sampling, growth, mixing, and analysis
 
+### Step23-Prime: Refactored Pipeline
+A cleaner OOP implementation using PetriDish and Cell objects:
+- **Object-Oriented**: Uses Cell and PetriDish classes for cleaner code
+- **Fully Reproducible**: Proper random seeding ensures deterministic results
+- **Validated**: Produces statistically equivalent results to original step23
+- **Well-Tested**: Comprehensive test suite for reproducibility and validation
+
 ## Installation
 
 1. Clone the repository:
@@ -90,6 +97,19 @@ python run_pipeline_v2.py --rate 0.005 --simulation ../step1/data/simulation_rat
 # Quick test with 4 individuals (quartiles)
 python run_pipeline_v2.py --rate 0.005 --simulation ../step1/data/simulation_rate_0.005000_m10000_n1000_t100.json.gz \
     --n-quantiles 4 --cells-per-quantile 1 --growth-years 2
+```
+
+### Option C: Step23-Prime Refactored Pipeline
+```bash
+# Use with either step1 or step1-prime simulations
+cd step23-prime
+python run_pipeline.py --rate 0.005 --simulation ../step1/data/simulation_rate_0.005000_m10000_n1000_t100.json.gz
+
+# Test reproducibility
+python test_reproducibility_robust.py
+
+# Compare with original step23
+python generate_comparison_report.py
 ```
 
 ### Legacy: Original 3-Step Pipeline

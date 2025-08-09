@@ -74,6 +74,21 @@ This is a Python-based methylation simulation project that models DNA methylatio
   - `individuals/`: 30 mutant, 30 control1, 30 control2 files
   - `plots/` and `results/`: Analysis outputs
 
+### Refactored Pipeline (step23-prime/)
+- **OOP Design**: Uses PetriDish and Cell objects from step1-prime
+- **`run_pipeline.py`**: Main orchestrator with proper random seeding
+- **`pipeline_utils.py`**: Core utilities working with Cell/PetriDish objects
+- **`pipeline_analysis.py`**: Statistical analysis compatible with PetriDish format
+- **Testing Suite**: Comprehensive comparison and reproducibility tests
+  - `test_reproducibility_robust.py`: Validates deterministic behavior
+  - `compare_*.py`: Tools for comparing with original step23
+  - `generate_comparison_report.py`: Automated validation reporting
+- **Utilities**: Helper scripts for pipeline management
+  - `clean_individuals.sh`: Selective cleaning preserving snapshots
+  - `complete_analysis.py`: Finish interrupted runs
+  - `create_control2.py`: Manual control2 creation
+- **Validated**: Produces statistically equivalent results to step23
+
 ### Legacy (step2/, step3/)
 Deprecated multi-step approach - use step23 instead. Files moved to `legacy/` directory.
 
@@ -115,6 +130,26 @@ python run_pipeline_v2.py --rate 0.005 --simulation ../step1/data/simulation_rat
 # Quick test (4 individuals)
 python run_pipeline_v2.py --rate 0.005 --simulation ../step1/data/*.json.gz \
     --n-quantiles 4 --cells-per-quantile 1 --growth-years 2
+```
+
+### Step23-Prime: Refactored Pipeline (Compatible with step1-prime)
+```bash
+cd step23-prime
+# Standard run with step1-prime simulation
+python run_pipeline.py --rate 0.005 --simulation ../step1-prime/data/simulation_rate_0.005000_g13_m*_n1000_t100_seed42.json.gz
+
+# Standard run with step1 simulation
+python run_pipeline.py --rate 0.005 --simulation ../step1/data/simulation_rate_0.005000_m10000_n1000_t100.json.gz
+
+# Quick test (4 individuals)
+python run_pipeline.py --rate 0.005 --simulation ../step1*/data/*.json.gz \
+    --n-quantiles 4 --cells-per-quantile 1 --growth-years 2
+
+# Test reproducibility
+python test_reproducibility_robust.py
+
+# Compare with original step23
+python generate_comparison_report.py
 ```
 
 **Pipeline Options (run_pipeline_v2.py):**

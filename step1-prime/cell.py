@@ -299,29 +299,40 @@ class PetriDish:
         print(f"Final population: {len(self.cells)} cells")
         print("="*60)
         
-    def save_history(self, filename: str = None, directory: str = "data") -> None:
+    def save_history(self, filename: str = None, directory: str = "data") -> str:
         """
-        Save simulation history to compressed JSON file.
+        Save simulation history to compressed JSON file using hierarchical structure.
         
         Args:
-            filename: Output filename (auto-generated if None)
-            directory: Output directory
+            filename: Output filename (ignored, kept for compatibility)
+            directory: Base output directory
+            
+        Returns:
+            Path to saved file
         """
-        # Create directory if it doesn't exist
-        if not os.path.exists(directory):
-            os.makedirs(directory)
-            print(f"Created directory: {directory}")
+        import hashlib
         
-        # Generate filename if not provided
-        if filename is None:
-            # Always include seed info in filename
-            seed_str = f"_seed{self.seed}" if self.seed is not None else "_noseed"
-            # Use actual final population count, not target
-            final_pop = len(self.cells)
-            # Include growth_phase in filename
-            filename = f"simulation_rate_{self.rate:.6f}_g{self.growth_phase}_m{final_pop}_n{self.n}_t{self.year}{seed_str}"
+        # Generate hierarchical path
+        # Level 1: Rate with 5 decimal places
+        level1 = f"rate_{self.rate:.5f}"
         
-        filepath = os.path.join(directory, filename + ".json.gz")
+        # Level 2: Parameters with hyphen separators
+        seed_str = f"seed{self.seed}" if self.seed is not None else "noseed"
+        params_str = f"grow{self.growth_phase}-sites{self.n}-years{self.year}-{seed_str}"
+        
+        # Add 4-char hash for uniqueness
+        hash_input = f"{self.rate:.5f}-{self.growth_phase}-{self.n}-{self.year}-{seed_str}"
+        hash_str = hashlib.md5(hash_input.encode()).hexdigest()[:4]
+        level2 = f"{params_str}-{hash_str}"
+        
+        # Create full directory path
+        dir_path = os.path.join(directory, level1, level2)
+        if not os.path.exists(dir_path):
+            os.makedirs(dir_path, exist_ok=True)
+            print(f"Created directory: {dir_path}")
+        
+        # Fixed filename
+        filepath = os.path.join(dir_path, "simulation.json.gz")
         print(f"\nSaving compressed history to {filepath}")
         
         save_start = statistics.mean([0])  # Just to have time module if needed

@@ -38,8 +38,7 @@ from pipeline_utils import (
 )
 from pipeline_analysis import (
     plot_jsd_distribution_from_cells,
-    analyze_populations_from_dishes,
-    plot_cell_level_distributions
+    analyze_populations_from_dishes
 )
 from path_utils import parse_step1_simulation_path, generate_step23_output_dir
 
@@ -91,11 +90,10 @@ def run_pipeline(args):
     mutant_dir = os.path.join(individuals_dir, "mutant")
     control1_dir = os.path.join(individuals_dir, "control1")
     control2_dir = os.path.join(individuals_dir, "control2")
-    plots_dir = os.path.join(base_dir, "plots")
     results_dir = os.path.join(base_dir, "results")
     
-    # Create all directories
-    for dir_path in [snapshots_dir, mutant_dir, control1_dir, control2_dir, plots_dir, results_dir]:
+    # Create all directories (removed plots_dir)
+    for dir_path in [snapshots_dir, mutant_dir, control1_dir, control2_dir, results_dir]:
         os.makedirs(dir_path, exist_ok=True)
     
     print("=" * 80)
@@ -140,7 +138,7 @@ def run_pipeline(args):
     print("STAGE 2: Plot JSD Distribution")
     print(f"{'='*60}")
     
-    plot_path = os.path.join(plots_dir, f"year{args.first_snapshot}_jsd_distribution_{args.bins}bins.png")
+    plot_path = os.path.join(results_dir, f"year{args.first_snapshot}_jsd_distribution_{args.bins}bins.png")
     plot_jsd_distribution_from_cells(first_snapshot_cells, args.bins, plot_path, rate=args.rate)
     
     # ========================================================================
@@ -622,10 +620,6 @@ def run_pipeline(args):
     analysis_results = analyze_populations_from_dishes(
         mutant_dishes, control1_dishes, control2_dishes, results_dir
     )
-    
-    # Create additional cell-level distribution plot
-    cell_plot_path = os.path.join(plots_dir, "cell_level_jsd_distributions.png")
-    plot_cell_level_distributions(mutant_dishes, control1_dishes, control2_dishes, cell_plot_path)
     
     # Get statistics for summary
     stats = analysis_results['statistics']

@@ -13,7 +13,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 sys.path.append(os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'phase1'))
 
 from pipeline_utils import load_all_petri_dishes
-from pipeline_analysis import analyze_populations_from_dishes, plot_cell_level_distributions
+from pipeline_analysis import analyze_populations_from_dishes
 
 def main():
     base_dir = "data/rate_0.005000"
@@ -21,7 +21,6 @@ def main():
     control1_dir = os.path.join(base_dir, "individuals/control1")
     control2_dir = os.path.join(base_dir, "individuals/control2")
     results_dir = os.path.join(base_dir, "results")
-    plots_dir = os.path.join(base_dir, "plots")
     
     print("Loading populations...")
     mutant_dishes = load_all_petri_dishes(mutant_dir)
@@ -43,10 +42,6 @@ def main():
     analysis_results = analyze_populations_from_dishes(
         mutant_dishes, control1_dishes, control2_dishes, results_dir
     )
-    
-    # Create cell-level plot
-    cell_plot_path = os.path.join(plots_dir, "cell_level_jsd_distributions.png")
-    plot_cell_level_distributions(mutant_dishes, control1_dishes, control2_dishes, cell_plot_path)
     
     # Print summary
     stats = analysis_results['statistics']

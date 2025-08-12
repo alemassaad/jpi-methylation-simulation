@@ -101,10 +101,8 @@ data/
         │   ├── mutant/     # Quantile-sampled individuals
         │   ├── control1/   # Uniformly-sampled individuals
         │   └── control2/   # Pure snapshot individuals
-        ├── plots/
-        │   ├── year50_jsd_distribution_200bins.png
-        │   └── cell_level_jsd_distributions.png
         └── results/
+            ├── year50_jsd_distribution_200bins.png
             ├── jsd_comparison.png
             ├── statistics.json
             └── pipeline_metadata.json

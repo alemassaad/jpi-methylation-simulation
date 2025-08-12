@@ -87,10 +87,17 @@ def generate_step23_output_dir(args, sim_params: Dict) -> str:
               f"years{sim_params['sim_years']}")
     
     # Level 2: Pipeline params in logical flow order
+    # Build mix suffix: 'u' for uniform, 'n' for normalized, 'un' for both
+    mix_suffix = ""
+    if hasattr(args, 'uniform_mixing') and args.uniform_mixing:
+        mix_suffix += "u"
+    if hasattr(args, 'normalize_size') and args.normalize_size:
+        mix_suffix += "n"
+    
     params_str = (f"snap{args.first_snapshot}to{args.second_snapshot}-"
                   f"growth{args.individual_growth_phase}-"
                   f"quant{args.n_quantiles}x{args.cells_per_quantile}-"
-                  f"mix{args.mix_ratio}-"
+                  f"mix{args.mix_ratio}{mix_suffix}-"
                   f"seed{args.seed}")
     
     # Add 4-char hash for uniqueness

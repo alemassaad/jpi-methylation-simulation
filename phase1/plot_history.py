@@ -119,8 +119,9 @@ def detect_growth_phase(stats):
     return 13
 
 def create_jsd_plot(stats, filename):
-    """Create JSD-only plot with growth phase indicator."""
-    fig = go.Figure()
+    """Create JSD-only plot with growth phase indicator and cell count."""
+    # Create figure with secondary y-axis
+    fig = make_subplots(specs=[[{"secondary_y": True}]])
     
     years = stats['years']
     growth_phase = detect_growth_phase(stats)
@@ -147,7 +148,8 @@ def create_jsd_plot(stats, filename):
             name='5-95 percentile',
             showlegend=True,
             hoverinfo='skip'
-        )
+        ),
+        secondary_y=False
     )
     
     # Add 25-75 percentile band (medium)
@@ -161,7 +163,8 @@ def create_jsd_plot(stats, filename):
             name='25-75 percentile',
             showlegend=True,
             hoverinfo='skip'
-        )
+        ),
+        secondary_y=False
     )
     
     # Add mean line (solid)
@@ -174,18 +177,32 @@ def create_jsd_plot(stats, filename):
             line=dict(color='rgb(99, 110, 250)', width=2.5),
             hovertemplate='Year: %{x}<br>Mean JSD: %{y:.4f}<br>Population: %{customdata}<extra></extra>',
             customdata=stats['population_size']
-        )
+        ),
+        secondary_y=False
+    )
+    
+    # Add cell count on secondary y-axis
+    fig.add_trace(
+        go.Scatter(
+            x=years,
+            y=stats['population_size'],
+            mode='lines',
+            name='Cell Count',
+            line=dict(color='rgba(255, 127, 14, 0.7)', width=2, dash='dot'),
+            hovertemplate='Year: %{x}<br>Cell Count: %{y}<extra></extra>'
+        ),
+        secondary_y=True
     )
     
     # Update layout
     fig.update_layout(
         title=dict(
-            text=f"Jensen-Shannon Divergence vs Time<br><sub>{filename}</sub>",
+            text=f"JSD Score vs Time<br><sub>{filename}</sub>",
             font=dict(size=16)
         ),
         xaxis_title="Age (years)",
-        yaxis_title="Jensen-Shannon Divergence",
         height=500,
+        margin=dict(t=120),  # Add top margin for annotation
         showlegend=True,
         legend=dict(
             yanchor="top",
@@ -199,8 +216,10 @@ def create_jsd_plot(stats, filename):
         template='plotly_white'
     )
     
+    # Set axis titles and formatting
     fig.update_xaxes(showgrid=True, gridcolor='rgba(0,0,0,0.1)')
-    fig.update_yaxes(showgrid=True, gridcolor='rgba(0,0,0,0.1)')
+    fig.update_yaxes(title_text="JSD Score", secondary_y=False, showgrid=True, gridcolor='rgba(0,0,0,0.1)')
+    fig.update_yaxes(title_text="Cell Count", secondary_y=True, showgrid=False)
     
     # Add annotation with final statistics
     final_idx = -1
@@ -211,6 +230,7 @@ def create_jsd_plot(stats, filename):
         f"<b>Final Statistics (Year {final_year}):</b><br>"
         f"Population: {final_pop} cells<br>"
         f"Mean JSD: {stats['jsd']['mean'][final_idx]:.4f}<br>"
+        f"25-75%: [{stats['jsd']['p25'][final_idx]:.4f}, {stats['jsd']['p75'][final_idx]:.4f}]<br>"
         f"5-95%: [{stats['jsd']['p5'][final_idx]:.4f}, {stats['jsd']['p95'][final_idx]:.4f}]"
     )
     
@@ -220,22 +240,23 @@ def create_jsd_plot(stats, filename):
     fig.add_annotation(
         text=annotation_text,
         xref="paper", yref="paper",
-        x=0.98, y=0.98,
+        x=0.5, y=1.15,  # Centered above the plot
         showarrow=False,
         bgcolor="rgba(255, 255, 255, 0.9)",
         bordercolor="rgba(0, 0, 0, 0.2)",
         borderwidth=1,
         font=dict(size=10),
-        align="left",
-        xanchor="right",
+        align="center",
+        xanchor="center",
         yanchor="top"
     )
     
     return fig
 
 def create_methylation_plot(stats, filename):
-    """Create methylation-only plot with growth phase indicator."""
-    fig = go.Figure()
+    """Create methylation-only plot with growth phase indicator and cell count."""
+    # Create figure with secondary y-axis
+    fig = make_subplots(specs=[[{"secondary_y": True}]])
     
     years = stats['years']
     growth_phase = detect_growth_phase(stats)
@@ -262,7 +283,8 @@ def create_methylation_plot(stats, filename):
             name='5-95 percentile',
             showlegend=True,
             hoverinfo='skip'
-        )
+        ),
+        secondary_y=False
     )
     
     # Add 25-75 percentile band
@@ -276,7 +298,8 @@ def create_methylation_plot(stats, filename):
             name='25-75 percentile',
             showlegend=True,
             hoverinfo='skip'
-        )
+        ),
+        secondary_y=False
     )
     
     # Add mean line (solid)
@@ -289,7 +312,21 @@ def create_methylation_plot(stats, filename):
             line=dict(color='rgb(239, 85, 59)', width=2.5),
             hovertemplate='Year: %{x}<br>Mean Methylation: %{y:.2f}%<br>Population: %{customdata}<extra></extra>',
             customdata=stats['population_size']
-        )
+        ),
+        secondary_y=False
+    )
+    
+    # Add cell count on secondary y-axis
+    fig.add_trace(
+        go.Scatter(
+            x=years,
+            y=stats['population_size'],
+            mode='lines',
+            name='Cell Count',
+            line=dict(color='rgba(255, 127, 14, 0.7)', width=2, dash='dot'),
+            hovertemplate='Year: %{x}<br>Cell Count: %{y}<extra></extra>'
+        ),
+        secondary_y=True
     )
     
     # Update layout
@@ -299,8 +336,8 @@ def create_methylation_plot(stats, filename):
             font=dict(size=16)
         ),
         xaxis_title="Age (years)",
-        yaxis_title="Methylation (%)",
         height=500,
+        margin=dict(t=120),  # Add top margin for annotation
         showlegend=True,
         legend=dict(
             yanchor="top",
@@ -314,8 +351,10 @@ def create_methylation_plot(stats, filename):
         template='plotly_white'
     )
     
+    # Set axis titles and formatting
     fig.update_xaxes(showgrid=True, gridcolor='rgba(0,0,0,0.1)')
-    fig.update_yaxes(showgrid=True, gridcolor='rgba(0,0,0,0.1)')
+    fig.update_yaxes(title_text="Methylation (%)", secondary_y=False, showgrid=True, gridcolor='rgba(0,0,0,0.1)')
+    fig.update_yaxes(title_text="Cell Count", secondary_y=True, showgrid=False)
     
     # Add annotation with final statistics
     final_idx = -1
@@ -326,21 +365,26 @@ def create_methylation_plot(stats, filename):
         f"<b>Final Statistics (Year {final_year}):</b><br>"
         f"Population: {final_pop} cells<br>"
         f"Mean: {stats['methylation']['mean'][final_idx]:.2f}%<br>"
+        f"25-75%: [{stats['methylation']['p25'][final_idx]:.2f}%, "
+        f"{stats['methylation']['p75'][final_idx]:.2f}%]<br>"
         f"5-95%: [{stats['methylation']['p5'][final_idx]:.2f}%, "
         f"{stats['methylation']['p95'][final_idx]:.2f}%]"
     )
     
+    if growth_phase > 0:
+        annotation_text += f"<br>Growth phase: Years 0-{growth_phase}"
+    
     fig.add_annotation(
         text=annotation_text,
         xref="paper", yref="paper",
-        x=0.98, y=0.98,
+        x=0.5, y=1.15,  # Centered above the plot
         showarrow=False,
         bgcolor="rgba(255, 255, 255, 0.9)",
         bordercolor="rgba(0, 0, 0, 0.2)",
         borderwidth=1,
         font=dict(size=10),
-        align="left",
-        xanchor="right",
+        align="center",
+        xanchor="center",
         yanchor="top"
     )
     
@@ -350,10 +394,12 @@ def create_combined_plot(stats, filename):
     """Create combined JSD and methylation plot."""
     fig = make_subplots(
         rows=2, cols=1,
-        subplot_titles=('Jensen-Shannon Divergence vs Time', 
+        subplot_titles=('JSD Score vs Time', 
                       'Methylation Proportion vs Time'),
         vertical_spacing=0.12,
-        row_heights=[0.5, 0.5]
+        row_heights=[0.5, 0.5],
+        specs=[[{"secondary_y": True}],
+               [{"secondary_y": True}]]
     )
     
     years = stats['years']
@@ -391,7 +437,7 @@ def create_combined_plot(stats, filename):
             showlegend=True,
             hoverinfo='skip'
         ),
-        row=1, col=1
+        row=1, col=1, secondary_y=False
     )
     
     # Add 25-75 percentile band
@@ -406,7 +452,7 @@ def create_combined_plot(stats, filename):
             showlegend=True,
             hoverinfo='skip'
         ),
-        row=1, col=1
+        row=1, col=1, secondary_y=False
     )
     
     # Add mean JSD line
@@ -419,7 +465,7 @@ def create_combined_plot(stats, filename):
             line=dict(color='rgb(99, 110, 250)', width=2.5),
             hovertemplate='Year: %{x}<br>Mean JSD: %{y:.4f}<extra></extra>'
         ),
-        row=1, col=1
+        row=1, col=1, secondary_y=False
     )
     
     # ===== Methylation Plot (Row 2) =====
@@ -435,7 +481,7 @@ def create_combined_plot(stats, filename):
             showlegend=False,
             hoverinfo='skip'
         ),
-        row=2, col=1
+        row=2, col=1, secondary_y=False
     )
     
     # Add 25-75 percentile band
@@ -450,7 +496,7 @@ def create_combined_plot(stats, filename):
             showlegend=False,
             hoverinfo='skip'
         ),
-        row=2, col=1
+        row=2, col=1, secondary_y=False
     )
     
     # Add mean methylation line
@@ -463,7 +509,36 @@ def create_combined_plot(stats, filename):
             line=dict(color='rgb(239, 85, 59)', width=2.5),
             hovertemplate='Year: %{x}<br>Mean Methylation: %{y:.2f}%<extra></extra>'
         ),
-        row=2, col=1
+        row=2, col=1, secondary_y=False
+    )
+    
+    # Add cell count traces on secondary y-axes
+    # Cell count for JSD plot (row 1)
+    fig.add_trace(
+        go.Scatter(
+            x=years,
+            y=stats['population_size'],
+            mode='lines',
+            name='Cell Count',
+            line=dict(color='rgba(255, 127, 14, 0.7)', width=2, dash='dot'),
+            hovertemplate='Year: %{x}<br>Cell Count: %{y}<extra></extra>',
+            showlegend=True
+        ),
+        row=1, col=1, secondary_y=True
+    )
+    
+    # Cell count for methylation plot (row 2) - don't show in legend to avoid duplication
+    fig.add_trace(
+        go.Scatter(
+            x=years,
+            y=stats['population_size'],
+            mode='lines',
+            name='Cell Count',
+            line=dict(color='rgba(255, 127, 14, 0.7)', width=2, dash='dot'),
+            hovertemplate='Year: %{x}<br>Cell Count: %{y}<extra></extra>',
+            showlegend=False
+        ),
+        row=2, col=1, secondary_y=True
     )
     
     # Update layout
@@ -473,6 +548,7 @@ def create_combined_plot(stats, filename):
             font=dict(size=16)
         ),
         height=800,
+        margin=dict(t=120),  # Add top margin for annotation
         hovermode='x unified',
         showlegend=True,
         legend=dict(
@@ -490,8 +566,10 @@ def create_combined_plot(stats, filename):
     # Update axes
     fig.update_xaxes(title_text="", row=1, col=1, showgrid=True, gridcolor='rgba(0,0,0,0.1)')
     fig.update_xaxes(title_text="Age (years)", row=2, col=1, showgrid=True, gridcolor='rgba(0,0,0,0.1)')
-    fig.update_yaxes(title_text="JSD", row=1, col=1, showgrid=True, gridcolor='rgba(0,0,0,0.1)')
-    fig.update_yaxes(title_text="Methylation (%)", row=2, col=1, showgrid=True, gridcolor='rgba(0,0,0,0.1)')
+    fig.update_yaxes(title_text="JSD Score", row=1, col=1, secondary_y=False, showgrid=True, gridcolor='rgba(0,0,0,0.1)')
+    fig.update_yaxes(title_text="Cell Count", row=1, col=1, secondary_y=True, showgrid=False)
+    fig.update_yaxes(title_text="Methylation (%)", row=2, col=1, secondary_y=False, showgrid=True, gridcolor='rgba(0,0,0,0.1)')
+    fig.update_yaxes(title_text="Cell Count", row=2, col=1, secondary_y=True, showgrid=False)
     
     # Add annotation with final statistics
     final_idx = -1
@@ -502,23 +580,29 @@ def create_combined_plot(stats, filename):
         f"<b>Final Statistics (Year {final_year}):</b><br>"
         f"Population: {final_pop} cells<br>"
         f"JSD Mean: {stats['jsd']['mean'][final_idx]:.4f}<br>"
-        f"JSD Range: [{stats['jsd']['p5'][final_idx]:.4f}, {stats['jsd']['p95'][final_idx]:.4f}]<br>"
+        f"JSD 25-75%: [{stats['jsd']['p25'][final_idx]:.4f}, {stats['jsd']['p75'][final_idx]:.4f}]<br>"
+        f"JSD 5-95%: [{stats['jsd']['p5'][final_idx]:.4f}, {stats['jsd']['p95'][final_idx]:.4f}]<br>"
         f"Methylation Mean: {stats['methylation']['mean'][final_idx]:.2f}%<br>"
-        f"Methylation Range: [{stats['methylation']['p5'][final_idx]:.2f}%, "
+        f"Methylation 25-75%: [{stats['methylation']['p25'][final_idx]:.2f}%, "
+        f"{stats['methylation']['p75'][final_idx]:.2f}%]<br>"
+        f"Methylation 5-95%: [{stats['methylation']['p5'][final_idx]:.2f}%, "
         f"{stats['methylation']['p95'][final_idx]:.2f}%]"
     )
+    
+    if growth_phase > 0:
+        annotation_text += f"<br>Growth phase: Years 0-{growth_phase}"
     
     fig.add_annotation(
         text=annotation_text,
         xref="paper", yref="paper",
-        x=0.98, y=0.98,
+        x=0.5, y=1.15,  # Centered above the plot
         showarrow=False,
         bgcolor="rgba(255, 255, 255, 0.9)",
         bordercolor="rgba(0, 0, 0, 0.2)",
         borderwidth=1,
         font=dict(size=10),
-        align="left",
-        xanchor="right",
+        align="center",
+        xanchor="center",
         yanchor="top"
     )
     

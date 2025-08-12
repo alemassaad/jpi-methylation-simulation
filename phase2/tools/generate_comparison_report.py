@@ -29,7 +29,7 @@ def generate_report():
     
     report = []
     report.append("=" * 70)
-    report.append("COMPARISON REPORT: step23 vs step23-prime")
+    report.append("COMPARISON REPORT: phase2 pipeline analysis")
     report.append(f"Generated: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
     report.append("=" * 70)
     

@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Compare two runs of step23-prime to check if they're identical.
+Compare two runs of phase2 to check if they're identical.
 """
 
 import sys

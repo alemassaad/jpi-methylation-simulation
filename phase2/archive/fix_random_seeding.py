@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Fix script to add proper random seeding to step23-prime to match step23.
+Fix script to add proper random seeding to phase2 pipeline.
 This will modify the files to ensure reproducibility.
 """
 
@@ -8,7 +8,7 @@ import os
 import sys
 
 def apply_fixes():
-    print("Applying random seed fixes to step23-prime...")
+    print("Applying random seed fixes to phase2...")
     
     # Fix 1: Add global seeding to run_pipeline.py
     print("\n1. Adding global seeding to run_pipeline.py...")

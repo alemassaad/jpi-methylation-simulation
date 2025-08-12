@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Test if step23-prime produces reproducible results when run twice with the same seed.
+Test if phase2 produces reproducible results when run twice with the same seed.
 """
 
 import json
@@ -35,14 +35,14 @@ def get_individual_signature(filepath):
 
 def test_reproducibility():
     """
-    Compare two runs of step23-prime to see if they're reproducible.
+    Compare two runs of phase2 to see if they're reproducible.
     Assumes you've run the pipeline twice with same parameters.
     """
     
     print("="*60)
-    print("STEP23-PRIME REPRODUCIBILITY TEST")
+    print("PHASE 2 REPRODUCIBILITY TEST")
     print("="*60)
-    print("\nThis tests if running step23-prime twice with the same seed")
+    print("\nThis tests if running phase2 twice with the same seed")
     print("produces identical results.\n")
     
     # Test with first mutant individual
@@ -102,7 +102,7 @@ def test_reproducibility():
         print("✅ REPRODUCIBLE! Same seed produces identical results.")
     else:
         print("❌ NOT REPRODUCIBLE! Same seed produces different results.")
-        print("\nThis means step23-prime has a reproducibility issue.")
+        print("\nThis means phase2 has a reproducibility issue.")
         print("The problem is likely:")
         print("1. No global random seed set at start")
         print("2. Random state not controlled between function calls")

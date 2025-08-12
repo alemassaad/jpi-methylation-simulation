@@ -68,7 +68,7 @@ def parse_step1_simulation_path(filepath: str) -> Optional[Dict]:
 
 def generate_step23_output_dir(args, sim_params: Dict) -> str:
     """
-    Generate hierarchical output directory for step23-prime.
+    Generate hierarchical output directory for phase2.
     
     Structure:
     data/rate_0.00500-grow13-sites100-years100/snap50-quant10x3-grow10-mix80-seed42-HASH/

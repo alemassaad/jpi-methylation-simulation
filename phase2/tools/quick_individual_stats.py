@@ -18,7 +18,7 @@ def quick_check_group(group_name, step23_dir, prime_dir):
     step23_files = glob.glob(f'{step23_dir}/individuals/{group_name}/individual_*.json.gz')
     prime_files = glob.glob(f'{prime_dir}/individuals/{group_name}/individual_*.json.gz')
     
-    print(f"  Files: step23={len(step23_files)}, step23-prime={len(prime_files)}")
+    print(f"  Files: step23={len(step23_files)}, phase2={len(prime_files)}")
     
     if len(step23_files) > 0 and len(prime_files) > 0:
         # Sample first and last files for quick check

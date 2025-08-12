@@ -180,7 +180,7 @@ def compare_cross_group_statistics(step23_dir: str, prime_dir: str):
             pr_stats = json.load(f)
         
         print("\nP-values from t-tests:")
-        print(f"{'Comparison':<25} {'step23':>12} {'step23-prime':>12} {'Difference':>12}")
+        print(f"{'Comparison':<25} {'step23':>12} {'phase2':>12} {'Difference':>12}")
         print("-" * 62)
         
         for comp in ['mutant_vs_control1', 'mutant_vs_control2', 'control1_vs_control2']:

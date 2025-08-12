@@ -31,7 +31,7 @@ def main():
     
     # Compare group statistics
     print("\nGROUP MEAN JSD:")
-    print(f"{'Group':<15} {'step23':>12} {'step23-prime':>12} {'Difference':>12}")
+    print(f"{'Group':<15} {'step23':>12} {'phase2':>12} {'Difference':>12}")
     print("-" * 52)
     
     for group in ['mutant', 'control1', 'control2']:
@@ -45,7 +45,7 @@ def main():
     
     # Compare p-values
     print("\nSTATISTICAL TEST P-VALUES:")
-    print(f"{'Comparison':<25} {'step23':>12} {'step23-prime':>12} {'Same?':>8}")
+    print(f"{'Comparison':<25} {'step23':>12} {'phase2':>12} {'Same?':>8}")
     print("-" * 58)
     
     if 'comparisons' in s23_stats and 'comparisons' in pr_stats:

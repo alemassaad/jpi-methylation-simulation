@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
-Comprehensive test to ensure step23-prime is fully reproducible.
-Tests both internal reproducibility and comparison with step23.
+Comprehensive test to ensure phase2 is fully reproducible.
+Tests both internal reproducibility and comparison with legacy pipelines.
 """
 
 import os

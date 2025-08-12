@@ -483,7 +483,7 @@ def run_pipeline(args):
     
     # Save pipeline metadata
     metadata = {
-        "pipeline_version": "step23-prime",
+        "pipeline_version": "phase2",
         "timestamp": time.strftime("%Y-%m-%d %H:%M:%S"),
         "elapsed_time_minutes": elapsed_time / 60,
         "parameters": {
@@ -510,7 +510,7 @@ def run_pipeline(args):
 
 def main():
     parser = argparse.ArgumentParser(
-        description="Step23-Prime Pipeline using PetriDish and Cell classes",
+        description="Phase 2 Pipeline using PetriDish and Cell classes",
         formatter_class=argparse.ArgumentDefaultsHelpFormatter
     )
     

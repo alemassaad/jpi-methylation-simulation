@@ -545,3 +545,311 @@ def get_jsd_array(petri: PetriDish) -> np.ndarray:
         numpy array of JSD values
     """
     return np.array([cell.JSD for cell in petri.cells])
+
+
+def calculate_population_statistics(dishes: List[PetriDish], group_name: str) -> Dict:
+    """
+    Calculate size statistics for a group of PetriDish objects.
+    
+    Returns:
+        dict with mean, std, median, min, max, cv, iqr, outliers
+    """
+    sizes = [len(dish.cells) for dish in dishes]
+    
+    if not sizes:
+        return {}
+    
+    q1, median, q3 = np.percentile(sizes, [25, 50, 75])
+    iqr = q3 - q1
+    
+    # Identify outliers (> 1.5 * IQR from quartiles)
+    outliers = []
+    for i, size in enumerate(sizes):
+        if size < (q1 - 1.5 * iqr) or size > (q3 + 1.5 * iqr):
+            outliers.append({'index': i, 'size': size})
+    
+    stats = {
+        'group': group_name,
+        'n': len(sizes),
+        'sizes': sizes,
+        'mean': float(np.mean(sizes)),
+        'std': float(np.std(sizes)),
+        'median': float(median),
+        'min': int(min(sizes)),
+        'max': int(max(sizes)),
+        'q1': float(q1),
+        'q3': float(q3),
+        'iqr': float(iqr),
+        'cv': float(np.std(sizes) / np.mean(sizes)) if np.mean(sizes) > 0 else 0,
+        'outliers': outliers
+    }
+    
+    return stats
+
+
+def print_mixing_statistics(mutant_stats: Dict, control1_stats: Dict, combined_median: int):
+    """
+    Print formatted statistics before mixing.
+    """
+    print("\n  Population Size Distribution (before mixing):")
+    print("  " + "="*50)
+    
+    # Mutant stats
+    print(f"  Mutant individuals (n={mutant_stats['n']}):")
+    print(f"    Mean: {mutant_stats['mean']:.1f} ± {mutant_stats['std']:.1f} cells")
+    print(f"    Median: {mutant_stats['median']:.0f} cells")
+    print(f"    Range: {mutant_stats['min']}-{mutant_stats['max']} cells")
+    print(f"    CV: {mutant_stats['cv']*100:.1f}%")
+    if mutant_stats['outliers']:
+        print(f"    ⚠️ Outliers: {len(mutant_stats['outliers'])} individuals")
+    
+    # Control1 stats
+    print(f"\n  Control1 individuals (n={control1_stats['n']}):")
+    print(f"    Mean: {control1_stats['mean']:.1f} ± {control1_stats['std']:.1f} cells")
+    print(f"    Median: {control1_stats['median']:.0f} cells")
+    print(f"    Range: {control1_stats['min']}-{control1_stats['max']} cells")
+    print(f"    CV: {control1_stats['cv']*100:.1f}%")
+    if control1_stats['outliers']:
+        print(f"    ⚠️ Outliers: {len(control1_stats['outliers'])} individuals")
+    
+    # Combined stats
+    print(f"\n  Combined (n={mutant_stats['n'] + control1_stats['n']}):")
+    print(f"    Median for mixing: {combined_median} cells")
+    
+    # Warnings
+    max_cv = max(mutant_stats['cv'], control1_stats['cv'])
+    if max_cv > 0.20:
+        print(f"\n  ⚠️ WARNING: High variation in individual sizes (max CV={max_cv*100:.1f}%)")
+        print(f"     Uniform mixing may not be appropriate")
+        print(f"     Consider using default independent mixing")
+    
+    print("  " + "="*50)
+
+
+def create_uniform_mixing_pool(snapshot_cells: List[Cell], 
+                               median_size: int, 
+                               mix_ratio: float,
+                               seed: Optional[int] = None) -> List[Cell]:
+    """
+    Create a shared pool of snapshot cells for uniform mixing.
+    
+    Args:
+        snapshot_cells: Available cells to sample from
+        median_size: Median size of individuals
+        mix_ratio: Percentage from snapshot (0-1)
+        seed: Random seed
+        
+    Returns:
+        List of cells to be shared across all individuals
+    """
+    if seed is not None:
+        random.seed(seed)
+        np.random.seed(seed)
+    
+    # Calculate how many cells needed
+    # Handle edge case: 100% mix ratio means all cells from snapshot
+    if mix_ratio >= 1.0:
+        target_total = median_size
+        n_snapshot_cells = median_size
+    else:
+        target_total = int(median_size / (1 - mix_ratio))
+        n_snapshot_cells = int(target_total * mix_ratio)
+    
+    print(f"    Creating uniform mixing pool:")
+    print(f"      Median individual size: {median_size} cells")
+    print(f"      Target total size: {target_total} cells")
+    print(f"      Snapshot cells needed: {n_snapshot_cells} cells")
+    
+    # Sample the cells
+    if n_snapshot_cells > len(snapshot_cells):
+        print(f"      ⚠️ Sampling with replacement ({n_snapshot_cells} > {len(snapshot_cells)})")
+        indices = [random.randint(0, len(snapshot_cells)-1) for _ in range(n_snapshot_cells)]
+    else:
+        indices = random.sample(range(len(snapshot_cells)), n_snapshot_cells)
+    
+    # Create deep copies
+    pool = [copy.deepcopy(snapshot_cells[idx]) for idx in indices]
+    
+    print(f"      Created pool of {len(pool)} cells")
+    
+    return pool
+
+
+def mix_petri_uniform(petri: PetriDish, 
+                      uniform_pool: List[Cell],
+                      target_ratio: float) -> int:
+    """
+    Mix PetriDish with cells from uniform pool.
+    
+    Args:
+        petri: PetriDish to mix into
+        uniform_pool: Pre-sampled shared cells
+        target_ratio: What fraction should be from pool
+        
+    Returns:
+        Total cells after mixing
+    """
+    current_size = len(petri.cells)
+    
+    # Calculate target based on current size
+    # Handle edge case: 100% mix ratio means replace all cells
+    if target_ratio >= 1.0:
+        # Replace all cells with snapshot cells
+        petri.cells = [copy.deepcopy(cell) for cell in uniform_pool[:current_size]]
+        random.shuffle(petri.cells)
+        return len(petri.cells)
+    
+    target_total = int(current_size / (1 - target_ratio))
+    n_to_add = target_total - current_size
+    
+    # Take what we need from the pool (with deep copy)
+    if n_to_add > len(uniform_pool):
+        # Shouldn't happen if median was calculated correctly
+        print(f"      ⚠️ Individual needs {n_to_add} but pool has {len(uniform_pool)}")
+        n_to_add = len(uniform_pool)
+    
+    added_cells = [copy.deepcopy(cell) for cell in uniform_pool[:n_to_add]]
+    petri.cells.extend(added_cells)
+    
+    # Shuffle to mix
+    random.shuffle(petri.cells)
+    
+    return len(petri.cells)
+
+
+def normalize_populations(mutant_dishes: List[PetriDish], 
+                         control1_dishes: List[PetriDish],
+                         seed: Optional[int] = None) -> Tuple[List[PetriDish], List[PetriDish], int]:
+    """
+    Normalize populations to the same size using median - 0.5 stdev threshold.
+    
+    Calculates median - 0.5 * standard deviation and:
+    1. Excludes individuals below this threshold
+    2. Randomly samples cells from larger individuals to match threshold
+    
+    Args:
+        mutant_dishes: List of mutant PetriDish objects
+        control1_dishes: List of control1 PetriDish objects
+        seed: Random seed for reproducibility
+        
+    Returns:
+        Tuple of (normalized_mutant_dishes, normalized_control1_dishes, threshold_size)
+    """
+    if seed is not None:
+        random.seed(seed)
+        np.random.seed(seed)
+    
+    # Collect all sizes
+    all_dishes = mutant_dishes + control1_dishes
+    all_sizes = [len(dish.cells) for dish in all_dishes]
+    
+    # Handle edge case: no individuals
+    if not all_sizes:
+        print("  WARNING: No individuals to normalize!")
+        return [], [], 0
+    
+    # Handle edge case: only one individual
+    if len(all_sizes) == 1:
+        print(f"  WARNING: Only 1 individual found with {all_sizes[0]} cells")
+        return mutant_dishes, control1_dishes, all_sizes[0]
+    
+    # Calculate threshold using median - 0.5 * stdev
+    median_size = np.median(all_sizes)
+    std_size = np.std(all_sizes)
+    threshold_size = int(median_size - 0.5 * std_size)
+    
+    # Ensure threshold is positive and reasonable
+    if threshold_size < 1:
+        print(f"  WARNING: Calculated threshold ({threshold_size}) < 1, using minimum size instead")
+        threshold_size = min(all_sizes)
+    
+    print(f"\n  === NORMALIZATION STATISTICS ===")
+    print(f"  All individual sizes: min={min(all_sizes)}, max={max(all_sizes)}")
+    print(f"  Median: {median_size:.1f} cells")
+    print(f"  Std Dev: {std_size:.1f} cells")
+    print(f"  Threshold (median - 0.5σ): {threshold_size} cells")
+    
+    # Process mutant dishes
+    normalized_mutant = []
+    mutant_excluded = 0
+    mutant_trimmed = 0
+    mutant_kept_as_is = 0
+    
+    for i, dish in enumerate(mutant_dishes):
+        current_size = len(dish.cells)
+        
+        if current_size < threshold_size:
+            # Exclude this individual
+            mutant_excluded += 1
+            print(f"    Mutant {i:02d}: {current_size} cells - EXCLUDED (below threshold)")
+        elif current_size == threshold_size:
+            # Keep as is
+            mutant_kept_as_is += 1
+            normalized_mutant.append(dish)
+            print(f"    Mutant {i:02d}: {current_size} cells - kept as is")
+        else:
+            # Trim to threshold size
+            mutant_trimmed += 1
+            # Create a deep copy to avoid modifying original
+            new_dish = copy.deepcopy(dish)
+            # Randomly sample cells to match threshold
+            new_dish.cells = random.sample(new_dish.cells, threshold_size)
+            normalized_mutant.append(new_dish)
+            print(f"    Mutant {i:02d}: {current_size} → {threshold_size} cells (trimmed)")
+    
+    # Process control1 dishes
+    normalized_control1 = []
+    control1_excluded = 0
+    control1_trimmed = 0
+    control1_kept_as_is = 0
+    
+    for i, dish in enumerate(control1_dishes):
+        current_size = len(dish.cells)
+        
+        if current_size < threshold_size:
+            # Exclude this individual
+            control1_excluded += 1
+            print(f"    Control1 {i:02d}: {current_size} cells - EXCLUDED (below threshold)")
+        elif current_size == threshold_size:
+            # Keep as is
+            control1_kept_as_is += 1
+            normalized_control1.append(dish)
+            print(f"    Control1 {i:02d}: {current_size} cells - kept as is")
+        else:
+            # Trim to threshold size
+            control1_trimmed += 1
+            # Create a deep copy to avoid modifying original
+            new_dish = copy.deepcopy(dish)
+            # Randomly sample cells to match threshold
+            new_dish.cells = random.sample(new_dish.cells, threshold_size)
+            normalized_control1.append(new_dish)
+            print(f"    Control1 {i:02d}: {current_size} → {threshold_size} cells (trimmed)")
+    
+    # Print summary
+    print(f"\n  Mutant summary:")
+    print(f"    Kept: {len(normalized_mutant)} ({mutant_kept_as_is} as-is, {mutant_trimmed} trimmed)")
+    print(f"    Excluded: {mutant_excluded}")
+    print(f"  Control1 summary:")
+    print(f"    Kept: {len(normalized_control1)} ({control1_kept_as_is} as-is, {control1_trimmed} trimmed)")
+    print(f"    Excluded: {control1_excluded}")
+    
+    total_kept = len(normalized_mutant) + len(normalized_control1)
+    total_original = len(mutant_dishes) + len(control1_dishes)
+    retention_rate = (total_kept / total_original) * 100 if total_original > 0 else 0
+    print(f"\n  Overall retention: {total_kept}/{total_original} ({retention_rate:.1f}%)")
+    
+    # Handle edge case: all individuals excluded
+    if total_kept == 0:
+        print("\n  ERROR: All individuals were excluded by normalization!")
+        print(f"  Threshold was {threshold_size} but all individuals were smaller")
+        print("  Consider adjusting growth parameters or using a different threshold")
+        # Return empty lists but with a valid threshold for metadata
+        return [], [], threshold_size
+    
+    # Handle edge case: only one group has individuals
+    if len(normalized_mutant) == 0:
+        print("\n  WARNING: All mutant individuals were excluded!")
+    if len(normalized_control1) == 0:
+        print("\n  WARNING: All control1 individuals were excluded!")
+    
+    return normalized_mutant, normalized_control1, threshold_size

@@ -33,7 +33,8 @@ from pipeline_utils import (
     sample_by_quantiles, sample_uniform,
     mix_petri_with_snapshot, create_pure_snapshot_petri,
     grow_petri_for_years, get_petri_statistics, check_petri_files_state,
-    get_jsd_array
+    get_jsd_array, calculate_population_statistics, print_mixing_statistics,
+    create_uniform_mixing_pool, mix_petri_uniform, normalize_populations
 )
 from pipeline_analysis import (
     plot_jsd_distribution_from_cells,
@@ -325,92 +326,249 @@ def run_pipeline(args):
     print("STAGE 6: Mix Populations")
     print(f"{'='*60}")
     
-    # Calculate expected final size after mixing
-    grown_cells = expected_population  # e.g., 128 cells
-    expected_final_cells = int(grown_cells / ((100 - args.mix_ratio) / 100))
+    # Reload current dishes for mixing
+    mutant_dishes = load_all_petri_dishes(mutant_dir)
+    control1_dishes = load_all_petri_dishes(control1_dir)
     
-    print(f"  Target size after mixing: {expected_final_cells} cells")
-    print(f"  Mix ratio: {args.mix_ratio}% from year {args.second_snapshot}")
-    
-    # Check mutant mix state
-    mutant_state = check_petri_files_state(mutant_dir, expected_population)
-    
-    if mutant_state['all_above']:
-        print(f"\n  ⏭ Mutant individuals already mixed")
-    else:
-        print(f"\n  ✓ Mixing mutant individuals with year {args.second_snapshot} cells...")
+    # Apply normalization if requested
+    normalization_threshold = None
+    if args.normalize_size:
+        print("\n  === APPLYING SIZE NORMALIZATION ===")
+        print("  Using median - 0.5σ threshold")
         
-        # Reload current state
-        mutant_dishes = load_all_petri_dishes(mutant_dir)
+        # Normalize populations to same size
+        mutant_dishes, control1_dishes, normalization_threshold = normalize_populations(
+            mutant_dishes, control1_dishes, 
+            seed=args.seed + 5000
+        )
         
+        # Save normalized dishes back to disk
+        print("\n  Saving normalized populations...")
+        
+        # First, remove ALL existing individual files to avoid loading excluded ones later
+        import glob
+        for old_file in glob.glob(os.path.join(mutant_dir, "individual_*.json.gz")):
+            os.remove(old_file)
+        for old_file in glob.glob(os.path.join(control1_dir, "individual_*.json.gz")):
+            os.remove(old_file)
+        
+        # Now save only the kept individuals with sequential numbering
+        for i, dish in enumerate(mutant_dishes):
+            if not hasattr(dish, 'metadata'):
+                dish.metadata = {}
+            dish.metadata['normalized'] = True
+            dish.metadata['normalization_threshold'] = normalization_threshold
+            filepath = os.path.join(mutant_dir, f"individual_{i:02d}.json.gz")
+            save_petri_dish(dish, filepath)
+        
+        for i, dish in enumerate(control1_dishes):
+            if not hasattr(dish, 'metadata'):
+                dish.metadata = {}
+            dish.metadata['normalized'] = True
+            dish.metadata['normalization_threshold'] = normalization_threshold
+            filepath = os.path.join(control1_dir, f"individual_{i:02d}.json.gz")
+            save_petri_dish(dish, filepath)
+        
+        print(f"  Normalized all individuals to {normalization_threshold} cells")
+    
+    if args.uniform_mixing:
+        print("\n  === UNIFORM MIXING MODE ===")
+        
+        # Calculate statistics
+        mutant_stats = calculate_population_statistics(mutant_dishes, "Mutant")
+        control1_stats = calculate_population_statistics(control1_dishes, "Control1")
+        
+        # Get target size (use normalization threshold if available, otherwise median)
+        if normalization_threshold:
+            target_size = normalization_threshold
+            print(f"  Using normalization threshold: {target_size} cells")
+        else:
+            all_sizes = mutant_stats['sizes'] + control1_stats['sizes']
+            target_size = int(np.median(all_sizes))
+            print(f"  Using median size: {target_size} cells")
+        
+        # Print statistics
+        print_mixing_statistics(mutant_stats, control1_stats, target_size)
+        
+        # Save statistics to file
+        stats_path = os.path.join(results_dir, "mixing_statistics.json")
+        mixing_stats = {
+            'mutant': mutant_stats,
+            'control1': control1_stats,
+            'combined_median': target_size,  # Use target_size which is set above
+            'uniform_mixing': True
+        }
+        with open(stats_path, 'w') as f:
+            json.dump(mixing_stats, f, indent=2, default=str)
+        print(f"\n  Saved mixing statistics to {stats_path}")
+        
+        # Create uniform pool
+        print(f"\n  Creating uniform mixing pool from year {args.second_snapshot}...")
+        uniform_pool = create_uniform_mixing_pool(
+            second_snapshot_cells,
+            target_size,  # Uses normalization threshold if available, otherwise median
+            args.mix_ratio / 100,
+            seed=args.seed + 1000
+        )
+        
+        # Mix mutant individuals
+        print(f"\n  Mixing mutant individuals with uniform pool...")
         for i, petri in enumerate(mutant_dishes):
-            # Check if within expected range (homeostasis causes variation)
             if expected_population * 0.5 <= len(petri.cells) <= expected_population * 1.5:
-                print(f"    Individual {i:02d}: Mixing {len(petri.cells)} → {expected_final_cells} cells")
-                
-                total_cells = mix_petri_with_snapshot(petri, second_snapshot_cells,
-                                                     mix_ratio=args.mix_ratio / 100,
-                                                     seed=args.seed + 100 + i)
+                initial_size = len(petri.cells)
+                final_size = mix_petri_uniform(petri, uniform_pool, args.mix_ratio / 100)
+                print(f"    Individual {i:02d}: {initial_size} → {final_size} cells")
                 
                 # Update metadata
                 if not hasattr(petri, 'metadata'):
                     petri.metadata = {}
                 petri.metadata['mixed'] = True
+                petri.metadata['mix_mode'] = 'uniform'
                 petri.metadata['mix_ratio'] = args.mix_ratio
-                petri.metadata['final_cells'] = total_cells
+                petri.metadata['final_cells'] = final_size
                 
-                # Save updated state
+                # Save
                 filepath = os.path.join(mutant_dir, f"individual_{i:02d}.json.gz")
                 save_petri_dish(petri, filepath)
             elif len(petri.cells) > expected_population * 1.5:
                 print(f"    Individual {i:02d}: Already mixed ({len(petri.cells)} cells)")
-    
-    # Check control1 mix state
-    control1_state = check_petri_files_state(control1_dir, expected_population)
-    
-    if control1_state['all_above']:
-        print(f"\n  ⏭ Control1 individuals already mixed")
-    else:
-        print(f"\n  ✓ Mixing control1 individuals with year {args.second_snapshot} cells...")
         
-        # Reload current state
-        control1_dishes = load_all_petri_dishes(control1_dir)
-        
+        # Mix control1 individuals (using SAME pool)
+        print(f"\n  Mixing control1 individuals with uniform pool...")
         for i, petri in enumerate(control1_dishes):
-            # Check if within expected range (homeostasis causes variation)
             if expected_population * 0.5 <= len(petri.cells) <= expected_population * 1.5:
-                print(f"    Individual {i:02d}: Mixing {len(petri.cells)} → {expected_final_cells} cells")
-                
-                total_cells = mix_petri_with_snapshot(petri, second_snapshot_cells,
-                                                     mix_ratio=args.mix_ratio / 100,
-                                                     seed=args.seed + 200 + i)
+                initial_size = len(petri.cells)
+                final_size = mix_petri_uniform(petri, uniform_pool, args.mix_ratio / 100)
+                print(f"    Individual {i:02d}: {initial_size} → {final_size} cells")
                 
                 # Update metadata
                 if not hasattr(petri, 'metadata'):
                     petri.metadata = {}
                 petri.metadata['mixed'] = True
+                petri.metadata['mix_mode'] = 'uniform'
                 petri.metadata['mix_ratio'] = args.mix_ratio
-                petri.metadata['final_cells'] = total_cells
+                petri.metadata['final_cells'] = final_size
                 
-                # Save updated state
+                # Save
                 filepath = os.path.join(control1_dir, f"individual_{i:02d}.json.gz")
                 save_petri_dish(petri, filepath)
+            elif len(petri.cells) > expected_population * 1.5:
+                print(f"    Individual {i:02d}: Already mixed ({len(petri.cells)} cells)")
+                
+    else:
+        print("\n  === INDEPENDENT MIXING MODE (default) ===")
+        
+        # Calculate expected final size after mixing
+        grown_cells = expected_population  # e.g., 128 cells
+        expected_final_cells = int(grown_cells / ((100 - args.mix_ratio) / 100))
+        
+        print(f"  Target size after mixing: {expected_final_cells} cells")
+        print(f"  Mix ratio: {args.mix_ratio}% from year {args.second_snapshot}")
+        
+        # Check mutant mix state
+        mutant_state = check_petri_files_state(mutant_dir, expected_population)
+        
+        if mutant_state['all_above']:
+            print(f"\n  ⏭ Mutant individuals already mixed")
+        else:
+            print(f"\n  ✓ Mixing mutant individuals with year {args.second_snapshot} cells...")
+            
+            for i, petri in enumerate(mutant_dishes):
+                # Check if within expected range (homeostasis causes variation)
+                if expected_population * 0.5 <= len(petri.cells) <= expected_population * 1.5:
+                    print(f"    Individual {i:02d}: Mixing {len(petri.cells)} → {expected_final_cells} cells")
+                    
+                    total_cells = mix_petri_with_snapshot(petri, second_snapshot_cells,
+                                                         mix_ratio=args.mix_ratio / 100,
+                                                         seed=args.seed + 100 + i)
+                    
+                    # Update metadata
+                    if not hasattr(petri, 'metadata'):
+                        petri.metadata = {}
+                    petri.metadata['mixed'] = True
+                    petri.metadata['mix_ratio'] = args.mix_ratio
+                    petri.metadata['final_cells'] = total_cells
+                    
+                    # Save updated state
+                    filepath = os.path.join(mutant_dir, f"individual_{i:02d}.json.gz")
+                    save_petri_dish(petri, filepath)
+                elif len(petri.cells) > expected_population * 1.5:
+                    print(f"    Individual {i:02d}: Already mixed ({len(petri.cells)} cells)")
+    
+        # Check control1 mix state
+        control1_state = check_petri_files_state(control1_dir, expected_population)
+        
+        if control1_state['all_above']:
+            print(f"\n  ⏭ Control1 individuals already mixed")
+        else:
+            print(f"\n  ✓ Mixing control1 individuals with year {args.second_snapshot} cells...")
+            
+            for i, petri in enumerate(control1_dishes):
+                # Check if within expected range (homeostasis causes variation)
+                if expected_population * 0.5 <= len(petri.cells) <= expected_population * 1.5:
+                    print(f"    Individual {i:02d}: Mixing {len(petri.cells)} → {expected_final_cells} cells")
+                    
+                    total_cells = mix_petri_with_snapshot(petri, second_snapshot_cells,
+                                                         mix_ratio=args.mix_ratio / 100,
+                                                         seed=args.seed + 200 + i)
+                    
+                    # Update metadata
+                    if not hasattr(petri, 'metadata'):
+                        petri.metadata = {}
+                    petri.metadata['mixed'] = True
+                    petri.metadata['mix_ratio'] = args.mix_ratio
+                    petri.metadata['final_cells'] = total_cells
+                    
+                    # Save updated state
+                    filepath = os.path.join(control1_dir, f"individual_{i:02d}.json.gz")
+                    save_petri_dish(petri, filepath)
     
     # ========================================================================
-    # STAGE 7: Create Control2 Individuals (Pure Year 60)
+    # STAGE 7: Create Control2 Individuals (Pure Second Snapshot)
     # ========================================================================
     print(f"\n{'='*60}")
     print("STAGE 7: Create Control2 Individuals")
     print(f"{'='*60}")
     
+    # Reload dishes after mixing to get current sizes AND counts
+    mutant_dishes = load_all_petri_dishes(mutant_dir)
+    control1_dishes = load_all_petri_dishes(control1_dir)
+    
+    # Determine how many control2 individuals to create
+    # Should match the average of mutant and control1 after normalization
+    if args.normalize_size:
+        # After normalization, we may have fewer individuals
+        num_control2 = (len(mutant_dishes) + len(control1_dishes)) // 2
+        print(f"  Adjusted control2 count after normalization: {num_control2}")
+        print(f"    (Based on {len(mutant_dishes)} mutant + {len(control1_dishes)} control1)")
+    else:
+        # Use original expected count
+        num_control2 = expected_individuals
+    
+    # Calculate expected final cells (needed for both mixing modes)
+    if args.uniform_mixing:
+        # Use the median-based calculation from uniform mixing
+        all_sizes = [len(dish.cells) for dish in mutant_dishes] + [len(dish.cells) for dish in control1_dishes]
+        median_after_mix = int(np.median(all_sizes))
+        expected_final_cells = median_after_mix
+    else:
+        # Use the standard calculation
+        grown_cells = expected_population
+        expected_final_cells = int(grown_cells / ((100 - args.mix_ratio) / 100))
+    
     control2_state = check_petri_files_state(control2_dir, expected_final_cells)
     
     control2_dishes = []
-    if control2_state['total_files'] >= expected_individuals and not args.force_recreate:
+    if control2_state['total_files'] >= num_control2 and not args.force_recreate:
         print(f"  ⏭ Control2 individuals exist ({control2_state['total_files']} files)")
         control2_dishes = load_all_petri_dishes(control2_dir)
     else:
-        print(f"  ✓ Creating {expected_individuals} control2 individuals (pure year {args.second_snapshot})...")
+        print(f"  ✓ Creating {num_control2} control2 individuals (pure year {args.second_snapshot})...")
+        
+        # Clean up any existing control2 files first
+        import glob
+        for old_file in glob.glob(os.path.join(control2_dir, "individual_*.json.gz")):
+            os.remove(old_file)
         
         # Adjust target size if snapshot has fewer cells
         actual_control2_size = min(expected_final_cells, len(second_snapshot_cells))
@@ -418,8 +576,8 @@ def run_pipeline(args):
             print(f"    Warning: Snapshot has only {len(second_snapshot_cells)} cells, adjusting control2 size")
         print(f"    Each with {actual_control2_size} pure year {args.second_snapshot} cells")
         
-        for i in range(expected_individuals):
-            print(f"    Creating individual {i+1}/{expected_individuals}")
+        for i in range(num_control2):
+            print(f"    Creating individual {i+1}/{num_control2}")
             
             # Create PetriDish with pure second snapshot cells
             petri = create_pure_snapshot_petri(second_snapshot_cells, n_cells=actual_control2_size,
@@ -509,6 +667,9 @@ def run_pipeline(args):
             "cells_per_quantile": args.cells_per_quantile,
             "total_individuals": expected_individuals,
             "mix_ratio": args.mix_ratio,
+            "uniform_mixing": args.uniform_mixing,
+            "normalize_size": args.normalize_size,
+            "normalization_threshold": normalization_threshold,
             "seed": args.seed,
             "bins": args.bins
         },
@@ -555,6 +716,12 @@ def main():
     # Visualization parameters
     parser.add_argument("--bins", type=int, default=200,
                        help="Number of bins for JSD histograms")
+    
+    # Mixing parameters
+    parser.add_argument("--uniform-mixing", action='store_true',
+                       help="Use same snapshot cells for all individuals (default: independent random sampling)")
+    parser.add_argument("--normalize-size", action='store_true',
+                       help="Normalize all individuals to same size before mixing (uses 20th percentile)")
     
     # Other parameters
     parser.add_argument("--seed", type=int, default=42,

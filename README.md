@@ -60,20 +60,28 @@ cd phase2
 # Standard analysis (30 individuals from 10 deciles)
 python run_pipeline.py --rate 0.005 \
     --simulation ../phase1/data/rate_0.00500/grow13-*/simulation.json.gz \
-    --snapshot-year 50 --growth-years 10 --seed 42
+    --first-snapshot 50 --second-snapshot 60 \
+    --individual-growth-phase 7 --seed 42
 
-# Quick test (4 individuals from quartiles, 2 years growth)
+# Quick test (4 individuals from quartiles, short growth)
 python run_pipeline.py --rate 0.005 \
     --simulation ../phase1/data/rate_0.00500/grow13-*/simulation.json.gz \
-    --n-quantiles 4 --cells-per-quantile 1 --growth-years 2
+    --first-snapshot 10 --second-snapshot 15 \
+    --individual-growth-phase 3 \
+    --n-quantiles 4 --cells-per-quantile 1
 
 # Output structure:
 # data/rate_0.00500-grow13-sites1000-years100/
-#   └── snap50-quant10x3-grow10-mix80-seed42-XXXX/
+#   └── snap50to60-growth7-quant10x3-mix80-seed42-XXXX/
 #       ├── snapshots/     # Cached year 50 and 60 extracts
 #       ├── individuals/   # Mutant, Control1, Control2 populations
 #       ├── plots/         # JSD distributions and comparisons
 #       └── results/       # Statistical analyses
+#
+# With advanced features:
+#   mix80u   - Uniform mixing
+#   mix80n   - Size normalization
+#   mix80un  - Both features
 ```
 
 ## Detailed Usage
@@ -127,13 +135,16 @@ cd phase2
 python run_pipeline.py \
     --rate 0.005 \
     --simulation ../phase1/data/rate_0.00500/grow13-*/simulation.json.gz \
-    --snapshot-year 50 \        # First snapshot year (default: 50)
-    --growth-years 10 \         # Years to grow individuals (default: 10)
-    --n-quantiles 10 \          # Number of quantiles for sampling
-    --cells-per-quantile 3 \    # Cells sampled per quantile
-    --mix-ratio 80 \            # % of snapshot cells in final mix
-    --bins 200 \                # Histogram bins for JSD plot
-    --seed 42                   # Random seed for reproducibility
+    --first-snapshot 50 \           # First snapshot year
+    --second-snapshot 60 \          # Second snapshot year  
+    --individual-growth-phase 7 \   # Growth before homeostasis (2^7=128 cells)
+    --n-quantiles 10 \              # Number of quantiles for sampling
+    --cells-per-quantile 3 \        # Cells sampled per quantile
+    --mix-ratio 80 \                # % of snapshot cells in final mix
+    --uniform-mixing \              # Use same snapshot cells for all (optional)
+    --normalize-size \              # Normalize to same size before mixing (optional)
+    --bins 200 \                    # Histogram bins for JSD plot
+    --seed 42                       # Random seed for reproducibility
 ```
 
 **Pipeline Stages:**
@@ -150,8 +161,9 @@ python run_pipeline.py \
    - Control1: Uniform random sampling
    
 4. **Grow Individuals**
-   - Cell division + methylation for N years
-   - Growth: 1→2→4→...→2^N cells
+   - Exponential growth for individual-growth-phase years
+   - Then homeostasis (divide → cull → methylate) maintaining ~2^growth cells
+   - More biologically realistic than pure exponential growth
    
 5. **Extract Second Snapshot** (first_snapshot + growth_years)
    - Age-aligned with grown individuals
@@ -173,16 +185,22 @@ python run_pipeline.py \
 
 ### Hierarchical Directory Structure
 ```
-step1-prime output:
+phase1 output:
 data/rate_0.00500/grow13-sites1000-years100-seed42-XXXX/simulation.json.gz
 
-step23-prime output:
+phase2 output:
 data/rate_0.00500-grow13-sites1000-years100/
-  └── snap50-quant10x3-grow10-mix80-seed42-XXXX/
+  └── snap50to60-growth7-quant10x3-mix80[u][n]-seed42-XXXX/
       ├── snapshots/
       ├── individuals/
       ├── plots/
       └── results/
+      
+Suffix indicators:
+  mix80   - Standard mixing (independent sampling)
+  mix80u  - Uniform mixing (shared snapshot cells)
+  mix80n  - Size normalization (median - 0.5σ threshold)
+  mix80un - Both uniform mixing and normalization
 ```
 
 ### Full Reproducibility
@@ -204,6 +222,30 @@ petri.divide_cells()  # Population doubles
 petri.methylate_cells()  # Apply methylation
 petri.random_cull_cells()  # Homeostatic culling
 ```
+
+## Advanced Features (Phase 2)
+
+### Uniform Mixing (`--uniform-mixing`)
+- All individuals receive the exact same set of snapshot cells
+- Reduces inter-individual variation from random sampling
+- Useful for focusing on biological variation rather than sampling noise
+- Directory suffix: 'u' (e.g., mix80u)
+
+### Size Normalization (`--normalize-size`)
+- Normalizes all individuals to the same cell count before mixing
+- Uses median - 0.5σ threshold to determine target size
+- Excludes individuals below threshold, trims those above
+- Addresses variation from homeostasis stochasticity
+- Typically retains ~67% of individuals
+- Directory suffix: 'n' (e.g., mix80n)
+- Works best combined with uniform mixing (mix80un)
+
+### Homeostasis in Individual Growth
+- `--individual-growth-phase`: Years of exponential growth before homeostasis
+- After growth phase: divide → cull → methylate each year
+- Maintains population around 2^growth_phase cells
+- More biologically realistic than pure exponential growth
+- Example: `--individual-growth-phase 7` → ~128 cells
 
 ## Project Structure
 

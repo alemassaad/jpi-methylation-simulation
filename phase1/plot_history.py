@@ -616,7 +616,7 @@ def main():
     parser.add_argument('history_file', type=str, 
                         help='Path to simulation.json.gz file (supports wildcards)')
     parser.add_argument('-o', '--output', type=str, default=None,
-                        help='Output directory (default: plots/ in simulation directory)')
+                        help='Output directory (default: same directory as simulation file)')
     parser.add_argument('--jsd-only', action='store_true',
                         help='Only create JSD plot')
     parser.add_argument('--methylation-only', action='store_true',
@@ -642,13 +642,8 @@ def main():
     if args.output:
         plots_dir = args.output
     else:
-        # Create plots directory in the same location as the simulation
-        sim_dir = os.path.dirname(filepath)
-        plots_dir = os.path.join(sim_dir, 'plots')
-    
-    if not os.path.exists(plots_dir):
-        os.makedirs(plots_dir, exist_ok=True)
-        print(f"Created {plots_dir}/ directory")
+        # Save plots in the same directory as the simulation file
+        plots_dir = os.path.dirname(filepath)
     
     # Extract base name for output files
     # Handle hierarchical structure: extract parameters from path

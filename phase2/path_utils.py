@@ -71,7 +71,7 @@ def generate_step23_output_dir(args, sim_params: Dict) -> str:
     Generate hierarchical output directory for phase2.
     
     Structure:
-    data/rate_0.00500-grow13-sites100-years100/snap50-quant10x3-grow10-mix80-seed42-HASH/
+    data/rate_0.00500-grow13-sites100-years100/snap50to60-growth7-quant10x3-mix80-seed42-HASH/
     
     Args:
         args: Command line arguments with pipeline parameters
@@ -87,9 +87,9 @@ def generate_step23_output_dir(args, sim_params: Dict) -> str:
               f"years{sim_params['sim_years']}")
     
     # Level 2: Pipeline params in logical flow order
-    params_str = (f"snap{args.snapshot_year}-"
+    params_str = (f"snap{args.first_snapshot}to{args.second_snapshot}-"
+                  f"growth{args.individual_growth_phase}-"
                   f"quant{args.n_quantiles}x{args.cells_per_quantile}-"
-                  f"grow{args.growth_years}-"
                   f"mix{args.mix_ratio}-"
                   f"seed{args.seed}")
     
@@ -97,9 +97,9 @@ def generate_step23_output_dir(args, sim_params: Dict) -> str:
     # Include all parameters in hash to ensure uniqueness
     hash_input = (f"{args.rate:.5f}-{sim_params['growth_phase']}-"
                   f"{sim_params['n_sites']}-{sim_params['sim_years']}-"
-                  f"{args.snapshot_year}-{args.n_quantiles}-"
-                  f"{args.cells_per_quantile}-{args.growth_years}-"
-                  f"{args.mix_ratio}-{args.seed}")
+                  f"{args.first_snapshot}-{args.second_snapshot}-"
+                  f"{args.individual_growth_phase}-{args.n_quantiles}-"
+                  f"{args.cells_per_quantile}-{args.mix_ratio}-{args.seed}")
     hash_str = hashlib.md5(hash_input.encode()).hexdigest()[:4]
     level2 = f"{params_str}-{hash_str}"
     

@@ -21,12 +21,12 @@ step3/data/individuals/**/*.json.gz
 step3/data/test_individuals/**/*.json.gz
 !step3/data/test_snapshots/*.json.gz
 
-# Step1-prime test data
-step1-prime/data/*.json.gz
+# Phase1 test data
+phase1/data/*.json.gz
 
-# Step23 test data directories
-step23/data_test/
-step23/data_test*/
+# Phase2 test data directories
+phase2/data_test/
+phase2/data_test*/
 
 # Old data directory (if any)
 data/

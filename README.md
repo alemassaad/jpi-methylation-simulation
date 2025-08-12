@@ -13,9 +13,9 @@ The simulation models:
 - Mixed population experiments
 - Jensen-Shannon divergence (JSD) from baseline patterns
 
-## Main Pipeline: Step1-Prime → Step23-Prime
+## Pipeline: Phase 1 → Phase 2
 
-The prime pipeline is our production-ready implementation featuring:
+The simulation and analysis pipeline features:
 - **Biological Realism**: Single cell → exponential growth → homeostasis
 - **Clean Architecture**: Object-oriented Cell and PetriDish classes
 - **Full Reproducibility**: Comprehensive random seeding
@@ -43,28 +43,28 @@ This installs:
 
 ## Quick Start
 
-### Step 1-Prime: Biologically Realistic Simulation
+### Phase 1: Biologically Realistic Simulation
 ```bash
 # Run simulation starting from 1 cell, growing to 8192 cells (2^13)
-cd step1-prime
+cd phase1
 python run_simulation.py --rate 0.005 --years 100 --growth-phase 13 --seed 42
 
 # Output will be in hierarchical structure:
 # data/rate_0.00500/grow13-sites1000-years100-seed42-XXXX/simulation.json.gz
 ```
 
-### Step23-Prime: Analysis Pipeline
+### Phase 2: Analysis Pipeline
 ```bash
-cd step23-prime
+cd phase2
 
 # Standard analysis (30 individuals from 10 deciles)
 python run_pipeline.py --rate 0.005 \
-    --simulation ../step1-prime/data/rate_0.00500/grow13-*/simulation.json.gz \
+    --simulation ../phase1/data/rate_0.00500/grow13-*/simulation.json.gz \
     --snapshot-year 50 --growth-years 10 --seed 42
 
 # Quick test (4 individuals from quartiles, 2 years growth)
 python run_pipeline.py --rate 0.005 \
-    --simulation ../step1-prime/data/rate_0.00500/grow13-*/simulation.json.gz \
+    --simulation ../phase1/data/rate_0.00500/grow13-*/simulation.json.gz \
     --n-quantiles 4 --cells-per-quantile 1 --growth-years 2
 
 # Output structure:
@@ -78,12 +78,12 @@ python run_pipeline.py --rate 0.005 \
 
 ## Detailed Usage
 
-### Step 1-Prime: Biologically Realistic Simulation
+### Phase 1: Biologically Realistic Simulation
 
 Simulates cellular population dynamics starting from a single cell:
 
 ```bash
-cd step1-prime
+cd phase1
 
 # Standard simulation (8192 cells, 100 years)
 python run_simulation.py --rate 0.005 --years 100 --growth-phase 13 --seed 42
@@ -116,17 +116,17 @@ python run_simulation.py --growth-phase 15  # 32768 cells (2^15)
 - Stochastic population size varies around 2^growth-phase
 - Models adult tissue homeostasis
 
-### Step23-Prime: Analysis Pipeline
+### Phase 2: Analysis Pipeline
 
 Complete pipeline from cell sampling to analysis:
 
 ```bash
-cd step23-prime
+cd phase2
 
 # Full run with all parameters
 python run_pipeline.py \
     --rate 0.005 \
-    --simulation ../step1-prime/data/rate_0.00500/grow13-*/simulation.json.gz \
+    --simulation ../phase1/data/rate_0.00500/grow13-*/simulation.json.gz \
     --snapshot-year 50 \        # First snapshot year (default: 50)
     --growth-years 10 \         # Years to grow individuals (default: 10)
     --n-quantiles 10 \          # Number of quantiles for sampling
@@ -209,22 +209,20 @@ petri.random_cull_cells()  # Homeostatic culling
 
 ```
 jpi-methylation-simulation/
-├── step1-prime/               # Main simulation (PRODUCTION)
+├── phase1/               # Simulation engine
 │   ├── cell.py               # Core classes (Cell, PetriDish)
 │   ├── run_simulation.py     # Main CLI runner
 │   ├── plot_history.py       # Time-series visualization
+│   ├── tests/                # Unit tests
 │   └── data/                 # Hierarchical output structure
-├── step23-prime/              # Main analysis pipeline (PRODUCTION)
+├── phase2/              # Analysis pipeline
 │   ├── run_pipeline.py       # Pipeline orchestrator
 │   ├── pipeline_utils.py     # Cell/PetriDish utilities
 │   ├── pipeline_analysis.py  # Visualization functions
 │   ├── path_utils.py         # Path parsing/generation
+│   ├── tests/                # Pipeline tests
+│   ├── tools/                # Comparison and analysis tools
 │   └── data/                 # Hierarchical output structure
-├── legacy/                    # Historical implementations
-│   ├── step1/                # Traditional simulation
-│   ├── step2/                # Original division experiments
-│   ├── step3/                # Original mixing analysis
-│   └── step23/               # Pre-OOP unified pipeline
 ├── requirements.txt           # Python dependencies
 ├── README.md                  # This file
 └── CLAUDE.md                  # AI assistant guidance
@@ -250,45 +248,22 @@ The simulation uses:
 - **Kullback-Leibler (KL) divergence**: Measures difference between probability distributions
 - **Jensen-Shannon (JS) divergence**: Symmetric version of KL divergence, calculated as the average of KL divergences to the midpoint distribution
 
----
+## Testing
 
-## Alternative Pipelines (Historical Reference)
-
-### Legacy Pipeline Versions
-
-For backward compatibility and historical reference, the original pipelines are preserved in the `legacy/` directory:
-
-#### Step23 Pipeline V2 (Unified, Pre-OOP)
-The precursor to step23-prime, using dictionary-based data structures:
+### Phase 1 Tests
 ```bash
-cd legacy/step23
-python run_pipeline_v2.py --rate 0.005 \
-    --simulation ../step1/data/simulation_rate_0.005000_m10000_n1000_t100.json.gz
+cd phase1/tests
+python test_small.py           # Quick validation
+python test_comprehensive.py   # Full feature tests
+python test_edge_cases.py      # Edge case handling
 ```
 
-#### Original 3-Step Pipeline
-The initial implementation with separate steps:
+### Phase 2 Tests
 ```bash
-# Step 1: Traditional simulation (10,000 cells)
-cd legacy/step1
-python run_large_simulation.py --rate 0.005
-
-# Step 2: Cell division experiments
-cd legacy/step2/scripts
-python extract_snapshot.py --year 50
-python create_lineages.py --type both
-
-# Step 3: Mixed population analysis
-cd legacy/step3/scripts
-python extract_year60_original.py
-python create_individuals.py --type both
-python plot_distributions.py
+cd phase2/tests
+python test_reproducibility_robust.py   # Test full reproducibility
+python test_dynamic_mix_year.py        # Test dynamic year calculations
 ```
-
-These legacy versions are maintained for:
-- Reproducibility of earlier results
-- Validation of the prime pipeline
-- Historical documentation
 
 ## License
 

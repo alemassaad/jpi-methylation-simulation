@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Utility functions for step23-prime pipeline using PetriDish and Cell classes.
+Utility functions for phase2 pipeline using PetriDish and Cell classes.
 """
 
 import json
@@ -13,10 +13,10 @@ import glob
 import copy
 from typing import List, Dict, Tuple, Optional, Any
 
-# Add parent directory to path to import from step1-prime
+# Add parent directory to path to import from phase1
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-sys.path.append(os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'step1-prime'))
+sys.path.append(os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'phase1'))
 from cell import Cell, PetriDish, GENE_SIZE, BASELINE_METHYLATION_DISTRIBUTION
 
 
@@ -52,7 +52,7 @@ def load_snapshot_as_cells(simulation_file: str, year: int) -> List[Cell]:
     Load a year from simulation and convert to Cell objects.
     
     Args:
-        simulation_file: Path to step1/step1-prime simulation
+        simulation_file: Path to phase1 simulation
         year: Year to extract (50 or 60)
     
     Returns:

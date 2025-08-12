@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Plot JSD vs time from step1-prime simulation history using Plotly.
+Plot JSD vs time from phase1 simulation history using Plotly.
 Shows mean with 5-95 percentile bands.
 Adapted for the hierarchical directory structure and PetriDish simulations.
 """
@@ -526,7 +526,7 @@ def create_combined_plot(stats, filename):
 
 def main():
     parser = argparse.ArgumentParser(
-        description='Plot JSD and methylation from step1-prime simulation history',
+        description='Plot JSD and methylation from phase1 simulation history',
         formatter_class=argparse.ArgumentDefaultsHelpFormatter
     )
     parser.add_argument('history_file', type=str, 

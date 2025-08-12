@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Utilities for parsing and generating hierarchical paths for step1-prime and step23-prime.
+Utilities for parsing and generating hierarchical paths for phase1 and phase2.
 """
 
 import os
@@ -11,7 +11,7 @@ from typing import Dict, Optional
 
 def parse_step1_simulation_path(filepath: str) -> Optional[Dict]:
     """
-    Parse parameters from step1-prime simulation path.
+    Parse parameters from phase1 simulation path.
     
     Handles both old and new formats:
     - Old: simulation_rate_0.005000_g13_n100_m957_t100_seed42.json.gz

@@ -28,7 +28,7 @@ def run_test(test_name, growth_years, dynamic_mix, expected_year, should_succeed
     cmd = [
         "python", "run_pipeline.py",
         "--rate", "0.005",
-        "--simulation", "../step1-prime/data/simulation_rate_0.005000_g10_m957_n100_t100_seed42.json.gz",
+        "--simulation", "../phase1/data/simulation_rate_0.005000_g10_m957_n100_t100_seed42.json.gz",
         "--n-quantiles", "2",
         "--cells-per-quantile", "1",
         "--growth-years", str(growth_years),
@@ -102,10 +102,10 @@ def main():
     print("="*60)
     
     # Check if simulation exists
-    sim_path = "../step1-prime/data/simulation_rate_0.005000_g10_m957_n100_t100_seed42.json.gz"
+    sim_path = "../phase1/data/simulation_rate_0.005000_g10_m957_n100_t100_seed42.json.gz"
     if not os.path.exists(sim_path):
         print(f"Error: Test simulation not found: {sim_path}")
-        print("Please run: cd ../step1-prime && python run_simulation.py --rate 0.005 --years 100 --growth-phase 10 --sites 100 --seed 42")
+        print("Please run: cd ../phase1 && python run_simulation.py --rate 0.005 --years 100 --growth-phase 10 --sites 100 --seed 42")
         sys.exit(1)
     
     all_passed = True

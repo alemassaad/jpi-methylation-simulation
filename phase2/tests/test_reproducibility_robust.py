@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Robust reproducibility tests for step23-prime.
+Robust reproducibility tests for phase2.
 Tests that the pipeline produces IDENTICAL results with same seed.
 """
 
@@ -20,7 +20,7 @@ def run_pipeline_subprocess(rate: float, seed: int, output_suffix: str,
     """Run pipeline in subprocess with minimal parameters for speed."""
     
     # Use small test simulation if it exists, otherwise use main
-    test_sim = "../step1-prime/data/simulation_rate_0.010000_g3_m22_n100_t60_seed42.json.gz"
+    test_sim = "../phase1/data/simulation_rate_0.010000_g3_m22_n100_t60_seed42.json.gz"
     main_sim = f"../step1/data/simulation_rate_{rate:.6f}_m10000_n1000_t100.json.gz"
     
     simulation = test_sim if os.path.exists(test_sim) else main_sim

@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Step23-Prime Pipeline: Refactored to use PetriDish and Cell classes directly.
+Phase 2 Pipeline: Refactored to use PetriDish and Cell classes directly.
 
 This pipeline:
 1. Extracts year 50 and 60 snapshots as Cell objects
@@ -25,7 +25,7 @@ from typing import List, Dict, Optional
 # Add parent directory to path
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-sys.path.append(os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'step1-prime'))
+sys.path.append(os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'phase1'))
 from cell import PetriDish, Cell
 from pipeline_utils import (
     load_snapshot_as_cells, save_snapshot_cells, load_snapshot_cells,
@@ -89,7 +89,7 @@ def run_pipeline(args):
         os.makedirs(dir_path, exist_ok=True)
     
     print("=" * 80)
-    print("STEP23-PRIME PIPELINE")
+    print("PHASE 2 PIPELINE")
     print("=" * 80)
     print(f"Rate: {args.rate}")
     print(f"Simulation: {args.simulation}")
@@ -518,7 +518,7 @@ def main():
     parser.add_argument("--rate", type=float, required=True,
                        help="Methylation rate (must match simulation)")
     parser.add_argument("--simulation", type=str, required=True,
-                       help="Path to step1/step1-prime simulation file")
+                       help="Path to phase1 simulation file")
     
     # Quantile sampling parameters
     parser.add_argument("--n-quantiles", type=int, default=10,

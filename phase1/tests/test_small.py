@@ -1,8 +1,12 @@
 #!/usr/bin/env python3
 """
-Quick test of Step1-Prime simulation with small parameters.
+Quick test of Phase 1 simulation with small parameters.
 Tests the growth phase and steady state transitions.
 """
+
+import sys
+import os
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from cell import PetriDish
 
@@ -18,7 +22,7 @@ def test_small_simulation():
         n=100,          # Fewer CpG sites
         gene_size=5,    # Standard gene size
         seed=42,        # Fixed seed for reproducibility
-        target_population=16  # Small target (2^4)
+        growth_phase=4  # Small target (2^4 = 16 cells)
     )
     
     # Run for 10 years to test both phases

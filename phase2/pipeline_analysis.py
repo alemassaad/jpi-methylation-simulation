@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Analysis and visualization functions for the step23-prime pipeline.
+Analysis and visualization functions for the phase2 pipeline.
 Adapted to work directly with Cell and PetriDish objects.
 """
 
@@ -16,7 +16,7 @@ from typing import List, Dict, Any, Optional, Tuple
 
 # Add parent directory to path
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-sys.path.append(os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'step1-prime'))
+sys.path.append(os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'phase1'))
 
 from cell import Cell, PetriDish
 from pipeline_utils import load_petri_dish, load_all_petri_dishes, get_jsd_array

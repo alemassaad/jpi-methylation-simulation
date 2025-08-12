@@ -1,6 +1,6 @@
-# Step23-Prime Pipeline
+# Phase 2: Analysis Pipeline
 
-A refactored version of the Step23 pipeline using object-oriented design with `PetriDish` and `Cell` classes from step1-prime.
+A refactored analysis pipeline using object-oriented design with `PetriDish` and `Cell` classes from phase1.
 
 ## Features
 
@@ -15,7 +15,7 @@ A refactored version of the Step23 pipeline using object-oriented design with `P
 ```bash
 python run_pipeline.py \
     --rate 0.005 \
-    --simulation ../step1-prime/data/rate_0.00500/grow13-sites1000-years100-seed42-*/simulation.json.gz \
+    --simulation ../phase1/data/rate_0.00500/grow13-sites1000-years100-seed42-*/simulation.json.gz \
     --snapshot-year 50 \
     --growth-years 10 \
     --n-quantiles 10 \
@@ -27,7 +27,7 @@ python run_pipeline.py \
 ## Parameters
 
 - `--rate`: Methylation rate (must match simulation)
-- `--simulation`: Path to step1/step1-prime simulation file
+- `--simulation`: Path to phase1 simulation file
 - `--snapshot-year`: Year for first snapshot (default: 50)
 - `--growth-years`: Years to grow individuals (default: 10)
 - `--n-quantiles`: Number of quantiles for sampling (default: 10)
@@ -65,12 +65,11 @@ data/
 - **scripts/**: Utility scripts
 - **archive/**: Development artifacts and documentation
 
-## Comparison with Original Step23
+## Analysis Tools
 
-To validate results against the original step23:
+Various comparison and analysis tools are available in the `tools/` directory:
 
 ```bash
-python tools/generate_comparison_report.py
+python tools/compare_two_runs.py  # Compare reproducibility between runs
+python tools/generate_comparison_report.py  # Generate comprehensive comparison report
 ```
-
-This compares snapshots, individuals, and statistical results between step23 and step23-prime.

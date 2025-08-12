@@ -59,13 +59,13 @@ def main():
     print("="*50)
     
     # Extract twice from same source
-    simulation = "../step1-prime/data/simulation_rate_0.010000_g3_m22_n100_t60_seed42.json.gz"
+    simulation = "../phase1/data/simulation_rate_0.010000_g3_m22_n100_t60_seed42.json.gz"
     if os.path.exists(simulation):
         print(f"\nExtracting year 50 twice from same simulation...")
         
         import sys
         sys.path.append('..')
-        sys.path.append('../step1-prime')
+        sys.path.append('../phase1')
         from pipeline_utils import load_snapshot_as_cells, save_snapshot_cells
         
         # Extract 1

@@ -10,7 +10,7 @@ import numpy as np
 
 # Add parent directory to path
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-sys.path.append(os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'step1-prime'))
+sys.path.append(os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'phase1'))
 
 from pipeline_utils import load_all_petri_dishes
 from pipeline_analysis import analyze_populations_from_dishes, plot_cell_level_distributions

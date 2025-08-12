@@ -9,10 +9,10 @@ Biologically realistic DNA methylation simulation modeling epigenetic drift thro
 ## Architecture
 
 ### Main Pipeline (USE THESE)
-- **step1-prime/**: Simulation engine (single cell → population growth → homeostasis)
-- **step23-prime/**: Analysis pipeline (quantile sampling → growth → mixing → statistics)
+- **phase1/**: Simulation engine (single cell → population growth → homeostasis)
+- **phase2/**: Analysis pipeline (quantile sampling → growth → mixing → statistics)
 
-### Core Classes (step1-prime/cell.py)
+### Core Classes (phase1/cell.py)
 ```python
 Cell(n=1000, rate=0.005)        # Individual cell with CpG sites
 PetriDish(rate=0.005, growth_phase=13)  # Population manager
@@ -27,38 +27,38 @@ Key methods:
 ### Directory Structure
 ```
 # Hierarchical output with MD5 hash suffixes
-step1-prime/data/rate_0.00500/grow13-sites1000-years100-seed42-XXXX/
-step23-prime/data/rate_0.00500-grow13-sites1000-years100/snap50-quant10x3-grow10-mix80-seed42-XXXX/
+phase1/data/rate_0.00500/grow13-sites1000-years100-seed42-XXXX/
+phase2/data/rate_0.00500-grow13-sites1000-years100/snap50-quant10x3-grow10-mix80-seed42-XXXX/
 ```
 
 ## Commands
 
 ### Run Simulation
 ```bash
-cd step1-prime
+cd phase1
 python run_simulation.py --rate 0.005 --years 100 --growth-phase 13 --seed 42
 # Quick test: --years 20 --growth-phase 4
 ```
 
 ### Run Analysis Pipeline
 ```bash
-cd step23-prime
+cd phase2
 python run_pipeline.py --rate 0.005 \
-    --simulation ../step1-prime/data/rate_0.00500/grow13-*/simulation.json.gz \
+    --simulation ../phase1/data/rate_0.00500/grow13-*/simulation.json.gz \
     --snapshot-year 50 --growth-years 10 --seed 42
 # Quick test: --n-quantiles 4 --cells-per-quantile 1 --growth-years 2
 ```
 
 ### Run Tests
 ```bash
-# Step1-Prime
-cd step1-prime/tests
+# Phase 1
+cd phase1/tests
 python test_small.py           # Quick validation
 python test_comprehensive.py   # Full features
 python test_edge_cases.py      # Edge cases
 
-# Step23-Prime
-cd step23-prime/tests
+# Phase 2
+cd phase2/tests
 python test_reproducibility_robust.py   # Reproducibility
 python test_dynamic_mix_year.py        # Dynamic year calculations
 ```
@@ -97,8 +97,8 @@ DEFAULT_GROWTH_PHASE = 13  # → 8192 cells
 
 ## Development Guidelines
 
-### Always Use Prime Versions
-- step1-prime and step23-prime are production pipelines
+### Always Use Current Versions
+- phase1 and phase2 are production pipelines
 - legacy/ directory for historical reference only
 
 ### Object-Oriented Design
@@ -118,11 +118,11 @@ grow_petri_for_years(petri, years=10)
 ### Testing & Validation
 ```bash
 # Quick validation of changes
-cd step1-prime/tests && python test_small.py
-cd step23-prime/tests && python test_reproducibility_robust.py
+cd phase1/tests && python test_small.py
+cd phase2/tests && python test_reproducibility_robust.py
 
 # Check reproducibility between runs
-cd step23-prime/tools
+cd phase2/tools
 python compare_two_runs.py --dir1 path1 --dir2 path2
 ```
 

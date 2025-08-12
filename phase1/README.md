@@ -1,4 +1,4 @@
-# Step1-Prime: Biologically Realistic Methylation Simulation
+# Phase 1: Biologically Realistic Methylation Simulation
 
 A production-ready methylation simulation that models realistic cellular population dynamics starting from a single cell.
 
@@ -125,18 +125,18 @@ python run_simulation.py --rate 0.005
 python run_simulation.py --rate 0.01
 ```
 
-## Integration with Step23-Prime
+## Integration with Phase 2
 
-Output from step1-prime serves as input for the step23-prime analysis pipeline:
+Output from phase1 serves as input for the phase2 analysis pipeline:
 
 ```bash
 # Run simulation
 python run_simulation.py --rate 0.005 --growth-phase 13 --seed 42
 
-# Analyze results with step23-prime
-cd ../step23-prime
+# Analyze results with phase2
+cd ../phase2
 python run_pipeline.py --rate 0.005 \
-    --simulation ../step1-prime/data/rate_0.00500/grow13-*/simulation.json.gz
+    --simulation ../phase1/data/rate_0.00500/grow13-*/simulation.json.gz
 ```
 
 ## Scientific Background

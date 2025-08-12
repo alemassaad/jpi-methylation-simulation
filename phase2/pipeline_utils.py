@@ -338,10 +338,12 @@ def mix_petri_with_snapshot(petri: PetriDish, snapshot_cells: List[Cell],
     print(f"    Mixing: {current_count} current + {n_to_add} from snapshot = {target_total} total")
     
     if n_to_add > len(snapshot_cells):
-        raise ValueError(f"Need {n_to_add} cells but only {len(snapshot_cells)} available")
-    
-    # Sample without replacement
-    sample_indices = random.sample(range(len(snapshot_cells)), n_to_add)
+        # If we need more cells than available, sample with replacement
+        print(f"    Warning: Need {n_to_add} cells but only {len(snapshot_cells)} available - sampling with replacement")
+        sample_indices = [random.randint(0, len(snapshot_cells)-1) for _ in range(n_to_add)]
+    else:
+        # Sample without replacement
+        sample_indices = random.sample(range(len(snapshot_cells)), n_to_add)
     added_cells = [copy.deepcopy(snapshot_cells[idx]) for idx in sample_indices]
     
     # Add to petri
@@ -394,34 +396,60 @@ def create_pure_snapshot_petri(snapshot_cells: List[Cell], n_cells: int = 5120,
     return petri
 
 
-def grow_petri_for_years(petri: PetriDish, years: int, verbose: bool = True) -> None:
+def grow_petri_for_years(petri: PetriDish, years: int, growth_phase: Optional[int] = None, verbose: bool = True) -> None:
     """
-    Grow a PetriDish for specified years using divide and methylate.
+    Grow a PetriDish for specified years with optional homeostasis after growth phase.
     
     Args:
         petri: PetriDish to grow (modified in place)
-        years: Number of years to grow
+        years: Total number of years to simulate
+        growth_phase: Years of exponential growth before homeostasis (None = pure exponential)
         verbose: Print progress
     """
+    if growth_phase is not None and growth_phase > years:
+        raise ValueError(f"growth_phase ({growth_phase}) cannot exceed total years ({years})")
+    
     for year in range(years):
         initial_count = len(petri.cells)
+        current_year = year + 1  # 1-indexed for clarity
         
-        # Use PetriDish built-in methods
-        petri.divide_cells() if not verbose else None
-        petri.methylate_cells() if not verbose else None
-        
-        if verbose:
-            # Temporarily redirect print output
-            import io
-            from contextlib import redirect_stdout
-            
-            f = io.StringIO()
-            with redirect_stdout(f):
+        if growth_phase is None or current_year <= growth_phase:
+            # Growth phase: divide + methylate
+            if not verbose:
                 petri.divide_cells()
                 petri.methylate_cells()
-            
-            final_count = len(petri.cells)
-            print(f"      Year {year + 1}: {initial_count} → {final_count} cells")
+            else:
+                # Temporarily redirect print output
+                import io
+                from contextlib import redirect_stdout
+                
+                f = io.StringIO()
+                with redirect_stdout(f):
+                    petri.divide_cells()
+                    petri.methylate_cells()
+                
+                final_count = len(petri.cells)
+                print(f"      Year {current_year} (growth): {initial_count} → {final_count} cells")
+        else:
+            # Homeostasis phase: divide + cull + methylate
+            if not verbose:
+                petri.divide_cells()
+                petri.random_cull_cells()
+                petri.methylate_cells()
+            else:
+                # Temporarily redirect print output
+                import io
+                from contextlib import redirect_stdout
+                
+                f = io.StringIO()
+                with redirect_stdout(f):
+                    petri.divide_cells()
+                    intermediate_count = len(petri.cells)
+                    petri.random_cull_cells()
+                    petri.methylate_cells()
+                
+                final_count = len(petri.cells)
+                print(f"      Year {current_year} (homeostasis): {initial_count} → {final_count} cells")
         
         petri.year += 1
 

@@ -29,9 +29,24 @@ Key methods:
 
 ### Directory Structure
 ```
-# Hierarchical output with MD5 hash suffixes
+# Phase 1 output:
 phase1/data/rate_0.00500/grow13-sites1000-years100-seed42-XXXX/
-phase2/data/rate_0.00500-grow13-sites1000-years100/snap50-quant10x3-grow10-mix80-seed42-XXXX/
+  ├── simulation.json.gz      # Full history (all years)
+  ├── jsd_history.png         # JSD trajectory plot
+  └── methylation_history.png # Methylation trajectory plot
+
+# Phase 2 output:
+phase2/data/rate_0.00500-grow13-sites1000-years100/snap50to60-growth7-quant10x3-mix80-seed42-XXXX/
+  ├── individuals/            # Individual PetriDish objects
+  │   ├── mutant/            # Quantile-sampled individuals
+  │   ├── control1/          # Uniformly-sampled individuals
+  │   └── control2/          # Pure second snapshot individuals
+  ├── snapshots/             # Extracted snapshot data
+  ├── results/               # Analysis outputs and plots
+  └── individual_plots/      # Growth trajectories (if --plot-individuals used)
+      ├── mutant_00_jsd.png
+      ├── mutant_00_methylation.png
+      └── mutant_00_combined.png
 ```
 
 ## Commands
@@ -48,8 +63,17 @@ python run_simulation.py --rate 0.005 --years 100 --growth-phase 13 --seed 42
 cd phase2
 python run_pipeline.py --rate 0.005 \
     --simulation ../phase1/data/rate_0.00500/grow13-*/simulation.json.gz \
-    --snapshot-year 50 --growth-years 10 --seed 42
-# Quick test: --n-quantiles 4 --cells-per-quantile 1 --growth-years 2
+    --first-snapshot 50 --second-snapshot 60 --seed 42
+# Quick test: --n-quantiles 4 --cells-per-quantile 1 --individual-growth-phase 2
+
+# With individual growth plots (NEW):
+python run_pipeline.py --rate 0.005 \
+    --simulation ../phase1/data/.../simulation.json.gz \
+    --first-snapshot 50 --second-snapshot 60 \
+    --plot-individuals --seed 42
+
+# Generate plots for existing run:
+python plot_individuals.py data/.../pipeline_output_dir/
 ```
 
 ### Run Tests
@@ -64,6 +88,7 @@ python test_edge_cases.py      # Edge cases
 cd phase2/tests
 python test_reproducibility_robust.py   # Reproducibility
 python test_dynamic_mix_year.py        # Dynamic year calculations
+python test_history_tracking.py        # History tracking and plotting
 ```
 
 ### Compare Pipeline Runs
@@ -96,6 +121,13 @@ python compare_two_runs.py --dir1 path1 --dir2 path2
 - MD5 hashing for unique directory names
 - Hierarchical caching of intermediate results
 
+### History Tracking and Plotting (NEW)
+- **--plot-individuals flag**: Enables growth trajectory tracking for phase2 individuals
+- **PetriDishPlotter class**: Unified plotting for both phases (JSD, methylation, combined)
+- **History format**: Year-indexed dictionary with cell states at each time point
+- **Automatic plotting**: Generates plots at pipeline completion when flag is used
+- **Standalone plotting**: Use `plot_individuals.py` for existing runs
+
 ## Important Constants
 ```python
 N = 1000                    # CpG sites per cell
@@ -105,6 +137,12 @@ DEFAULT_GROWTH_PHASE = 13  # → 8192 cells (2^13)
 ```
 
 ## Development Guidelines
+
+### Important Parameter Names (phase2)
+- Use `--first-snapshot` and `--second-snapshot` (NOT --snapshot-year or --growth-years)
+- Growth years are calculated as: second_snapshot - first_snapshot
+- Use `--individual-growth-phase` for growth phase duration (exponential growth before homeostasis)
+- Use `--plot-individuals` to enable growth trajectory tracking
 
 ### Object-Oriented Usage
 ```python

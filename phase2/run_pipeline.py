@@ -259,11 +259,13 @@ def run_pipeline(args):
                 print(f"    Individual {i:02d}: {current_cells} → ~{expected_population} cells")
                 grow_petri_for_years(petri, total_growth_years, 
                                    growth_phase=args.individual_growth_phase, 
-                                   verbose=True)
+                                   verbose=True,
+                                   track_history=args.plot_individuals,
+                                   start_year=args.first_snapshot)
                 
-                # Save updated state
+                # Save updated state (with history if tracked)
                 filepath = os.path.join(mutant_dir, f"individual_{i:02d}.json.gz")
-                save_petri_dish(petri, filepath)
+                save_petri_dish(petri, filepath, include_history=args.plot_individuals)
             elif current_cells >= expected_population * 0.5 and current_cells <= expected_population * 1.5:
                 # Already grown (with homeostasis variation)
                 print(f"    Individual {i:02d}: Already at {current_cells} cells")
@@ -292,11 +294,13 @@ def run_pipeline(args):
                 print(f"    Individual {i:02d}: {current_cells} → ~{expected_population} cells")
                 grow_petri_for_years(petri, total_growth_years, 
                                    growth_phase=args.individual_growth_phase, 
-                                   verbose=True)
+                                   verbose=True,
+                                   track_history=args.plot_individuals,
+                                   start_year=args.first_snapshot)
                 
-                # Save updated state
+                # Save updated state (with history if tracked)
                 filepath = os.path.join(control1_dir, f"individual_{i:02d}.json.gz")
-                save_petri_dish(petri, filepath)
+                save_petri_dish(petri, filepath, include_history=args.plot_individuals)
     
     # ========================================================================
     # STAGE 5: Extract Second Snapshot
@@ -324,9 +328,9 @@ def run_pipeline(args):
     print("STAGE 6: Mix Populations")
     print(f"{'='*60}")
     
-    # Reload current dishes for mixing
-    mutant_dishes = load_all_petri_dishes(mutant_dir)
-    control1_dishes = load_all_petri_dishes(control1_dir)
+    # Reload current dishes for mixing (with history if tracking)
+    mutant_dishes = load_all_petri_dishes(mutant_dir, include_history=args.plot_individuals)
+    control1_dishes = load_all_petri_dishes(control1_dir, include_history=args.plot_individuals)
     
     # Apply normalization if requested
     normalization_threshold = None
@@ -425,9 +429,9 @@ def run_pipeline(args):
                 petri.metadata['mix_ratio'] = args.mix_ratio
                 petri.metadata['final_cells'] = final_size
                 
-                # Save
+                # Save (with history if tracking)
                 filepath = os.path.join(mutant_dir, f"individual_{i:02d}.json.gz")
-                save_petri_dish(petri, filepath)
+                save_petri_dish(petri, filepath, include_history=args.plot_individuals)
             elif len(petri.cells) > expected_population * 1.5:
                 print(f"    Individual {i:02d}: Already mixed ({len(petri.cells)} cells)")
         
@@ -447,9 +451,9 @@ def run_pipeline(args):
                 petri.metadata['mix_ratio'] = args.mix_ratio
                 petri.metadata['final_cells'] = final_size
                 
-                # Save
+                # Save (with history if tracking)
                 filepath = os.path.join(control1_dir, f"individual_{i:02d}.json.gz")
-                save_petri_dish(petri, filepath)
+                save_petri_dish(petri, filepath, include_history=args.plot_individuals)
             elif len(petri.cells) > expected_population * 1.5:
                 print(f"    Individual {i:02d}: Already mixed ({len(petri.cells)} cells)")
                 
@@ -487,9 +491,9 @@ def run_pipeline(args):
                     petri.metadata['mix_ratio'] = args.mix_ratio
                     petri.metadata['final_cells'] = total_cells
                     
-                    # Save updated state
+                    # Save updated state (with history if tracking)
                     filepath = os.path.join(mutant_dir, f"individual_{i:02d}.json.gz")
-                    save_petri_dish(petri, filepath)
+                    save_petri_dish(petri, filepath, include_history=args.plot_individuals)
                 elif len(petri.cells) > expected_population * 1.5:
                     print(f"    Individual {i:02d}: Already mixed ({len(petri.cells)} cells)")
     
@@ -517,9 +521,9 @@ def run_pipeline(args):
                     petri.metadata['mix_ratio'] = args.mix_ratio
                     petri.metadata['final_cells'] = total_cells
                     
-                    # Save updated state
+                    # Save updated state (with history if tracking)
                     filepath = os.path.join(control1_dir, f"individual_{i:02d}.json.gz")
-                    save_petri_dish(petri, filepath)
+                    save_petri_dish(petri, filepath, include_history=args.plot_individuals)
     
     # ========================================================================
     # STAGE 7: Create Control2 Individuals (Pure Second Snapshot)
@@ -665,7 +669,8 @@ def run_pipeline(args):
             "normalize_size": args.normalize_size,
             "normalization_threshold": normalization_threshold,
             "seed": args.seed,
-            "bins": args.bins
+            "bins": args.bins,
+            "plot_individuals": args.plot_individuals
         },
         "results_summary": stats
     }
@@ -675,6 +680,15 @@ def run_pipeline(args):
         json.dump(metadata, f, indent=2)
     
     print(f"\nPipeline metadata saved to: {metadata_path}")
+    
+    # Generate individual plots if requested
+    if args.plot_individuals:
+        print(f"\n{'='*60}")
+        print("Generating Individual Growth Trajectory Plots")
+        print(f"{'='*60}")
+        
+        from plot_individuals import plot_all_individuals
+        plot_all_individuals(base_dir, plot_combined=True)
     
     return stats
 
@@ -710,6 +724,8 @@ def main():
     # Visualization parameters
     parser.add_argument("--bins", type=int, default=200,
                        help="Number of bins for JSD histograms")
+    parser.add_argument("--plot-individuals", action='store_true',
+                       help="Generate growth trajectory plots for each individual")
     
     # Mixing parameters
     parser.add_argument("--uniform-mixing", action='store_true',

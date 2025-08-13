@@ -119,14 +119,16 @@ def load_snapshot_cells(filepath: str) -> List[Cell]:
     return cells
 
 
-def save_petri_dish(petri: PetriDish, filepath: str, metadata: Optional[Dict] = None) -> None:
+def save_petri_dish(petri: PetriDish, filepath: str, metadata: Optional[Dict] = None, 
+                   include_history: bool = False) -> None:
     """
-    Save a PetriDish to compressed JSON file.
+    Save a PetriDish to compressed JSON file, optionally with history.
     
     Args:
         petri: PetriDish object
         filepath: Output path
         metadata: Extra metadata dict
+        include_history: Whether to save history (new)
     """
     os.makedirs(os.path.dirname(filepath), exist_ok=True)
     
@@ -143,10 +145,15 @@ def save_petri_dish(petri: PetriDish, filepath: str, metadata: Optional[Dict] = 
             "median_jsd": float(np.median(jsd_values)) if jsd_values else 0.0,
             "year": petri.year,
             "growth_phase": petri.growth_phase,
-            "rate": petri.rate
+            "rate": petri.rate,
+            "has_history": include_history and bool(petri.history)
         },
         "cells": [cell.to_dict() for cell in petri.cells]
     }
+    
+    # Add history if requested and available
+    if include_history and hasattr(petri, 'history') and petri.history:
+        data["history"] = petri.history
     
     # Add custom metadata if provided
     if metadata:
@@ -160,12 +167,16 @@ def save_petri_dish(petri: PetriDish, filepath: str, metadata: Optional[Dict] = 
         json.dump(data, f, indent=2)
 
 
-def load_petri_dish(filepath: str) -> PetriDish:
+def load_petri_dish(filepath: str, include_history: bool = False) -> PetriDish:
     """
-    Load a PetriDish from file.
+    Load a PetriDish from file, optionally with history.
     
+    Args:
+        filepath: Path to .json.gz file
+        include_history: Whether to load history if available (new)
+        
     Returns:
-        PetriDish: Reconstructed object with cells and metadata
+        PetriDish: Reconstructed object with cells, metadata, and optionally history
     """
     with gzip.open(filepath, 'rt') as f:
         data = json.load(f)
@@ -199,15 +210,25 @@ def load_petri_dish(filepath: str) -> PetriDish:
     # Restore metadata
     petri.metadata = data.get('metadata', {})
     
+    # Restore history if requested and available
+    if include_history and 'history' in data:
+        petri.history = data['history']
+        petri.history_enabled = True
+    else:
+        # Clear any auto-initialized history if not loading it
+        petri.history = {}
+        petri.history_enabled = False
+    
     return petri
 
 
-def load_all_petri_dishes(directory: str) -> List[PetriDish]:
+def load_all_petri_dishes(directory: str, include_history: bool = False) -> List[PetriDish]:
     """
     Load all PetriDish objects from a directory.
     
     Args:
         directory: Directory containing .json.gz files
+        include_history: Whether to load history if available (new)
     
     Returns:
         List of PetriDish objects
@@ -217,7 +238,7 @@ def load_all_petri_dishes(directory: str) -> List[PetriDish]:
     
     for filepath in files:
         try:
-            petri = load_petri_dish(filepath)
+            petri = load_petri_dish(filepath, include_history=include_history)
             dishes.append(petri)
         except Exception as e:
             print(f"  Warning: Could not load {filepath}: {e}")
@@ -396,19 +417,31 @@ def create_pure_snapshot_petri(snapshot_cells: List[Cell], n_cells: int = 5120,
     return petri
 
 
-def grow_petri_for_years(petri: PetriDish, years: int, growth_phase: Optional[int] = None, verbose: bool = True) -> None:
+def grow_petri_for_years(petri: PetriDish, years: int, growth_phase: Optional[int] = None, 
+                        verbose: bool = True, track_history: bool = False, 
+                        start_year: Optional[int] = None) -> None:
     """
     Grow a PetriDish for specified years with optional homeostasis after growth phase.
+    Now uses PetriDish's built-in grow_with_homeostasis method when history tracking is enabled.
     
     Args:
         petri: PetriDish to grow (modified in place)
         years: Total number of years to simulate
         growth_phase: Years of exponential growth before homeostasis (None = pure exponential)
         verbose: Print progress
+        track_history: Enable history tracking (new)
+        start_year: Starting year for history tracking (new)
     """
     if growth_phase is not None and growth_phase > years:
         raise ValueError(f"growth_phase ({growth_phase}) cannot exceed total years ({years})")
     
+    # If history tracking is enabled, use PetriDish's new method
+    if track_history and start_year is not None:
+        petri.enable_history_tracking(start_year)
+        petri.grow_with_homeostasis(years, growth_phase, verbose, record_history=True)
+        return
+    
+    # Otherwise, use the original implementation (for backward compatibility)
     for year in range(years):
         initial_count = len(petri.cells)
         current_year = year + 1  # 1-indexed for clarity

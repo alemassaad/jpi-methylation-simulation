@@ -149,9 +149,10 @@ class PetriDish:
     """
     
     def __init__(self, rate: float = RATE, n: int = N, gene_size: int = GENE_SIZE, 
-                 seed: int = None, growth_phase: int = DEFAULT_GROWTH_PHASE) -> None:
+                 seed: int = None, growth_phase: int = DEFAULT_GROWTH_PHASE, 
+                 cells: List['Cell'] = None) -> None:
         """
-        Initialize petri dish with a single unmethylated cell.
+        Initialize petri dish with a single unmethylated cell or provided cells.
         
         Args:
             rate: Methylation rate per site per year
@@ -159,6 +160,7 @@ class PetriDish:
             gene_size: Number of sites per gene
             seed: Random seed for reproducibility
             growth_phase: Duration of growth phase in years (target = 2^growth_phase cells)
+            cells: Optional list of cells to start with (for phase2 compatibility)
         """
         # Validate growth_phase
         if growth_phase < 1:
@@ -176,12 +178,23 @@ class PetriDish:
         self.growth_phase = growth_phase
         self.target_population = 2 ** growth_phase  # Calculate from growth_phase
         
-        # Start with single unmethylated cell
-        self.cells = [Cell(n=n, rate=rate, gene_size=gene_size)]
+        # Initialize cells - either provided or single unmethylated cell
+        if cells is not None:
+            self.cells = cells
+        else:
+            self.cells = [Cell(n=n, rate=rate, gene_size=gene_size)]
+        
         self.year = 0
         
-        # Store initial state
-        self.history = {'0': [self.cells[0].to_dict()]}
+        # Enhanced history tracking
+        self.absolute_year = 0  # For proper year labeling in phase2
+        self.history_enabled = True  # Flag to enable/disable history tracking
+        
+        # Store initial state if we have cells
+        if self.cells:
+            self.history = {'0': [cell.to_dict() for cell in self.cells]}
+        else:
+            self.history = {}
         
     def divide_cells(self) -> None:
         """
@@ -241,6 +254,7 @@ class PetriDish:
         Chooses appropriate aging strategy based on current year.
         """
         self.year += 1
+        self.absolute_year += 1  # Keep absolute year in sync
         print(f"\nYear {self.year}:")
         
         if self.year <= self.growth_phase:
@@ -350,3 +364,789 @@ class PetriDish:
         print(f"  File size: {file_size_mb:.2f} MB (compressed)")
         
         return filepath
+    
+    # ==================== Enhanced History Tracking Methods ====================
+    
+    def enable_history_tracking(self, start_year: int = 0, clear_history: bool = True) -> 'PetriDish':
+        """
+        Enable history tracking from a specific year.
+        
+        Args:
+            start_year: The absolute year to start tracking from
+            clear_history: Whether to clear existing history
+            
+        Returns:
+            Self for method chaining
+        """
+        self.history_enabled = True
+        self.absolute_year = start_year
+        if clear_history:
+            self.history = {}
+        self._record_history()  # Record initial state
+        return self
+    
+    def disable_history_tracking(self) -> 'PetriDish':
+        """Disable history tracking to save memory."""
+        self.history_enabled = False
+        return self
+    
+    def _record_history(self, year: int = None) -> None:
+        """
+        Internal method to record current state in history.
+        
+        Args:
+            year: Optional year to record at. If None, uses absolute_year
+        """
+        if not self.history_enabled:
+            return
+        
+        if year is None:
+            year = self.absolute_year
+        
+        self.history[str(year)] = [cell.to_dict() for cell in self.cells]
+    
+    def set_absolute_year(self, year: int) -> 'PetriDish':
+        """
+        Set the absolute year (for phase2 compatibility).
+        
+        Args:
+            year: The absolute year to set
+            
+        Returns:
+            Self for method chaining
+        """
+        self.absolute_year = year
+        self.year = 0  # Reset relative year
+        return self
+    
+    def increment_year(self, record_history: bool = True) -> 'PetriDish':
+        """
+        Advance both year counters and optionally record history.
+        
+        Args:
+            record_history: Whether to record the state after incrementing
+            
+        Returns:
+            Self for method chaining
+        """
+        self.year += 1
+        self.absolute_year += 1
+        if record_history and self.history_enabled:
+            self._record_history()
+        return self
+    
+    def grow_with_homeostasis(self, years: int, growth_phase: int = None,
+                             verbose: bool = False, record_history: bool = True) -> 'PetriDish':
+        """
+        Phase2-style growth with explicit growth phase control.
+        Used by phase2's grow_petri_for_years().
+        
+        Args:
+            years: Number of years to simulate
+            growth_phase: Years of exponential growth before homeostasis (None uses self.growth_phase)
+            verbose: Whether to print progress
+            record_history: Whether to track history during growth
+            
+        Returns:
+            Self for method chaining
+        """
+        if growth_phase is None:
+            growth_phase = self.growth_phase
+            
+        for year_idx in range(years):
+            current_year = year_idx + 1
+            initial_count = len(self.cells)
+            
+            if current_year <= growth_phase:
+                # Growth phase: divide and methylate
+                self.divide_cells()
+                self.methylate_cells()
+                phase = "growth"
+            else:
+                # Homeostasis phase: divide, cull, and methylate
+                self.divide_cells()
+                self.random_cull_cells()
+                self.methylate_cells()
+                phase = "homeostasis"
+            
+            final_count = len(self.cells)
+            
+            if verbose:
+                abs_year = self.absolute_year + 1  # Show what year we're moving to
+                print(f"      Year {current_year} ({phase}): {initial_count} → {final_count} cells")
+            
+            # Increment year and record history
+            if record_history:
+                self.increment_year(record_history=True)
+            else:
+                self.year += 1
+                self.absolute_year += 1
+        
+        return self
+
+
+class PetriDishPlotter:
+    """
+    Handles all plotting for PetriDish objects.
+    Reuses the logic from plot_history.py but in an object-oriented way.
+    """
+    
+    def __init__(self, petri: PetriDish):
+        """
+        Initialize with a PetriDish that has history.
+        
+        Args:
+            petri: PetriDish object with history to plot
+            
+        Raises:
+            ValueError: If PetriDish has no history
+        """
+        self.petri = petri
+        self.stats = None  # Cache calculated statistics
+        
+        # Validate that petri has history
+        if not petri.history:
+            raise ValueError("PetriDish has no history to plot")
+    
+    def calculate_statistics(self) -> Dict:
+        """Calculate statistics from petri's history."""
+        stats = {
+            'years': [],
+            'population_size': [],
+            'jsd': {
+                'mean': [], 'median': [], 'p5': [], 'p25': [],
+                'p75': [], 'p95': [], 'min': [], 'max': []
+            },
+            'methylation': {
+                'mean': [], 'median': [], 'p5': [], 'p25': [],
+                'p75': [], 'p95': []
+            }
+        }
+        
+        # Sort years numerically
+        sorted_years = sorted([int(year) for year in self.petri.history.keys()])
+        
+        for year in sorted_years:
+            year_data = self.petri.history[str(year)]
+            
+            # Skip if no cells (edge case)
+            if not year_data:
+                continue
+            
+            # Extract values
+            jsd_values = [cell['jsd'] for cell in year_data]
+            meth_values = [cell['methylation_proportion'] * 100 for cell in year_data]
+            
+            stats['years'].append(year)
+            stats['population_size'].append(len(year_data))
+            
+            # JSD statistics
+            if jsd_values:  # Ensure we have data
+                stats['jsd']['mean'].append(statistics.mean(jsd_values))
+                stats['jsd']['median'].append(statistics.median(jsd_values))
+                
+                # For single values, all percentiles are the same
+                if len(jsd_values) == 1:
+                    val = jsd_values[0]
+                    stats['jsd']['p5'].append(val)
+                    stats['jsd']['p25'].append(val)
+                    stats['jsd']['p75'].append(val)
+                    stats['jsd']['p95'].append(val)
+                    stats['jsd']['min'].append(val)
+                    stats['jsd']['max'].append(val)
+                else:
+                    # Use statistics.quantiles for percentiles
+                    import numpy as np
+                    stats['jsd']['p5'].append(np.percentile(jsd_values, 5))
+                    stats['jsd']['p25'].append(np.percentile(jsd_values, 25))
+                    stats['jsd']['p75'].append(np.percentile(jsd_values, 75))
+                    stats['jsd']['p95'].append(np.percentile(jsd_values, 95))
+                    stats['jsd']['min'].append(min(jsd_values))
+                    stats['jsd']['max'].append(max(jsd_values))
+            
+            # Methylation statistics
+            if meth_values:
+                stats['methylation']['mean'].append(statistics.mean(meth_values))
+                stats['methylation']['median'].append(statistics.median(meth_values))
+                
+                if len(meth_values) == 1:
+                    val = meth_values[0]
+                    stats['methylation']['p5'].append(val)
+                    stats['methylation']['p25'].append(val)
+                    stats['methylation']['p75'].append(val)
+                    stats['methylation']['p95'].append(val)
+                else:
+                    import numpy as np
+                    stats['methylation']['p5'].append(np.percentile(meth_values, 5))
+                    stats['methylation']['p25'].append(np.percentile(meth_values, 25))
+                    stats['methylation']['p75'].append(np.percentile(meth_values, 75))
+                    stats['methylation']['p95'].append(np.percentile(meth_values, 95))
+        
+        self.stats = stats
+        return stats
+    
+    def detect_growth_phase(self) -> int:
+        """Auto-detect growth phase from population dynamics."""
+        if not self.stats:
+            self.calculate_statistics()
+        
+        pop_sizes = self.stats['population_size']
+        
+        for i in range(1, len(pop_sizes)):
+            if i > 1:
+                expected = 2 ** i
+                actual = pop_sizes[i]
+                if actual != expected:
+                    return i - 1
+        
+        # Fallback to petri's growth_phase or default
+        return getattr(self.petri, 'growth_phase', 13)
+    
+    def plot_jsd(self, title: str = None, output_path: str = None,
+                 width: int = 1200, height: int = 500):
+        """
+        Create JSD plot with secondary y-axis for cell count.
+        
+        Args:
+            title: Optional title for the plot
+            output_path: Optional path to save the plot
+            width: Plot width in pixels
+            height: Plot height in pixels
+            
+        Returns:
+            Plotly figure object
+        """
+        # Import plotly here to avoid dependency issues
+        try:
+            import plotly.graph_objects as go
+            from plotly.subplots import make_subplots
+        except ImportError:
+            raise ImportError("Plotly is required for plotting. Install with: pip install plotly kaleido")
+        
+        if not self.stats:
+            self.calculate_statistics()
+        
+        # Create figure with secondary y-axis
+        fig = make_subplots(specs=[[{"secondary_y": True}]])
+        
+        years = self.stats['years']
+        growth_phase = self.detect_growth_phase()
+        
+        # Add vertical line for growth phase
+        if growth_phase > 0 and growth_phase < years[-1]:
+            fig.add_vline(
+                x=growth_phase,
+                line_dash="dash",
+                line_color="gray",
+                line_width=1,
+                annotation_text=f"End of growth phase",
+                annotation_position="top"
+            )
+        
+        # Add 5-95 percentile band
+        fig.add_trace(
+            go.Scatter(
+                x=years + years[::-1],
+                y=self.stats['jsd']['p95'] + self.stats['jsd']['p5'][::-1],
+                fill='toself',
+                fillcolor='rgba(99, 110, 250, 0.15)',
+                line=dict(color='rgba(255,255,255,0)'),
+                name='5-95 percentile',
+                showlegend=True,
+                hoverinfo='skip'
+            ),
+            secondary_y=False
+        )
+        
+        # Add 25-75 percentile band
+        fig.add_trace(
+            go.Scatter(
+                x=years + years[::-1],
+                y=self.stats['jsd']['p75'] + self.stats['jsd']['p25'][::-1],
+                fill='toself',
+                fillcolor='rgba(99, 110, 250, 0.25)',
+                line=dict(color='rgba(255,255,255,0)'),
+                name='25-75 percentile',
+                showlegend=True,
+                hoverinfo='skip'
+            ),
+            secondary_y=False
+        )
+        
+        # Add mean line
+        fig.add_trace(
+            go.Scatter(
+                x=years,
+                y=self.stats['jsd']['mean'],
+                mode='lines',
+                name='Mean JSD',
+                line=dict(color='rgb(99, 110, 250)', width=2.5),
+                hovertemplate='Year: %{x}<br>Mean JSD: %{y:.4f}<br>Population: %{customdata}<extra></extra>',
+                customdata=self.stats['population_size']
+            ),
+            secondary_y=False
+        )
+        
+        # Add cell count on secondary y-axis
+        fig.add_trace(
+            go.Scatter(
+                x=years,
+                y=self.stats['population_size'],
+                mode='lines',
+                name='Cell Count',
+                line=dict(color='rgba(255, 127, 14, 0.7)', width=2, dash='dot'),
+                hovertemplate='Year: %{x}<br>Cell Count: %{y}<extra></extra>'
+            ),
+            secondary_y=True
+        )
+        
+        # Update layout
+        if title is None:
+            title = f"JSD Score vs Time"
+        
+        fig.update_layout(
+            title=dict(text=title, font=dict(size=16)),
+            xaxis_title="Age (years)",
+            height=height,
+            margin=dict(t=120),
+            hovermode='x unified',
+            showlegend=True,
+            legend=dict(
+                yanchor="top", y=0.99, xanchor="left", x=0.01,
+                bgcolor="rgba(255, 255, 255, 0.8)",
+                bordercolor="rgba(0, 0, 0, 0.2)",
+                borderwidth=1
+            ),
+            template='plotly_white'
+        )
+        
+        # Set axis titles
+        fig.update_xaxes(showgrid=True, gridcolor='rgba(0,0,0,0.1)')
+        fig.update_yaxes(title_text="JSD Score", secondary_y=False, showgrid=True, gridcolor='rgba(0,0,0,0.1)')
+        fig.update_yaxes(title_text="Cell Count", secondary_y=True, showgrid=False)
+        
+        # Add annotation
+        final_idx = -1
+        final_year = years[final_idx]
+        final_pop = self.stats['population_size'][final_idx]
+        
+        annotation_text = (
+            f"<b>Final Statistics (Year {final_year}):</b><br>"
+            f"Population: {final_pop} cells<br>"
+            f"JSD Mean: {self.stats['jsd']['mean'][final_idx]:.4f}<br>"
+            f"JSD 25-75%: [{self.stats['jsd']['p25'][final_idx]:.4f}, {self.stats['jsd']['p75'][final_idx]:.4f}]<br>"
+            f"JSD 5-95%: [{self.stats['jsd']['p5'][final_idx]:.4f}, {self.stats['jsd']['p95'][final_idx]:.4f}]"
+        )
+        
+        if growth_phase > 0:
+            annotation_text += f"<br>Growth phase: Years 0-{growth_phase}"
+        
+        fig.add_annotation(
+            text=annotation_text,
+            xref="paper", yref="paper",
+            x=0.5, y=1.15,
+            showarrow=False,
+            bgcolor="rgba(255, 255, 255, 0.9)",
+            bordercolor="rgba(0, 0, 0, 0.2)",
+            borderwidth=1,
+            font=dict(size=10),
+            align="center",
+            xanchor="center",
+            yanchor="top"
+        )
+        
+        if output_path:
+            fig.write_image(output_path, width=width, height=height, scale=2)
+            
+        return fig
+    
+    def plot_methylation(self, title: str = None, output_path: str = None,
+                        width: int = 1200, height: int = 500):
+        """Create methylation plot with secondary y-axis for cell count."""
+        try:
+            import plotly.graph_objects as go
+            from plotly.subplots import make_subplots
+        except ImportError:
+            raise ImportError("Plotly is required for plotting. Install with: pip install plotly kaleido")
+        
+        if not self.stats:
+            self.calculate_statistics()
+        
+        # Create figure with secondary y-axis
+        fig = make_subplots(specs=[[{"secondary_y": True}]])
+        
+        years = self.stats['years']
+        growth_phase = self.detect_growth_phase()
+        
+        # Add vertical line for growth phase
+        if growth_phase > 0 and growth_phase < years[-1]:
+            fig.add_vline(
+                x=growth_phase,
+                line_dash="dash",
+                line_color="gray",
+                line_width=1,
+                annotation_text=f"End of growth phase",
+                annotation_position="top"
+            )
+        
+        # Add 5-95 percentile band
+        fig.add_trace(
+            go.Scatter(
+                x=years + years[::-1],
+                y=self.stats['methylation']['p95'] + self.stats['methylation']['p5'][::-1],
+                fill='toself',
+                fillcolor='rgba(239, 85, 59, 0.15)',
+                line=dict(color='rgba(255,255,255,0)'),
+                name='5-95 percentile',
+                showlegend=True,
+                hoverinfo='skip'
+            ),
+            secondary_y=False
+        )
+        
+        # Add 25-75 percentile band
+        fig.add_trace(
+            go.Scatter(
+                x=years + years[::-1],
+                y=self.stats['methylation']['p75'] + self.stats['methylation']['p25'][::-1],
+                fill='toself',
+                fillcolor='rgba(239, 85, 59, 0.25)',
+                line=dict(color='rgba(255,255,255,0)'),
+                name='25-75 percentile',
+                showlegend=True,
+                hoverinfo='skip'
+            ),
+            secondary_y=False
+        )
+        
+        # Add mean line
+        fig.add_trace(
+            go.Scatter(
+                x=years,
+                y=self.stats['methylation']['mean'],
+                mode='lines',
+                name='Mean Methylation',
+                line=dict(color='rgb(239, 85, 59)', width=2.5),
+                hovertemplate='Year: %{x}<br>Mean Methylation: %{y:.2f}%<br>Population: %{customdata}<extra></extra>',
+                customdata=self.stats['population_size']
+            ),
+            secondary_y=False
+        )
+        
+        # Add cell count on secondary y-axis
+        fig.add_trace(
+            go.Scatter(
+                x=years,
+                y=self.stats['population_size'],
+                mode='lines',
+                name='Cell Count',
+                line=dict(color='rgba(255, 127, 14, 0.7)', width=2, dash='dot'),
+                hovertemplate='Year: %{x}<br>Cell Count: %{y}<extra></extra>'
+            ),
+            secondary_y=True
+        )
+        
+        # Update layout
+        if title is None:
+            title = f"Methylation Proportion vs Time"
+        
+        fig.update_layout(
+            title=dict(text=title, font=dict(size=16)),
+            xaxis_title="Age (years)",
+            height=height,
+            margin=dict(t=120),
+            hovermode='x unified',
+            showlegend=True,
+            legend=dict(
+                yanchor="top", y=0.99, xanchor="left", x=0.01,
+                bgcolor="rgba(255, 255, 255, 0.8)",
+                bordercolor="rgba(0, 0, 0, 0.2)",
+                borderwidth=1
+            ),
+            template='plotly_white'
+        )
+        
+        # Set axis titles
+        fig.update_xaxes(showgrid=True, gridcolor='rgba(0,0,0,0.1)')
+        fig.update_yaxes(title_text="Methylation (%)", secondary_y=False, showgrid=True, gridcolor='rgba(0,0,0,0.1)')
+        fig.update_yaxes(title_text="Cell Count", secondary_y=True, showgrid=False)
+        
+        # Add annotation
+        final_idx = -1
+        final_year = years[final_idx]
+        final_pop = self.stats['population_size'][final_idx]
+        
+        annotation_text = (
+            f"<b>Final Statistics (Year {final_year}):</b><br>"
+            f"Population: {final_pop} cells<br>"
+            f"Methylation Mean: {self.stats['methylation']['mean'][final_idx]:.2f}%<br>"
+            f"Methylation 25-75%: [{self.stats['methylation']['p25'][final_idx]:.2f}%, "
+            f"{self.stats['methylation']['p75'][final_idx]:.2f}%]<br>"
+            f"Methylation 5-95%: [{self.stats['methylation']['p5'][final_idx]:.2f}%, "
+            f"{self.stats['methylation']['p95'][final_idx]:.2f}%]"
+        )
+        
+        if growth_phase > 0:
+            annotation_text += f"<br>Growth phase: Years 0-{growth_phase}"
+        
+        fig.add_annotation(
+            text=annotation_text,
+            xref="paper", yref="paper",
+            x=0.5, y=1.15,
+            showarrow=False,
+            bgcolor="rgba(255, 255, 255, 0.9)",
+            bordercolor="rgba(0, 0, 0, 0.2)",
+            borderwidth=1,
+            font=dict(size=10),
+            align="center",
+            xanchor="center",
+            yanchor="top"
+        )
+        
+        if output_path:
+            fig.write_image(output_path, width=width, height=height, scale=2)
+            
+        return fig
+    
+    def plot_combined(self, title: str = None, output_path: str = None,
+                     width: int = 1200, height: int = 800):
+        """Create combined JSD and methylation plot."""
+        try:
+            import plotly.graph_objects as go
+            from plotly.subplots import make_subplots
+        except ImportError:
+            raise ImportError("Plotly is required for plotting. Install with: pip install plotly kaleido")
+        
+        if not self.stats:
+            self.calculate_statistics()
+        
+        # Create subplots with secondary y-axes
+        fig = make_subplots(
+            rows=2, cols=1,
+            subplot_titles=('JSD Score vs Time', 'Methylation Proportion vs Time'),
+            vertical_spacing=0.12,
+            row_heights=[0.5, 0.5],
+            specs=[[{"secondary_y": True}], [{"secondary_y": True}]]
+        )
+        
+        years = self.stats['years']
+        growth_phase = self.detect_growth_phase()
+        
+        # Add vertical lines
+        if growth_phase > 0 and growth_phase < years[-1]:
+            fig.add_vline(
+                x=growth_phase,
+                line_dash="dash",
+                line_color="gray",
+                line_width=1,
+                annotation_text=f"End of growth phase",
+                annotation_position="top",
+                row=1, col=1
+            )
+            fig.add_vline(
+                x=growth_phase,
+                line_dash="dash",
+                line_color="gray",
+                line_width=1,
+                row=2, col=1
+            )
+        
+        # ===== JSD Plot (Row 1) =====
+        # Add percentile bands
+        fig.add_trace(
+            go.Scatter(
+                x=years + years[::-1],
+                y=self.stats['jsd']['p95'] + self.stats['jsd']['p5'][::-1],
+                fill='toself',
+                fillcolor='rgba(99, 110, 250, 0.15)',
+                line=dict(color='rgba(255,255,255,0)'),
+                name='5-95 percentile',
+                showlegend=True,
+                hoverinfo='skip'
+            ),
+            row=1, col=1, secondary_y=False
+        )
+        
+        fig.add_trace(
+            go.Scatter(
+                x=years + years[::-1],
+                y=self.stats['jsd']['p75'] + self.stats['jsd']['p25'][::-1],
+                fill='toself',
+                fillcolor='rgba(99, 110, 250, 0.25)',
+                line=dict(color='rgba(255,255,255,0)'),
+                name='25-75 percentile',
+                showlegend=True,
+                hoverinfo='skip'
+            ),
+            row=1, col=1, secondary_y=False
+        )
+        
+        # Add mean JSD line
+        fig.add_trace(
+            go.Scatter(
+                x=years,
+                y=self.stats['jsd']['mean'],
+                mode='lines',
+                name='Mean JSD',
+                line=dict(color='rgb(99, 110, 250)', width=2.5),
+                hovertemplate='Year: %{x}<br>Mean JSD: %{y:.4f}<extra></extra>'
+            ),
+            row=1, col=1, secondary_y=False
+        )
+        
+        # Cell count for JSD plot
+        fig.add_trace(
+            go.Scatter(
+                x=years,
+                y=self.stats['population_size'],
+                mode='lines',
+                name='Cell Count',
+                line=dict(color='rgba(255, 127, 14, 0.7)', width=2, dash='dot'),
+                hovertemplate='Year: %{x}<br>Cell Count: %{y}<extra></extra>',
+                showlegend=True
+            ),
+            row=1, col=1, secondary_y=True
+        )
+        
+        # ===== Methylation Plot (Row 2) =====
+        # Add percentile bands
+        fig.add_trace(
+            go.Scatter(
+                x=years + years[::-1],
+                y=self.stats['methylation']['p95'] + self.stats['methylation']['p5'][::-1],
+                fill='toself',
+                fillcolor='rgba(239, 85, 59, 0.15)',
+                line=dict(color='rgba(255,255,255,0)'),
+                name='5-95 percentile',
+                showlegend=False,
+                hoverinfo='skip'
+            ),
+            row=2, col=1, secondary_y=False
+        )
+        
+        fig.add_trace(
+            go.Scatter(
+                x=years + years[::-1],
+                y=self.stats['methylation']['p75'] + self.stats['methylation']['p25'][::-1],
+                fill='toself',
+                fillcolor='rgba(239, 85, 59, 0.25)',
+                line=dict(color='rgba(255,255,255,0)'),
+                name='25-75 percentile',
+                showlegend=False,
+                hoverinfo='skip'
+            ),
+            row=2, col=1, secondary_y=False
+        )
+        
+        # Add mean methylation line
+        fig.add_trace(
+            go.Scatter(
+                x=years,
+                y=self.stats['methylation']['mean'],
+                mode='lines',
+                name='Mean Methylation',
+                line=dict(color='rgb(239, 85, 59)', width=2.5),
+                hovertemplate='Year: %{x}<br>Mean Methylation: %{y:.2f}%<extra></extra>'
+            ),
+            row=2, col=1, secondary_y=False
+        )
+        
+        # Cell count for methylation plot
+        fig.add_trace(
+            go.Scatter(
+                x=years,
+                y=self.stats['population_size'],
+                mode='lines',
+                name='Cell Count',
+                line=dict(color='rgba(255, 127, 14, 0.7)', width=2, dash='dot'),
+                hovertemplate='Year: %{x}<br>Cell Count: %{y}<extra></extra>',
+                showlegend=False
+            ),
+            row=2, col=1, secondary_y=True
+        )
+        
+        # Update layout
+        if title is None:
+            title = f"Simulation Results"
+        
+        fig.update_layout(
+            title=dict(text=title, font=dict(size=16)),
+            height=height,
+            margin=dict(t=120),
+            hovermode='x unified',
+            showlegend=True,
+            legend=dict(
+                yanchor="top", y=0.99, xanchor="left", x=0.01,
+                bgcolor="rgba(255, 255, 255, 0.8)",
+                bordercolor="rgba(0, 0, 0, 0.2)",
+                borderwidth=1
+            ),
+            template='plotly_white'
+        )
+        
+        # Update axes
+        fig.update_xaxes(title_text="", row=1, col=1, showgrid=True, gridcolor='rgba(0,0,0,0.1)')
+        fig.update_xaxes(title_text="Age (years)", row=2, col=1, showgrid=True, gridcolor='rgba(0,0,0,0.1)')
+        fig.update_yaxes(title_text="JSD Score", row=1, col=1, secondary_y=False, showgrid=True, gridcolor='rgba(0,0,0,0.1)')
+        fig.update_yaxes(title_text="Cell Count", row=1, col=1, secondary_y=True, showgrid=False)
+        fig.update_yaxes(title_text="Methylation (%)", row=2, col=1, secondary_y=False, showgrid=True, gridcolor='rgba(0,0,0,0.1)')
+        fig.update_yaxes(title_text="Cell Count", row=2, col=1, secondary_y=True, showgrid=False)
+        
+        # Add annotation
+        final_idx = -1
+        final_year = years[final_idx]
+        final_pop = self.stats['population_size'][final_idx]
+        
+        annotation_text = (
+            f"<b>Final Statistics (Year {final_year}):</b><br>"
+            f"Population: {final_pop} cells<br>"
+            f"JSD Mean: {self.stats['jsd']['mean'][final_idx]:.4f}<br>"
+            f"JSD 25-75%: [{self.stats['jsd']['p25'][final_idx]:.4f}, {self.stats['jsd']['p75'][final_idx]:.4f}]<br>"
+            f"JSD 5-95%: [{self.stats['jsd']['p5'][final_idx]:.4f}, {self.stats['jsd']['p95'][final_idx]:.4f}]<br>"
+            f"Methylation Mean: {self.stats['methylation']['mean'][final_idx]:.2f}%<br>"
+            f"Methylation 25-75%: [{self.stats['methylation']['p25'][final_idx]:.2f}%, "
+            f"{self.stats['methylation']['p75'][final_idx]:.2f}%]<br>"
+            f"Methylation 5-95%: [{self.stats['methylation']['p5'][final_idx]:.2f}%, "
+            f"{self.stats['methylation']['p95'][final_idx]:.2f}%]"
+        )
+        
+        if growth_phase > 0:
+            annotation_text += f"<br>Growth phase: Years 0-{growth_phase}"
+        
+        fig.add_annotation(
+            text=annotation_text,
+            xref="paper", yref="paper",
+            x=0.5, y=1.15,
+            showarrow=False,
+            bgcolor="rgba(255, 255, 255, 0.9)",
+            bordercolor="rgba(0, 0, 0, 0.2)",
+            borderwidth=1,
+            font=dict(size=10),
+            align="center",
+            xanchor="center",
+            yanchor="top"
+        )
+        
+        if output_path:
+            fig.write_image(output_path, width=width, height=height, scale=2)
+            
+        return fig
+    
+    def plot_all(self, base_path: str, title_prefix: str = None):
+        """
+        Generate all three plot types.
+        
+        Args:
+            base_path: Base path for output files (without extension)
+            title_prefix: Optional prefix for plot titles
+            
+        Returns:
+            Self for method chaining
+        """
+        title = title_prefix or "PetriDish Simulation"
+        
+        self.plot_jsd(title, f"{base_path}_jsd.png")
+        self.plot_methylation(title, f"{base_path}_methylation.png")
+        self.plot_combined(title, f"{base_path}_combined.png")
+        
+        return self

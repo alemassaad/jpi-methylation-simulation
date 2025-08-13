@@ -3,6 +3,7 @@
 Plot JSD vs time from phase1 simulation history using Plotly.
 Shows mean with 5-95 percentile bands.
 Adapted for the hierarchical directory structure and PetriDish simulations.
+Now uses PetriDishPlotter for consistency.
 """
 
 import json
@@ -13,6 +14,9 @@ import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 import gzip
 import glob
+
+# Import our new plotter class
+from cell import PetriDish, PetriDishPlotter
 
 def find_simulation_file(path_pattern):
     """Find simulation file from pattern (supports wildcards)."""
@@ -654,22 +658,33 @@ def main():
     else:
         base_name = os.path.basename(filepath).replace('.json.gz', '').replace('.json', '')
     
-    # Load and process data
+    # Load history
     history = load_history(filepath)
     
     print(f"Processing {len(history)} time points...")
-    stats = calculate_statistics(history)
+    
+    # Create a temporary PetriDish with the loaded history
+    # This allows us to use PetriDishPlotter
+    temp_petri = PetriDish(cells=None)
+    temp_petri.history = history
+    temp_petri.history_enabled = True
+    
+    # Use PetriDishPlotter for all plotting
+    try:
+        plotter = PetriDishPlotter(temp_petri)
+    except ValueError as e:
+        print(f"Error: {e}")
+        return 1
     
     # Extract filename for plot titles
     filename = base_name
     
-    # Create requested plots
+    # Create requested plots using the new plotter
     if args.combined:
         try:
             print("Creating combined plot...")
-            fig_combined = create_combined_plot(stats, filename)
             combined_output = os.path.join(plots_dir, f"{base_name}_combined.png")
-            fig_combined.write_image(combined_output, width=1200, height=800, scale=2)
+            plotter.plot_combined(filename, combined_output)
             print(f"  Combined plot saved to {combined_output}")
         except Exception as e:
             print(f"Error creating combined plot: {e}")
@@ -679,9 +694,8 @@ def main():
         if not args.methylation_only:
             try:
                 print("Creating JSD plot...")
-                fig_jsd = create_jsd_plot(stats, filename)
                 jsd_output = os.path.join(plots_dir, f"{base_name}_jsd.png")
-                fig_jsd.write_image(jsd_output, width=1200, height=500, scale=2)
+                plotter.plot_jsd(filename, jsd_output)
                 print(f"  JSD plot saved to {jsd_output}")
             except Exception as e:
                 print(f"Error creating JSD plot: {e}")
@@ -690,9 +704,8 @@ def main():
         if not args.jsd_only:
             try:
                 print("Creating methylation plot...")
-                fig_meth = create_methylation_plot(stats, filename)
                 meth_output = os.path.join(plots_dir, f"{base_name}_methylation.png")
-                fig_meth.write_image(meth_output, width=1200, height=500, scale=2)
+                plotter.plot_methylation(filename, meth_output)
                 print(f"  Methylation plot saved to {meth_output}")
             except Exception as e:
                 print(f"Error creating methylation plot: {e}")

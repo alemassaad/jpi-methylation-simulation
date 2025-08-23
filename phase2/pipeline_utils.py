@@ -120,7 +120,7 @@ def load_snapshot_cells(filepath: str) -> List[Cell]:
 
 
 def save_petri_dish(petri: PetriDish, filepath: str, metadata: Optional[Dict] = None, 
-                   include_history: bool = False) -> None:
+                   include_cell_history: bool = False, include_gene_jsd: bool = False) -> None:
     """
     Save a PetriDish to compressed JSON file, optionally with history.
     
@@ -128,7 +128,8 @@ def save_petri_dish(petri: PetriDish, filepath: str, metadata: Optional[Dict] = 
         petri: PetriDish object
         filepath: Output path
         metadata: Extra metadata dict
-        include_history: Whether to save history (new)
+        include_cell_history: Whether to save cell history
+        include_gene_jsd: Whether to save gene JSD history
     """
     os.makedirs(os.path.dirname(filepath), exist_ok=True)
     
@@ -146,14 +147,21 @@ def save_petri_dish(petri: PetriDish, filepath: str, metadata: Optional[Dict] = 
             "year": petri.year,
             "growth_phase": petri.growth_phase,
             "rate": petri.rate,
-            "has_history": include_history and bool(petri.history)
+            "has_cell_history": include_cell_history and hasattr(petri, 'cell_history') and bool(petri.cell_history),
+            "has_gene_jsd": include_gene_jsd and hasattr(petri, 'gene_jsd_history') and bool(petri.gene_jsd_history),
+            "gene_size": getattr(petri, 'gene_size', GENE_SIZE),
+            "n_genes": getattr(petri, 'n_genes', petri.n // GENE_SIZE)
         },
         "cells": [cell.to_dict() for cell in petri.cells]
     }
     
-    # Add history if requested and available
-    if include_history and hasattr(petri, 'history') and petri.history:
-        data["history"] = petri.history
+    # Add cell history if requested and available
+    if include_cell_history and hasattr(petri, 'cell_history') and petri.cell_history:
+        data["cell_history"] = petri.cell_history
+    
+    # Add gene JSD history if requested and available
+    if include_gene_jsd and hasattr(petri, 'gene_jsd_history') and petri.gene_jsd_history:
+        data["gene_jsd_history"] = petri.gene_jsd_history
     
     # Add custom metadata if provided
     if metadata:
@@ -167,13 +175,14 @@ def save_petri_dish(petri: PetriDish, filepath: str, metadata: Optional[Dict] = 
         json.dump(data, f, indent=2)
 
 
-def load_petri_dish(filepath: str, include_history: bool = False) -> PetriDish:
+def load_petri_dish(filepath: str, include_cell_history: bool = False, include_gene_jsd: bool = False) -> PetriDish:
     """
     Load a PetriDish from file, optionally with history.
     
     Args:
         filepath: Path to .json.gz file
-        include_history: Whether to load history if available (new)
+        include_cell_history: Whether to load cell history if available
+        include_gene_jsd: Whether to load gene JSD history if available
         
     Returns:
         PetriDish: Reconstructed object with cells, metadata, and optionally history
@@ -193,8 +202,13 @@ def load_petri_dish(filepath: str, include_history: bool = False) -> PetriDish:
         n = 1000
         gene_size = GENE_SIZE
     
-    # Create PetriDish (starts with 1 cell, we'll replace)
-    petri = PetriDish(rate=rate, n=n, gene_size=gene_size, seed=None)
+    # Create PetriDish with proper gene parameters
+    petri = PetriDish(
+        rate=rate, 
+        n=n, 
+        gene_size=data.get('metadata', {}).get('gene_size', gene_size),
+        seed=None
+    )
     
     # Replace cells with loaded cells
     petri.cells = [dict_to_cell(cd) for cd in data['cells']]
@@ -210,13 +224,25 @@ def load_petri_dish(filepath: str, include_history: bool = False) -> PetriDish:
     # Restore metadata
     petri.metadata = data.get('metadata', {})
     
-    # Restore history if requested and available
-    if include_history and 'history' in data:
-        petri.history = data['history']
-        petri.history_enabled = True
+    # Restore cell history if requested and available
+    if include_cell_history and 'cell_history' in data:
+        petri.cell_history = data['cell_history']
+        petri.track_cell_history = True
+    elif include_cell_history and 'history' in data:  # Backward compatibility
+        petri.cell_history = data['history']
+        petri.track_cell_history = True
     else:
         # Clear any auto-initialized history if not loading it
-        petri.history = {}
+        petri.cell_history = {}
+        petri.track_cell_history = False
+    
+    # Restore gene JSD history if requested and available
+    if include_gene_jsd and 'gene_jsd_history' in data:
+        petri.gene_jsd_history = data['gene_jsd_history']
+        petri.track_gene_jsd = True
+    else:
+        petri.gene_jsd_history = {}
+        petri.track_gene_jsd = False
         petri.history_enabled = False
     
     return petri
@@ -494,7 +520,7 @@ def create_control2_with_uniform_base(
 
 def grow_petri_for_years(petri: PetriDish, years: int, growth_phase: Optional[int] = None, 
                         verbose: bool = True, track_history: bool = False, 
-                        start_year: Optional[int] = None) -> None:
+                        start_year: Optional[int] = None, track_gene_jsd: bool = False) -> None:
     """
     Grow a PetriDish for specified years with optional homeostasis after growth phase.
     Now uses PetriDish's built-in grow_with_homeostasis method when history tracking is enabled.
@@ -504,15 +530,16 @@ def grow_petri_for_years(petri: PetriDish, years: int, growth_phase: Optional[in
         years: Total number of years to simulate
         growth_phase: Years of exponential growth before homeostasis (None = pure exponential)
         verbose: Print progress
-        track_history: Enable history tracking (new)
-        start_year: Starting year for history tracking (new)
+        track_history: Enable cell history tracking
+        start_year: Starting year for history tracking
+        track_gene_jsd: Enable gene JSD tracking
     """
     if growth_phase is not None and growth_phase > years:
         raise ValueError(f"growth_phase ({growth_phase}) cannot exceed total years ({years})")
     
     # If history tracking is enabled, use PetriDish's new method
     if track_history and start_year is not None:
-        petri.enable_history_tracking(start_year)
+        petri.enable_history_tracking(start_year, track_gene_jsd=track_gene_jsd)
         petri.grow_with_homeostasis(years, growth_phase, verbose, record_history=True)
         return
     

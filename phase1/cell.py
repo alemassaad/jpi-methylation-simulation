@@ -7,6 +7,13 @@ import os
 import copy
 from typing import List, Dict, Any
 
+# Try to import numpy, but make it optional
+try:
+    import numpy as np
+    HAS_NUMPY = True
+except ImportError:
+    HAS_NUMPY = False
+
 
 def KL_div(P: List[float], Q: List[float]) -> float:
     """Calculate Kullback-Leibler divergence."""
@@ -52,11 +59,16 @@ class Cell:
     """
     
     def __init__(self, n: int = N, rate: float = RATE, gene_size: int = GENE_SIZE, 
-                 baseline_methylation_distribution: List[float] = BASELINE_METHYLATION_DISTRIBUTION) -> None:
+                 baseline_methylation_distribution: List[float] = None) -> None:
         self.n = n
         self.rate = rate
         self.gene_size = gene_size
-        self.baseline_methylation_distribution = baseline_methylation_distribution
+        
+        # Create baseline distribution matching gene_size if not provided
+        if baseline_methylation_distribution is None:
+            self.baseline_methylation_distribution = [1.0] + [0.0] * gene_size
+        else:
+            self.baseline_methylation_distribution = baseline_methylation_distribution
         
         if self.n % self.gene_size != 0:
             raise ValueError("Gene size must divide the number of cells evenly.")
@@ -150,7 +162,7 @@ class PetriDish:
     
     def __init__(self, rate: float = RATE, n: int = N, gene_size: int = GENE_SIZE, 
                  seed: int = None, growth_phase: int = DEFAULT_GROWTH_PHASE, 
-                 cells: List['Cell'] = None) -> None:
+                 cells: List['Cell'] = None, calculate_jsds: bool = True) -> None:
         """
         Initialize petri dish with a single unmethylated cell or provided cells.
         
@@ -161,7 +173,12 @@ class PetriDish:
             seed: Random seed for reproducibility
             growth_phase: Duration of growth phase in years (target = 2^growth_phase cells)
             cells: Optional list of cells to start with (for phase2 compatibility)
+            calculate_jsds: Whether to calculate cell and gene JSDs (for performance)
         """
+        # Validate gene_size divides n evenly
+        if n % gene_size != 0:
+            raise ValueError(f"n ({n}) must be divisible by gene_size ({gene_size})")
+        
         # Validate growth_phase
         if growth_phase < 1:
             raise ValueError(f"growth_phase must be >= 1, got {growth_phase}")
@@ -174,9 +191,11 @@ class PetriDish:
         self.rate = rate
         self.n = n
         self.gene_size = gene_size
+        self.n_genes = n // gene_size
         self.seed = seed
         self.growth_phase = growth_phase
         self.target_population = 2 ** growth_phase  # Calculate from growth_phase
+        self.calculate_jsds = calculate_jsds
         
         # Initialize cells - either provided or single unmethylated cell
         if cells is not None:
@@ -186,15 +205,24 @@ class PetriDish:
         
         self.year = 0
         
-        # Enhanced history tracking
+        # Cell history tracking (renamed for clarity)
         self.absolute_year = 0  # For proper year labeling in phase2
-        self.history_enabled = True  # Flag to enable/disable history tracking
+        self.track_cell_history = True  # Renamed from history_enabled
         
-        # Store initial state if we have cells
+        # Gene JSD tracking
+        self.track_gene_jsd = False
+        self.gene_jsd_history = {}
+        # Baseline must match gene_size + 1 bins
+        self.BASELINE_GENE_DISTRIBUTION = [1.0] + [0.0] * self.gene_size
+        
+        # Store initial state if we have cells (renamed for clarity)
         if self.cells:
-            self.history = {'0': [cell.to_dict() for cell in self.cells]}
+            self.cell_history = {'0': [cell.to_dict() for cell in self.cells]}
+            # Initialize gene JSD at year 0 if tracking
+            if self.track_gene_jsd and self.calculate_jsds:
+                self.gene_jsd_history['0'] = [0.0] * self.n_genes  # All zeros initially
         else:
-            self.history = {}
+            self.cell_history = {}
         
     def divide_cells(self) -> None:
         """
@@ -216,6 +244,9 @@ class PetriDish:
         """
         for cell in self.cells:
             cell.methylate()
+            # Only calculate JSD if enabled
+            if not self.calculate_jsds:
+                cell.cell_JSD = 0.0
         print(f"  Methylation applied to {len(self.cells)} cells")
         
     def random_cull_cells(self) -> None:
@@ -276,7 +307,7 @@ class PetriDish:
             print(f"  Final count: {len(self.cells)} cells (random ~{self.target_population})")
             
         # Store current state after all operations
-        self.history[str(self.year)] = [cell.to_dict() for cell in self.cells]
+        self.cell_history[str(self.year)] = [cell.to_dict() for cell in self.cells]
         
         # Report statistics
         jsd_values = [cell.cell_JSD for cell in self.cells]
@@ -355,7 +386,7 @@ class PetriDish:
         
         # Use gzip compression and native JSON serialization
         with gzip.open(filepath, 'wt', encoding='utf-8', compresslevel=1) as f:
-            json.dump(self.history, f, separators=(',', ':'))
+            json.dump(self.cell_history, f, separators=(',', ':'))
         
         save_time = time.time() - save_start
         file_size_mb = os.path.getsize(filepath) / (1024 * 1024)
@@ -367,27 +398,31 @@ class PetriDish:
     
     # ==================== Enhanced History Tracking Methods ====================
     
-    def enable_history_tracking(self, start_year: int = 0, clear_history: bool = True) -> 'PetriDish':
+    def enable_history_tracking(self, start_year: int = 0, clear_history: bool = True, track_gene_jsd: bool = True) -> 'PetriDish':
         """
         Enable history tracking from a specific year.
         
         Args:
             start_year: The absolute year to start tracking from
             clear_history: Whether to clear existing history
+            track_gene_jsd: Whether to also track gene JSD history
             
         Returns:
             Self for method chaining
         """
-        self.history_enabled = True
+        self.track_cell_history = True
+        self.track_gene_jsd = track_gene_jsd
         self.absolute_year = start_year
         if clear_history:
-            self.history = {}
+            self.cell_history = {}
+            self.gene_jsd_history = {}
         self._record_history()  # Record initial state
         return self
     
     def disable_history_tracking(self) -> 'PetriDish':
         """Disable history tracking to save memory."""
-        self.history_enabled = False
+        self.track_cell_history = False
+        self.track_gene_jsd = False
         return self
     
     def _record_history(self, year: int = None) -> None:
@@ -397,13 +432,16 @@ class PetriDish:
         Args:
             year: Optional year to record at. If None, uses absolute_year
         """
-        if not self.history_enabled:
-            return
-        
         if year is None:
             year = self.absolute_year
         
-        self.history[str(year)] = [cell.to_dict() for cell in self.cells]
+        # Record cell history if enabled
+        if self.track_cell_history:
+            self.cell_history[str(year)] = [cell.to_dict() for cell in self.cells]
+        
+        # Record gene JSD if enabled
+        if self.track_gene_jsd and self.calculate_jsds:
+            self.gene_jsd_history[str(year)] = self.calculate_gene_jsd()
     
     def set_absolute_year(self, year: int) -> 'PetriDish':
         """
@@ -431,9 +469,61 @@ class PetriDish:
         """
         self.year += 1
         self.absolute_year += 1
-        if record_history and self.history_enabled:
+        if record_history:
             self._record_history()
         return self
+    
+    def calculate_gene_jsd(self) -> List[float]:
+        """
+        Calculate JSD for each gene across all cells.
+        
+        Returns:
+            List of JSD values, one per gene
+        """
+        if not self.cells:
+            return [0.0] * self.n_genes
+        
+        n_cells = len(self.cells)
+        
+        if HAS_NUMPY:
+            # Numpy implementation (faster)
+            methylation_matrix = np.array([cell.cpg_sites for cell in self.cells])
+            genes_matrix = methylation_matrix.reshape(n_cells, self.n_genes, self.gene_size)
+            methylation_counts = genes_matrix.sum(axis=2)
+            
+            gene_jsds = []
+            for gene_idx in range(self.n_genes):
+                gene_counts = methylation_counts[:, gene_idx]
+                distribution = np.zeros(self.gene_size + 1)
+                for count in range(self.gene_size + 1):
+                    distribution[count] = np.sum(gene_counts == count) / n_cells
+                jsd = JS_div(distribution.tolist(), self.BASELINE_GENE_DISTRIBUTION)
+                gene_jsds.append(jsd)
+        else:
+            # Pure Python implementation (slower but no dependencies)
+            gene_jsds = []
+            for gene_idx in range(self.n_genes):
+                # Count methylation levels for this gene across all cells
+                distribution = [0] * (self.gene_size + 1)
+                
+                for cell in self.cells:
+                    # Get sites for this gene
+                    start_idx = gene_idx * self.gene_size
+                    end_idx = start_idx + self.gene_size
+                    gene_sites = cell.cpg_sites[start_idx:end_idx]
+                    
+                    # Count methylated sites
+                    methylated_count = sum(gene_sites)
+                    distribution[methylated_count] += 1
+                
+                # Normalize to get probabilities
+                distribution = [count / n_cells for count in distribution]
+                
+                # Calculate JSD with baseline
+                jsd = JS_div(distribution, self.BASELINE_GENE_DISTRIBUTION)
+                gene_jsds.append(jsd)
+        
+        return gene_jsds
     
     def grow_with_homeostasis(self, years: int, growth_phase: int = None,
                              verbose: bool = False, record_history: bool = True) -> 'PetriDish':
@@ -505,8 +595,8 @@ class PetriDishPlotter:
         self.stats = None  # Cache calculated statistics
         
         # Validate that petri has history
-        if not petri.history:
-            raise ValueError("PetriDish has no history to plot")
+        if not hasattr(petri, 'cell_history') or not petri.cell_history:
+            raise ValueError("PetriDish has no cell history to plot")
     
     def calculate_statistics(self) -> Dict:
         """Calculate statistics from petri's history."""
@@ -524,10 +614,10 @@ class PetriDishPlotter:
         }
         
         # Sort years numerically
-        sorted_years = sorted([int(year) for year in self.petri.history.keys()])
+        sorted_years = sorted([int(year) for year in self.petri.cell_history.keys()])
         
         for year in sorted_years:
-            year_data = self.petri.history[str(year)]
+            year_data = self.petri.cell_history[str(year)]
             
             # Skip if no cells (edge case)
             if not year_data:

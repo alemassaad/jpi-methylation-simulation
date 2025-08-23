@@ -43,6 +43,12 @@ def parse_arguments():
     parser.add_argument('--no-save', action='store_true',
                         help='Run simulation without saving results')
     
+    # Performance and tracking options
+    parser.add_argument('--track-gene-jsd', action='store_true',
+                        help='Track gene JSD history during simulation')
+    parser.add_argument('--no-jsds', action='store_true',
+                        help='Disable all JSD calculations for maximum performance')
+    
     return parser.parse_args()
 
 
@@ -79,8 +85,14 @@ def main():
         n=n,
         gene_size=gene_size,
         seed=seed,
-        growth_phase=growth_phase
+        growth_phase=growth_phase,
+        calculate_jsds=not args.no_jsds
     )
+    
+    # Enable gene JSD tracking if requested
+    if args.track_gene_jsd:
+        petri_dish.enable_history_tracking(start_year=0, track_gene_jsd=True)
+        print("Gene JSD tracking enabled")
     
     # Run simulation
     petri_dish.run_simulation(t_max=t_max)

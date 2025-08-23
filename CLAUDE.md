@@ -29,7 +29,15 @@ A symmetric measure of difference between probability distributions:
 - Calculated as average of KL divergences to midpoint distribution
 - Range: 0 (identical) to 1 (maximally different)
 - Used to track epigenetic age and cellular heterogeneity
-- Named `cell_JSD` to distinguish from future `gene_JSD` calculations
+- Named `cell_JSD` to distinguish from `gene_JSD` calculations
+
+### Gene-level JSD (gene_JSD)
+Population-level measure of methylation heterogeneity for each gene:
+- Calculated per gene across all cells in PetriDish
+- Counts methylation levels (0-5 sites) across population
+- Compares distribution to baseline (all unmethylated)
+- Stored as list of JSDs, one per gene
+- Tracks evolution of gene-specific methylation patterns
 
 ## Architecture
 
@@ -44,6 +52,8 @@ Key methods:
 - `Cell.create_daughter_cell()`: Mitosis (identical copy)
 - `PetriDish.divide_cells()`: Population doubling
 - `PetriDish.random_cull_cells()`: Homeostatic ~50% survival
+- `PetriDish.calculate_gene_jsd()`: Calculate JSD for each gene across population
+- `PetriDish.enable_history_tracking()`: Enable cell/gene history tracking
 
 ### Main Pipeline Structure
 - **phase1/**: Simulation engine (single cell → population growth → homeostasis)
@@ -80,7 +90,12 @@ phase2/data/rate_0.00500-grow13-sites1000-years100/snap50to60-growth7-quant10x3-
 ```bash
 cd phase1
 python run_simulation.py --rate 0.005 --years 100 --growth-phase 13 --seed 42
+
+# With gene JSD tracking:
+python run_simulation.py --rate 0.005 --years 100 --track-gene-jsd --seed 42
+
 # Quick test: --years 20 --growth-phase 4
+# Performance mode: --no-jsds (disables all JSD calculations)
 ```
 
 Expected output:
@@ -266,9 +281,12 @@ When using `--uniform-mixing` flag:
   - `create_control2_with_uniform_base()`: Combines shared pool with additional cells
 - **Benefits**: Eliminates inter-individual sampling variation in the base 80%, allowing cleaner comparison of the growth effect in the remaining 20%
 
-### History Tracking and Plotting (NEW)
+### History Tracking and Plotting
+- **Cell history**: Renamed from `history` to `cell_history` for clarity
+- **Gene JSD history**: New `gene_jsd_history` tracks population-level gene JSDs
 - **--plot-individuals flag**: Enables growth trajectory tracking for phase2 individuals
-- **PetriDishPlotter class**: Unified plotting for both phases (JSD, methylation, combined)
+- **--track-gene-jsd flag**: Enables gene JSD tracking in phase1
+- **PetriDishPlotter class**: Unified plotting for both phases (cell_JSD, methylation, combined)
 - **History format**: Year-indexed dictionary with cell states at each time point
 - **Automatic plotting**: Generates plots at pipeline completion when flag is used
 - **Standalone plotting**: Use `plot_individuals.py` for existing runs

@@ -238,8 +238,8 @@ def test_history_consistency():
     # Verify JSD values exist and are valid
     for year, cells in petri.history.items():
         for cell in cells:
-            assert 'jsd' in cell
-            assert 0 <= cell['jsd'] <= 1
+            assert 'cell_jsd' in cell
+            assert 0 <= cell['cell_jsd'] <= 1
     print("  ✓ JSD values valid for all cells")
     
     print("  PASSED")

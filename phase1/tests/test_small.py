@@ -65,8 +65,8 @@ def test_small_simulation():
         print(f"  Cells with methylation at year 10: {methylated_cells}/{len(year_10_cells)}")
         
         # Check JSD is increasing
-        mean_jsd_year_0 = petri_dish.history['0'][0]['jsd']
-        mean_jsd_year_10 = sum(c['jsd'] for c in year_10_cells) / len(year_10_cells)
+        mean_jsd_year_0 = petri_dish.history['0'][0]['cell_jsd']
+        mean_jsd_year_10 = sum(c['cell_jsd'] for c in year_10_cells) / len(year_10_cells)
         print(f"  Mean JSD year 0: {mean_jsd_year_0:.4f}")
         print(f"  Mean JSD year 10: {mean_jsd_year_10:.4f}")
         

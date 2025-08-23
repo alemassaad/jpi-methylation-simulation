@@ -77,7 +77,7 @@ def get_individual_signatures(base_dir: str, group: str) -> Dict:
                 data = json.load(f)
             
             cells = data['cells'] if 'cells' in data else data
-            jsds = [c['jsd'] for c in cells]
+            jsds = [c['cell_jsd'] for c in cells]
             
             signatures[name] = {
                 'n_cells': len(cells),

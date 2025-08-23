@@ -32,7 +32,7 @@ def get_individual_signature(filepath):
     with gzip.open(filepath, 'rt') as f:
         data = json.load(f)
     cells = data['cells'] if 'cells' in data else data
-    jsds = sorted([c['jsd'] for c in cells])
+    jsds = sorted([c['cell_jsd'] for c in cells])
     return {
         'n_cells': len(cells),
         'mean': np.mean(jsds),

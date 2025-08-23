@@ -19,7 +19,7 @@ def get_jsd_signature(filepath):
         data = json.load(f)
     
     cells = data['cells'] if 'cells' in data else data
-    jsds = sorted([c['jsd'] for c in cells])
+    jsds = sorted([c['cell_jsd'] for c in cells])
     
     return {
         'n_cells': len(cells),

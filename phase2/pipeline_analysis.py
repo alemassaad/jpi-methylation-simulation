@@ -36,7 +36,7 @@ def plot_jsd_distribution_from_cells(cells: List[Cell], bins: int, output_path: 
     print(f"\nPlotting JSD distribution...")
     
     # Extract JSD values directly from Cell objects
-    jsd_values = np.array([cell.JSD for cell in cells])
+    jsd_values = np.array([cell.cell_JSD for cell in cells])
     
     # Calculate statistics
     mean_jsd = np.mean(jsd_values)
@@ -168,7 +168,7 @@ def get_mean_jsds_from_petri_dishes(dishes: List[PetriDish]) -> np.ndarray:
     """
     mean_jsds = []
     for petri in dishes:
-        jsd_values = [cell.JSD for cell in petri.cells]
+        jsd_values = [cell.cell_JSD for cell in petri.cells]
         mean_jsd = np.mean(jsd_values) if jsd_values else 0.0
         mean_jsds.append(mean_jsd)
     

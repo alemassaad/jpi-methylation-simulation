@@ -18,7 +18,7 @@ def get_individual_signature(filepath):
         cells = data['cells'] if 'cells' in data else data
         
         # Get sorted JSD values as signature
-        jsds = sorted([c['jsd'] for c in cells])
+        jsds = sorted([c['cell_jsd'] for c in cells])
         
         # Create a hash of the JSD values
         jsd_str = ','.join([f"{j:.9f}" for j in jsds[:100]])  # First 100 for speed

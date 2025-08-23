@@ -67,7 +67,7 @@ class Cell:
         
         self.methylation_distribution = [0.0 for _ in range(0, self.gene_size + 1)]
         self.methylation_distribution[0] = 1.0  # initially all genes are unmethylated
-        self.JSD = JS_div(self.methylation_distribution, self.baseline_methylation_distribution)
+        self.cell_JSD = JS_div(self.methylation_distribution, self.baseline_methylation_distribution)
         
     def methylate(self) -> None:
         """
@@ -92,7 +92,7 @@ class Cell:
                 
         self.methylation_proportion = methylated_count / self.n
         self.compute_methylation_distribution()
-        self.JSD = JS_div(self.methylation_distribution, self.baseline_methylation_distribution)
+        self.cell_JSD = JS_div(self.methylation_distribution, self.baseline_methylation_distribution)
     
     def create_daughter_cell(self) -> 'Cell':
         """
@@ -125,7 +125,7 @@ class Cell:
             'cpg_sites': self.cpg_sites[:],
             'methylation_proportion': self.methylation_proportion,
             'methylation_distribution': self.methylation_distribution[:],
-            'jsd': self.JSD,
+            'cell_jsd': self.cell_JSD,
             'age': self.age,
             'gene_size': self.gene_size,
             'rate': self.rate
@@ -279,7 +279,7 @@ class PetriDish:
         self.history[str(self.year)] = [cell.to_dict() for cell in self.cells]
         
         # Report statistics
-        jsd_values = [cell.JSD for cell in self.cells]
+        jsd_values = [cell.cell_JSD for cell in self.cells]
         mean_jsd = statistics.mean(jsd_values) if jsd_values else 0.0
         print(f"  Mean JSD: {mean_jsd:.4f}")
         
@@ -513,7 +513,7 @@ class PetriDishPlotter:
         stats = {
             'years': [],
             'population_size': [],
-            'jsd': {
+            'cell_jsd': {
                 'mean': [], 'median': [], 'p5': [], 'p25': [],
                 'p75': [], 'p95': [], 'min': [], 'max': []
             },
@@ -534,7 +534,7 @@ class PetriDishPlotter:
                 continue
             
             # Extract values
-            jsd_values = [cell['jsd'] for cell in year_data]
+            jsd_values = [cell['cell_jsd'] for cell in year_data]
             meth_values = [cell['methylation_proportion'] * 100 for cell in year_data]
             
             stats['years'].append(year)
@@ -542,27 +542,27 @@ class PetriDishPlotter:
             
             # JSD statistics
             if jsd_values:  # Ensure we have data
-                stats['jsd']['mean'].append(statistics.mean(jsd_values))
-                stats['jsd']['median'].append(statistics.median(jsd_values))
+                stats['cell_jsd']['mean'].append(statistics.mean(jsd_values))
+                stats['cell_jsd']['median'].append(statistics.median(jsd_values))
                 
                 # For single values, all percentiles are the same
                 if len(jsd_values) == 1:
                     val = jsd_values[0]
-                    stats['jsd']['p5'].append(val)
-                    stats['jsd']['p25'].append(val)
-                    stats['jsd']['p75'].append(val)
-                    stats['jsd']['p95'].append(val)
-                    stats['jsd']['min'].append(val)
-                    stats['jsd']['max'].append(val)
+                    stats['cell_jsd']['p5'].append(val)
+                    stats['cell_jsd']['p25'].append(val)
+                    stats['cell_jsd']['p75'].append(val)
+                    stats['cell_jsd']['p95'].append(val)
+                    stats['cell_jsd']['min'].append(val)
+                    stats['cell_jsd']['max'].append(val)
                 else:
                     # Use statistics.quantiles for percentiles
                     import numpy as np
-                    stats['jsd']['p5'].append(np.percentile(jsd_values, 5))
-                    stats['jsd']['p25'].append(np.percentile(jsd_values, 25))
-                    stats['jsd']['p75'].append(np.percentile(jsd_values, 75))
-                    stats['jsd']['p95'].append(np.percentile(jsd_values, 95))
-                    stats['jsd']['min'].append(min(jsd_values))
-                    stats['jsd']['max'].append(max(jsd_values))
+                    stats['cell_jsd']['p5'].append(np.percentile(jsd_values, 5))
+                    stats['cell_jsd']['p25'].append(np.percentile(jsd_values, 25))
+                    stats['cell_jsd']['p75'].append(np.percentile(jsd_values, 75))
+                    stats['cell_jsd']['p95'].append(np.percentile(jsd_values, 95))
+                    stats['cell_jsd']['min'].append(min(jsd_values))
+                    stats['cell_jsd']['max'].append(max(jsd_values))
             
             # Methylation statistics
             if meth_values:
@@ -647,7 +647,7 @@ class PetriDishPlotter:
         fig.add_trace(
             go.Scatter(
                 x=years + years[::-1],
-                y=self.stats['jsd']['p95'] + self.stats['jsd']['p5'][::-1],
+                y=self.stats['cell_jsd']['p95'] + self.stats['cell_jsd']['p5'][::-1],
                 fill='toself',
                 fillcolor='rgba(99, 110, 250, 0.15)',
                 line=dict(color='rgba(255,255,255,0)'),
@@ -662,7 +662,7 @@ class PetriDishPlotter:
         fig.add_trace(
             go.Scatter(
                 x=years + years[::-1],
-                y=self.stats['jsd']['p75'] + self.stats['jsd']['p25'][::-1],
+                y=self.stats['cell_jsd']['p75'] + self.stats['cell_jsd']['p25'][::-1],
                 fill='toself',
                 fillcolor='rgba(99, 110, 250, 0.25)',
                 line=dict(color='rgba(255,255,255,0)'),
@@ -677,7 +677,7 @@ class PetriDishPlotter:
         fig.add_trace(
             go.Scatter(
                 x=years,
-                y=self.stats['jsd']['mean'],
+                y=self.stats['cell_jsd']['mean'],
                 mode='lines',
                 name='Mean JSD',
                 line=dict(color='rgb(99, 110, 250)', width=2.5),
@@ -733,9 +733,9 @@ class PetriDishPlotter:
         annotation_text = (
             f"<b>Final Statistics (Year {final_year}):</b><br>"
             f"Population: {final_pop} cells<br>"
-            f"JSD Mean: {self.stats['jsd']['mean'][final_idx]:.4f}<br>"
-            f"JSD 25-75%: [{self.stats['jsd']['p25'][final_idx]:.4f}, {self.stats['jsd']['p75'][final_idx]:.4f}]<br>"
-            f"JSD 5-95%: [{self.stats['jsd']['p5'][final_idx]:.4f}, {self.stats['jsd']['p95'][final_idx]:.4f}]"
+            f"JSD Mean: {self.stats['cell_jsd']['mean'][final_idx]:.4f}<br>"
+            f"JSD 25-75%: [{self.stats['cell_jsd']['p25'][final_idx]:.4f}, {self.stats['cell_jsd']['p75'][final_idx]:.4f}]<br>"
+            f"JSD 5-95%: [{self.stats['cell_jsd']['p5'][final_idx]:.4f}, {self.stats['cell_jsd']['p95'][final_idx]:.4f}]"
         )
         
         if growth_phase > 0:
@@ -956,7 +956,7 @@ class PetriDishPlotter:
         fig.add_trace(
             go.Scatter(
                 x=years + years[::-1],
-                y=self.stats['jsd']['p95'] + self.stats['jsd']['p5'][::-1],
+                y=self.stats['cell_jsd']['p95'] + self.stats['cell_jsd']['p5'][::-1],
                 fill='toself',
                 fillcolor='rgba(99, 110, 250, 0.15)',
                 line=dict(color='rgba(255,255,255,0)'),
@@ -970,7 +970,7 @@ class PetriDishPlotter:
         fig.add_trace(
             go.Scatter(
                 x=years + years[::-1],
-                y=self.stats['jsd']['p75'] + self.stats['jsd']['p25'][::-1],
+                y=self.stats['cell_jsd']['p75'] + self.stats['cell_jsd']['p25'][::-1],
                 fill='toself',
                 fillcolor='rgba(99, 110, 250, 0.25)',
                 line=dict(color='rgba(255,255,255,0)'),
@@ -985,7 +985,7 @@ class PetriDishPlotter:
         fig.add_trace(
             go.Scatter(
                 x=years,
-                y=self.stats['jsd']['mean'],
+                y=self.stats['cell_jsd']['mean'],
                 mode='lines',
                 name='Mean JSD',
                 line=dict(color='rgb(99, 110, 250)', width=2.5),
@@ -1100,9 +1100,9 @@ class PetriDishPlotter:
         annotation_text = (
             f"<b>Final Statistics (Year {final_year}):</b><br>"
             f"Population: {final_pop} cells<br>"
-            f"JSD Mean: {self.stats['jsd']['mean'][final_idx]:.4f}<br>"
-            f"JSD 25-75%: [{self.stats['jsd']['p25'][final_idx]:.4f}, {self.stats['jsd']['p75'][final_idx]:.4f}]<br>"
-            f"JSD 5-95%: [{self.stats['jsd']['p5'][final_idx]:.4f}, {self.stats['jsd']['p95'][final_idx]:.4f}]<br>"
+            f"JSD Mean: {self.stats['cell_jsd']['mean'][final_idx]:.4f}<br>"
+            f"JSD 25-75%: [{self.stats['cell_jsd']['p25'][final_idx]:.4f}, {self.stats['cell_jsd']['p75'][final_idx]:.4f}]<br>"
+            f"JSD 5-95%: [{self.stats['cell_jsd']['p5'][final_idx]:.4f}, {self.stats['cell_jsd']['p95'][final_idx]:.4f}]<br>"
             f"Methylation Mean: {self.stats['methylation']['mean'][final_idx]:.2f}%<br>"
             f"Methylation 25-75%: [{self.stats['methylation']['p25'][final_idx]:.2f}%, "
             f"{self.stats['methylation']['p75'][final_idx]:.2f}%]<br>"

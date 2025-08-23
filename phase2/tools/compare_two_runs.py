@@ -76,8 +76,8 @@ def compare_directories(dir1, dir2):
             cells2 = data2['cells'] if 'cells' in data2 else data2
             
             # Compare JSD distributions
-            jsds1 = sorted([c['jsd'] for c in cells1])
-            jsds2 = sorted([c['jsd'] for c in cells2])
+            jsds1 = sorted([c['cell_jsd'] for c in cells1])
+            jsds2 = sorted([c['cell_jsd'] for c in cells2])
             
             if jsds1 == jsds2:
                 identical_count += 1

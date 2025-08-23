@@ -42,7 +42,7 @@ def dict_to_cell(cell_dict: Dict[str, Any]) -> Cell:
     cell.age = cell_dict['age']
     cell.methylation_proportion = cell_dict['methylation_proportion']
     cell.methylation_distribution = cell_dict['methylation_distribution']
-    cell.JSD = cell_dict['jsd']
+    cell.cell_JSD = cell_dict.get('cell_jsd', cell_dict.get('jsd', 0.0))  # Support old format for compatibility
     
     return cell
 
@@ -133,7 +133,7 @@ def save_petri_dish(petri: PetriDish, filepath: str, metadata: Optional[Dict] = 
     os.makedirs(os.path.dirname(filepath), exist_ok=True)
     
     # Calculate statistics
-    jsd_values = [cell.JSD for cell in petri.cells]
+    jsd_values = [cell.cell_JSD for cell in petri.cells]
     
     data = {
         "metadata": {
@@ -266,7 +266,7 @@ def sample_by_quantiles(cells: List[Cell], n_quantiles: int = 10,
     print(f"  Sampling {cells_per_quantile} cells from each of {n_quantiles} quantiles...")
     
     # Sort cells by JSD
-    sorted_cells = sorted(cells, key=lambda c: c.JSD)
+    sorted_cells = sorted(cells, key=lambda c: c.cell_JSD)
     
     # Calculate quantile boundaries
     n_cells = len(sorted_cells)
@@ -417,6 +417,81 @@ def create_pure_snapshot_petri(snapshot_cells: List[Cell], n_cells: int = 5120,
     return petri
 
 
+def create_control2_with_uniform_base(
+    snapshot_cells: List[Cell],
+    uniform_pool: List[Cell],
+    uniform_indices: List[int],
+    target_size: int,
+    rate: float = 0.005,
+    seed: Optional[int] = None
+) -> PetriDish:
+    """
+    Create Control2 individual with uniform base + additional snapshot cells.
+    
+    When using --uniform-mixing, Control2 shares the same 80% base cells as
+    mutant and control1, plus additional random snapshot cells for the remaining 20%.
+    
+    Args:
+        snapshot_cells: Full second snapshot cells to sample additional from
+        uniform_pool: The shared cells used in all individuals (e.g., 80%)
+        uniform_indices: Indices of cells already used in uniform pool
+        target_size: Total number of cells needed
+        rate: Methylation rate for PetriDish
+        seed: Random seed for additional sampling
+    
+    Returns:
+        PetriDish with uniform base + additional unique snapshot cells
+    """
+    if seed is not None:
+        random.seed(seed)
+        np.random.seed(seed)
+    
+    # Start with the uniform pool (deep copy to avoid reference issues)
+    combined_cells = [copy.deepcopy(cell) for cell in uniform_pool]
+    
+    # Calculate how many additional cells needed
+    n_additional = target_size - len(uniform_pool)
+    
+    if n_additional > 0:
+        # Create set of available indices (excluding those already used)
+        all_indices = set(range(len(snapshot_cells)))
+        used_indices = set(uniform_indices)
+        available_indices = list(all_indices - used_indices)
+        
+        if len(available_indices) >= n_additional:
+            # Sample from available indices
+            additional_indices = random.sample(available_indices, n_additional)
+        else:
+            # Not enough unique cells, need to sample with replacement
+            print(f"      ⚠️ Not enough unique cells for Control2 additional sampling")
+            print(f"         Need {n_additional} but only {len(available_indices)} available")
+            print(f"         Sampling with replacement from available cells")
+            additional_indices = [random.choice(available_indices) for _ in range(n_additional)]
+        
+        # Add the additional cells
+        additional_cells = [copy.deepcopy(snapshot_cells[idx]) for idx in additional_indices]
+        combined_cells.extend(additional_cells)
+    elif n_additional < 0:
+        # Edge case: uniform pool is larger than target (e.g., 100% mix ratio)
+        # Just use subset of uniform pool
+        combined_cells = combined_cells[:target_size]
+    
+    # Get parameters from first cell
+    if combined_cells:
+        n = len(combined_cells[0].cpg_sites)
+        gene_size = combined_cells[0].gene_size
+    else:
+        n = 1000
+        gene_size = GENE_SIZE
+    
+    # Create PetriDish
+    petri = PetriDish(rate=rate, n=n, gene_size=gene_size, seed=None)
+    petri.cells = combined_cells
+    petri.year = combined_cells[0].age if combined_cells else 60
+    
+    return petri
+
+
 def grow_petri_for_years(petri: PetriDish, years: int, growth_phase: Optional[int] = None, 
                         verbose: bool = True, track_history: bool = False, 
                         start_year: Optional[int] = None) -> None:
@@ -504,7 +579,7 @@ def get_petri_statistics(petri: PetriDish) -> Dict[str, float]:
             'median_jsd': 0.0
         }
     
-    jsd_values = [cell.JSD for cell in petri.cells]
+    jsd_values = [cell.cell_JSD for cell in petri.cells]
     
     return {
         'n_cells': len(petri.cells),
@@ -577,7 +652,7 @@ def get_jsd_array(petri: PetriDish) -> np.ndarray:
     Returns:
         numpy array of JSD values
     """
-    return np.array([cell.JSD for cell in petri.cells])
+    return np.array([cell.cell_JSD for cell in petri.cells])
 
 
 def calculate_population_statistics(dishes: List[PetriDish], group_name: str) -> Dict:
@@ -662,7 +737,7 @@ def print_mixing_statistics(mutant_stats: Dict, control1_stats: Dict, combined_m
 def create_uniform_mixing_pool(snapshot_cells: List[Cell], 
                                median_size: int, 
                                mix_ratio: float,
-                               seed: Optional[int] = None) -> List[Cell]:
+                               seed: Optional[int] = None) -> Tuple[List[Cell], List[int]]:
     """
     Create a shared pool of snapshot cells for uniform mixing.
     
@@ -673,7 +748,7 @@ def create_uniform_mixing_pool(snapshot_cells: List[Cell],
         seed: Random seed
         
     Returns:
-        List of cells to be shared across all individuals
+        Tuple of (cells to be shared across all individuals, indices used from snapshot)
     """
     if seed is not None:
         random.seed(seed)
@@ -705,7 +780,7 @@ def create_uniform_mixing_pool(snapshot_cells: List[Cell],
     
     print(f"      Created pool of {len(pool)} cells")
     
-    return pool
+    return pool, indices
 
 
 def mix_petri_uniform(petri: PetriDish, 

@@ -128,7 +128,7 @@ def test_methylation_during_growth():
             if year > 0:
                 petri.simulate_year()
             # Calculate mean JSD
-            mean_jsd = sum(c.JSD for c in petri.cells) / len(petri.cells)
+            mean_jsd = sum(c.cell_JSD for c in petri.cells) / len(petri.cells)
             jsd_values.append(mean_jsd)
         
         # Check JSD increases monotonically
@@ -285,8 +285,8 @@ def test_initial_state():
             return
         
         # Check initial JSD
-        if cell.JSD != 0:
-            results.record(test_name, False, f"Initial JSD = {cell.JSD}")
+        if cell.cell_JSD != 0:
+            results.record(test_name, False, f"Initial cell_JSD = {cell.cell_JSD}")
             return
         
         results.record(test_name, True)
@@ -415,7 +415,7 @@ def test_cell_format():
         
         # Check required keys
         required_keys = ['cpg_sites', 'methylation_proportion', 'methylation_distribution',
-                        'jsd', 'age', 'gene_size', 'rate']
+                        'cell_jsd', 'age', 'gene_size', 'rate']
         
         for key in required_keys:
             if key not in cell_dict:
@@ -672,8 +672,8 @@ def test_step23_compatible_format():
             
             # Check cells have required fields for step23
             for cell in year_5:
-                if 'jsd' not in cell:
-                    results.record(test_name, False, "Cell missing 'jsd' field")
+                if 'cell_jsd' not in cell:
+                    results.record(test_name, False, "Cell missing 'cell_jsd' field")
                     return
                 if 'cpg_sites' not in cell:
                     results.record(test_name, False, "Cell missing 'cpg_sites' field")
@@ -701,7 +701,7 @@ def test_statistics_extraction():
         year5_cells = petri.history['5']
         
         # Calculate JSD statistics
-        jsd_values = [c['jsd'] for c in year5_cells]
+        jsd_values = [c['cell_jsd'] for c in year5_cells]
         mean_jsd = sum(jsd_values) / len(jsd_values)
         
         # Calculate methylation statistics

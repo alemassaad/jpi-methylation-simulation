@@ -32,6 +32,7 @@ from pipeline_utils import (
     save_petri_dish, load_petri_dish, load_all_petri_dishes,
     sample_by_quantiles, sample_uniform,
     mix_petri_with_snapshot, create_pure_snapshot_petri,
+    create_control2_with_uniform_base,
     grow_petri_for_years, get_petri_statistics, check_petri_files_state,
     get_jsd_array, calculate_population_statistics, print_mixing_statistics,
     create_uniform_mixing_pool, mix_petri_uniform, normalize_populations
@@ -406,7 +407,7 @@ def run_pipeline(args):
         
         # Create uniform pool
         print(f"\n  Creating uniform mixing pool from year {args.second_snapshot}...")
-        uniform_pool = create_uniform_mixing_pool(
+        uniform_pool, uniform_indices = create_uniform_mixing_pool(
             second_snapshot_cells,
             target_size,  # Uses normalization threshold if available, otherwise median
             args.mix_ratio / 100,
@@ -525,6 +526,13 @@ def run_pipeline(args):
                     filepath = os.path.join(control1_dir, f"individual_{i:02d}.json.gz")
                     save_petri_dish(petri, filepath, include_history=args.plot_individuals)
     
+    # Store uniform pool data for Control2 creation (if using uniform mixing)
+    uniform_pool_for_control2 = None
+    uniform_indices_for_control2 = None
+    if args.uniform_mixing:
+        uniform_pool_for_control2 = uniform_pool
+        uniform_indices_for_control2 = uniform_indices
+    
     # ========================================================================
     # STAGE 7: Create Control2 Individuals (Pure Second Snapshot)
     # ========================================================================
@@ -581,19 +589,43 @@ def run_pipeline(args):
         for i in range(num_control2):
             print(f"    Creating individual {i+1}/{num_control2}")
             
-            # Create PetriDish with pure second snapshot cells
-            petri = create_pure_snapshot_petri(second_snapshot_cells, n_cells=actual_control2_size,
-                                              rate=args.rate, seed=args.seed + 300 + i)
-            
-            # Add metadata
-            if not hasattr(petri, 'metadata'):
-                petri.metadata = {}
-            petri.metadata.update({
-                'individual_id': i,
-                'individual_type': 'control2',
-                'source': f'pure_year{args.second_snapshot}',
-                'year': args.second_snapshot
-            })
+            # Create PetriDish based on mixing mode
+            if args.uniform_mixing and uniform_pool_for_control2 is not None:
+                # Use uniform base + additional sampling
+                print(f"      Using uniform base + additional cells")
+                petri = create_control2_with_uniform_base(
+                    second_snapshot_cells,
+                    uniform_pool_for_control2,
+                    uniform_indices_for_control2,
+                    actual_control2_size,
+                    rate=args.rate,
+                    seed=args.seed + 300 + i
+                )
+                
+                # Add metadata indicating uniform base was used
+                if not hasattr(petri, 'metadata'):
+                    petri.metadata = {}
+                petri.metadata.update({
+                    'individual_id': i,
+                    'individual_type': 'control2',
+                    'source': f'uniform_base_plus_snapshot_year{args.second_snapshot}',
+                    'uniform_base': True,
+                    'year': args.second_snapshot
+                })
+            else:
+                # Original random sampling
+                petri = create_pure_snapshot_petri(second_snapshot_cells, n_cells=actual_control2_size,
+                                                  rate=args.rate, seed=args.seed + 300 + i)
+                
+                # Add metadata
+                if not hasattr(petri, 'metadata'):
+                    petri.metadata = {}
+                petri.metadata.update({
+                    'individual_id': i,
+                    'individual_type': 'control2',
+                    'source': f'pure_year{args.second_snapshot}',
+                    'year': args.second_snapshot
+                })
             
             control2_dishes.append(petri)
             

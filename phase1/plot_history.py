@@ -53,7 +53,7 @@ def calculate_statistics(history):
     stats = {
         'years': [],
         'population_size': [],
-        'jsd': {
+        'cell_jsd': {
             'mean': [],
             'median': [],
             'p5': [],
@@ -80,21 +80,21 @@ def calculate_statistics(history):
         year_data = history[str(year)]
         
         # Extract values
-        jsd_values = np.array([cell['jsd'] for cell in year_data])
+        jsd_values = np.array([cell['cell_jsd'] for cell in year_data])
         meth_values = np.array([cell['methylation_proportion'] for cell in year_data]) * 100  # Convert to percentage
         
         stats['years'].append(year)
         stats['population_size'].append(len(year_data))
         
         # JSD statistics
-        stats['jsd']['mean'].append(np.mean(jsd_values))
-        stats['jsd']['median'].append(np.median(jsd_values))
-        stats['jsd']['p5'].append(np.percentile(jsd_values, 5))
-        stats['jsd']['p25'].append(np.percentile(jsd_values, 25))
-        stats['jsd']['p75'].append(np.percentile(jsd_values, 75))
-        stats['jsd']['p95'].append(np.percentile(jsd_values, 95))
-        stats['jsd']['min'].append(np.min(jsd_values))
-        stats['jsd']['max'].append(np.max(jsd_values))
+        stats['cell_jsd']['mean'].append(np.mean(jsd_values))
+        stats['cell_jsd']['median'].append(np.median(jsd_values))
+        stats['cell_jsd']['p5'].append(np.percentile(jsd_values, 5))
+        stats['cell_jsd']['p25'].append(np.percentile(jsd_values, 25))
+        stats['cell_jsd']['p75'].append(np.percentile(jsd_values, 75))
+        stats['cell_jsd']['p95'].append(np.percentile(jsd_values, 95))
+        stats['cell_jsd']['min'].append(np.min(jsd_values))
+        stats['cell_jsd']['max'].append(np.max(jsd_values))
         
         # Methylation statistics
         stats['methylation']['mean'].append(np.mean(meth_values))
@@ -145,7 +145,7 @@ def create_jsd_plot(stats, filename):
     fig.add_trace(
         go.Scatter(
             x=years + years[::-1],
-            y=stats['jsd']['p95'] + stats['jsd']['p5'][::-1],
+            y=stats['cell_jsd']['p95'] + stats['cell_jsd']['p5'][::-1],
             fill='toself',
             fillcolor='rgba(99, 110, 250, 0.15)',
             line=dict(color='rgba(255,255,255,0)'),
@@ -160,7 +160,7 @@ def create_jsd_plot(stats, filename):
     fig.add_trace(
         go.Scatter(
             x=years + years[::-1],
-            y=stats['jsd']['p75'] + stats['jsd']['p25'][::-1],
+            y=stats['cell_jsd']['p75'] + stats['cell_jsd']['p25'][::-1],
             fill='toself',
             fillcolor='rgba(99, 110, 250, 0.25)',
             line=dict(color='rgba(255,255,255,0)'),
@@ -175,7 +175,7 @@ def create_jsd_plot(stats, filename):
     fig.add_trace(
         go.Scatter(
             x=years,
-            y=stats['jsd']['mean'],
+            y=stats['cell_jsd']['mean'],
             mode='lines',
             name='Mean JSD',
             line=dict(color='rgb(99, 110, 250)', width=2.5),
@@ -233,9 +233,9 @@ def create_jsd_plot(stats, filename):
     annotation_text = (
         f"<b>Final Statistics (Year {final_year}):</b><br>"
         f"Population: {final_pop} cells<br>"
-        f"Mean JSD: {stats['jsd']['mean'][final_idx]:.4f}<br>"
-        f"25-75%: [{stats['jsd']['p25'][final_idx]:.4f}, {stats['jsd']['p75'][final_idx]:.4f}]<br>"
-        f"5-95%: [{stats['jsd']['p5'][final_idx]:.4f}, {stats['jsd']['p95'][final_idx]:.4f}]"
+        f"Mean JSD: {stats['cell_jsd']['mean'][final_idx]:.4f}<br>"
+        f"25-75%: [{stats['cell_jsd']['p25'][final_idx]:.4f}, {stats['cell_jsd']['p75'][final_idx]:.4f}]<br>"
+        f"5-95%: [{stats['cell_jsd']['p5'][final_idx]:.4f}, {stats['cell_jsd']['p95'][final_idx]:.4f}]"
     )
     
     if growth_phase > 0:
@@ -433,7 +433,7 @@ def create_combined_plot(stats, filename):
     fig.add_trace(
         go.Scatter(
             x=years + years[::-1],
-            y=stats['jsd']['p95'] + stats['jsd']['p5'][::-1],
+            y=stats['cell_jsd']['p95'] + stats['cell_jsd']['p5'][::-1],
             fill='toself',
             fillcolor='rgba(99, 110, 250, 0.15)',
             line=dict(color='rgba(255,255,255,0)'),
@@ -448,7 +448,7 @@ def create_combined_plot(stats, filename):
     fig.add_trace(
         go.Scatter(
             x=years + years[::-1],
-            y=stats['jsd']['p75'] + stats['jsd']['p25'][::-1],
+            y=stats['cell_jsd']['p75'] + stats['cell_jsd']['p25'][::-1],
             fill='toself',
             fillcolor='rgba(99, 110, 250, 0.25)',
             line=dict(color='rgba(255,255,255,0)'),
@@ -463,7 +463,7 @@ def create_combined_plot(stats, filename):
     fig.add_trace(
         go.Scatter(
             x=years,
-            y=stats['jsd']['mean'],
+            y=stats['cell_jsd']['mean'],
             mode='lines',
             name='Mean JSD',
             line=dict(color='rgb(99, 110, 250)', width=2.5),
@@ -583,9 +583,9 @@ def create_combined_plot(stats, filename):
     annotation_text = (
         f"<b>Final Statistics (Year {final_year}):</b><br>"
         f"Population: {final_pop} cells<br>"
-        f"JSD Mean: {stats['jsd']['mean'][final_idx]:.4f}<br>"
-        f"JSD 25-75%: [{stats['jsd']['p25'][final_idx]:.4f}, {stats['jsd']['p75'][final_idx]:.4f}]<br>"
-        f"JSD 5-95%: [{stats['jsd']['p5'][final_idx]:.4f}, {stats['jsd']['p95'][final_idx]:.4f}]<br>"
+        f"JSD Mean: {stats['cell_jsd']['mean'][final_idx]:.4f}<br>"
+        f"JSD 25-75%: [{stats['cell_jsd']['p25'][final_idx]:.4f}, {stats['cell_jsd']['p75'][final_idx]:.4f}]<br>"
+        f"JSD 5-95%: [{stats['cell_jsd']['p5'][final_idx]:.4f}, {stats['cell_jsd']['p95'][final_idx]:.4f}]<br>"
         f"Methylation Mean: {stats['methylation']['mean'][final_idx]:.2f}%<br>"
         f"Methylation 25-75%: [{stats['methylation']['p25'][final_idx]:.2f}%, "
         f"{stats['methylation']['p75'][final_idx]:.2f}%]<br>"

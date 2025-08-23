@@ -11,7 +11,7 @@ The simulation models:
 - Population dynamics and steady-state maintenance
 - Quantile-based stratified sampling
 - Mixed population experiments
-- Jensen-Shannon divergence (JSD) from baseline patterns
+- Jensen-Shannon divergence (cell_JSD) from baseline patterns
 
 ## Pipeline: Phase 1 → Phase 2
 
@@ -75,7 +75,7 @@ python run_pipeline.py --rate 0.005 \
 #   └── snap50to60-growth7-quant10x3-mix80-seed42-XXXX/
 #       ├── snapshots/     # Cached year 50 and 60 extracts
 #       ├── individuals/   # Mutant, Control1, Control2 populations
-#       ├── plots/         # JSD distributions and comparisons
+#       ├── plots/         # cell_JSD distributions and comparisons
 #       └── results/       # Statistical analyses
 #
 # With advanced features:
@@ -143,7 +143,7 @@ python run_pipeline.py \
     --mix-ratio 80 \                # % of snapshot cells in final mix
     --uniform-mixing \              # Use same snapshot cells for all (optional)
     --normalize-size \              # Normalize to same size before mixing (optional)
-    --bins 200 \                    # Histogram bins for JSD plot
+    --bins 200 \                    # Histogram bins for cell_JSD plot
     --seed 42                       # Random seed for reproducibility
 ```
 
@@ -152,7 +152,7 @@ python run_pipeline.py \
 1. **Extract First Snapshot** (e.g., year 50)
    - Cached in `snapshots/year{N}_snapshot.json.gz`
    
-2. **Plot JSD Distribution**
+2. **Plot cell_JSD Distribution**
    - Step histogram with statistics overlay
    - Mean, Median, SD, CV, MAD, 5%, 95%
    
@@ -278,7 +278,7 @@ Cytosine-guanine dinucleotides where methylation occurs in DNA. Initially unmeth
 ### Gene-Level Distribution
 CpG sites are grouped into genes. The distribution tracks how many genes have 0, 1, 2, ... up to GENE_SIZE methylated sites.
 
-### Jensen-Shannon Divergence (JSD)
+### Jensen-Shannon Divergence (cell_JSD)
 A symmetric measure of the difference between the cell's methylation distribution and a baseline distribution. Used to quantify how far a cell has diverged from the expected pattern.
 
 ### Epigenetic Drift

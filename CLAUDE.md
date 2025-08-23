@@ -22,12 +22,14 @@ The gradual accumulation of methylation changes over time:
 - Population-level patterns emerge from single-cell dynamics
 - Modeled as a Poisson-like process with fixed rate
 
-### Jensen-Shannon Divergence (JSD)
+### Jensen-Shannon Divergence (cell_JSD)
 A symmetric measure of difference between probability distributions:
+- Stored as `cell_JSD` attribute on Cell objects (renamed from `JSD` for clarity)
 - Quantifies how far a cell's methylation pattern has diverged from baseline
 - Calculated as average of KL divergences to midpoint distribution
 - Range: 0 (identical) to 1 (maximally different)
 - Used to track epigenetic age and cellular heterogeneity
+- Named `cell_JSD` to distinguish from future `gene_JSD` calculations
 
 ## Architecture
 
@@ -55,7 +57,7 @@ Key methods:
 # Phase 1 output:
 phase1/data/rate_0.00500/grow13-sites1000-years100-seed42-XXXX/
   ├── simulation.json.gz      # Full history (all years)
-  ├── jsd_history.png         # JSD trajectory plot
+  ├── jsd_history.png         # cell_JSD trajectory plot
   └── methylation_history.png # Methylation trajectory plot
 
 # Phase 2 output:
@@ -129,9 +131,9 @@ Seed: 42
 Stage 1: Extracting year 50 snapshot...
   Found 8192 cells
 
-Stage 2: Plotting JSD distribution...
-  Mean JSD: 0.0456
-  Median JSD: 0.0448
+Stage 2: Plotting cell_JSD distribution...
+  Mean cell_JSD: 0.0456
+  Median cell_JSD: 0.0448
   SD: 0.0089
 
 Stage 3: Creating individuals from quantiles...
@@ -211,14 +213,14 @@ python compare_two_runs.py --dir1 path1 --dir2 path2
    - Extract all cells at specified year
    - Cache in `snapshots/year{N}_snapshot.json.gz`
 
-2. **Plot JSD Distribution** 
-   - Calculate JSD for each cell
+2. **Plot cell_JSD Distribution** 
+   - Calculate cell_JSD for each cell
    - Create step histogram with 200 bins
    - Overlay statistics: Mean, Median, SD, CV, MAD, 5%, 95%
    - Save as `year{N}_jsd_distribution_200bins.png`
 
 3. **Create Initial Individuals** (mutant: quantile-based, control1: uniform)
-   - Sort cells by JSD
+   - Sort cells by cell_JSD
    - Mutant: Sample from quantiles (e.g., 3 cells from each decile)
    - Control1: Random uniform sampling
    - Each individual starts as single sampled cell
@@ -242,8 +244,8 @@ python compare_two_runs.py --dir1 path1 --dir2 path2
    - Pure snapshot cells, no grown component
 
 8. **Analysis** (t-tests, scatter plots)
-   - Individual-level JSD means
-   - Cell-level JSD distributions
+   - Individual-level cell_JSD means
+   - Cell-level cell_JSD distributions
    - Pairwise t-tests between groups
    - Scatter plots with group comparisons
 
@@ -270,7 +272,7 @@ When using `--uniform-mixing` flag:
 - **History format**: Year-indexed dictionary with cell states at each time point
 - **Automatic plotting**: Generates plots at pipeline completion when flag is used
 - **Standalone plotting**: Use `plot_individuals.py` for existing runs
-- **Plot types**: JSD trajectory, methylation trajectory, combined view
+- **Plot types**: cell_JSD trajectory, methylation trajectory, combined view
 
 ## Important Constants
 ```python
@@ -303,7 +305,7 @@ grow_petri_for_years(petri, years=10)
 # Access cell data
 for cell in petri.cells:
     methylation_count = sum(cell.methylated)
-    jsd = cell.calculate_jsd()
+    cell_jsd = cell.cell_JSD  # Direct attribute access
 ```
 
 ### Type Consistency
@@ -327,7 +329,7 @@ for cell in petri.cells:
 **--plot-individuals**
 - Use when: You need to understand individual growth trajectories
 - Skip when: Running large-scale analyses (adds overhead)
-- Output: Generates JSD/methylation plots for each individual
+- Output: Generates cell_JSD/methylation plots for each individual
 
 **--uniform-mixing**
 - Use when: Want to eliminate sampling variation between individuals

@@ -44,22 +44,135 @@ from pipeline_analysis import (
 from path_utils import parse_step1_simulation_path, generate_step23_output_dir
 
 
+def calculate_timeline_metrics(first_snapshot: int, second_snapshot: int, individual_growth_phase: int) -> dict:
+    """Calculate all timeline-related metrics."""
+    timeline_duration = second_snapshot - first_snapshot
+    exponential_years = individual_growth_phase
+    homeostasis_years = timeline_duration - exponential_years
+    target_cells = 2 ** exponential_years
+    
+    return {
+        'timeline_duration': timeline_duration,
+        'exponential_years': exponential_years,
+        'homeostasis_years': homeostasis_years,
+        'target_cells': target_cells
+    }
+
+
+def create_timeline_error_message(first_snapshot: int, second_snapshot: int, individual_growth_phase: int) -> str:
+    """Create detailed error message for timeline validation failures."""
+    timeline_duration = second_snapshot - first_snapshot
+    target_cells = 2 ** individual_growth_phase
+    max_allowed_growth = timeline_duration
+    min_second_snapshot = first_snapshot + individual_growth_phase + 1
+    
+    return f"""Timeline validation failed:
+  Individual growth phase: {individual_growth_phase} years (exponential growth to 2^{individual_growth_phase} = {target_cells:,} cells)
+  Available time: {timeline_duration} years (year {first_snapshot} → year {second_snapshot})
+  Problem: Need time for both exponential growth AND homeostasis phases
+  
+  Fix option 1: Reduce --individual-growth-phase to {max_allowed_growth} or less
+  Fix option 2: Increase --second-snapshot to {min_second_snapshot} or higher
+  
+  Example working commands:
+    # Option 1: Smaller populations
+    --individual-growth-phase {max_allowed_growth} --first-snapshot {first_snapshot} --second-snapshot {second_snapshot}
+    
+    # Option 2: Longer timeline  
+    --individual-growth-phase {individual_growth_phase} --first-snapshot {first_snapshot} --second-snapshot {min_second_snapshot}"""
+
+
+def check_timeline_warnings(metrics: dict, individual_growth_phase: int) -> List[str]:
+    """Check for edge cases and return warning messages."""
+    warnings = []
+    timeline_duration = metrics['timeline_duration']
+    homeostasis_years = metrics['homeostasis_years']
+    target_cells = metrics['target_cells']
+    
+    if homeostasis_years == 0:
+        warnings.append(f"⚠️  No homeostasis phase: All {timeline_duration} years used for exponential growth")
+        warnings.append("   Population may be unstable. Consider adding 1-2 more years to second-snapshot.")
+    
+    elif homeostasis_years == 1:
+        warnings.append(f"⚠️  Only 1 year for homeostasis phase")
+        warnings.append("   Consider more time for population stability.")
+    
+    if individual_growth_phase > 10:
+        warnings.append(f"⚠️  Very large target population: {target_cells:,} cells")
+        warnings.append("   This may be slow and memory-intensive.")
+    
+    if homeostasis_years > timeline_duration * 0.8:
+        warnings.append(f"⚠️  Very long homeostasis phase: {homeostasis_years}/{timeline_duration} years")
+        warnings.append("   Most time spent in steady state, minimal exponential growth.")
+    
+    return warnings
+
+
+def validate_timeline_parameters(first_snapshot: int, second_snapshot: int, individual_growth_phase: int) -> dict:
+    """Validate timeline parameters and raise detailed errors if invalid."""
+    # Basic validation
+    if second_snapshot <= first_snapshot:
+        raise ValueError(f"second-snapshot ({second_snapshot}) must be > first-snapshot ({first_snapshot})")
+    
+    if individual_growth_phase < 1 or individual_growth_phase > 15:
+        raise ValueError(f"individual-growth-phase must be between 1 and 15, got {individual_growth_phase}")
+    
+    # Calculate metrics
+    metrics = calculate_timeline_metrics(first_snapshot, second_snapshot, individual_growth_phase)
+    
+    # Timeline validation
+    if individual_growth_phase > metrics['timeline_duration']:
+        error_message = create_timeline_error_message(first_snapshot, second_snapshot, individual_growth_phase)
+        raise ValueError(error_message)
+    
+    return metrics
+
+
+def print_timeline_breakdown(metrics: dict, first_snapshot: int, second_snapshot: int, individual_growth_phase: int):
+    """Display visual timeline breakdown."""
+    timeline_duration = metrics['timeline_duration']
+    exponential_years = metrics['exponential_years']
+    homeostasis_years = metrics['homeostasis_years']
+    target_cells = metrics['target_cells']
+    
+    print(f"\n{'='*60}")
+    print("TIMELINE BREAKDOWN")
+    print(f"{'='*60}")
+    print(f"📊 Individual Simulation Timeline:")
+    print(f"   Year {first_snapshot}: Sample individual cells")
+    print(f"   Years {first_snapshot}→{first_snapshot + exponential_years}: Exponential growth (1 → {target_cells:,} cells)")
+    if homeostasis_years > 0:
+        print(f"   Years {first_snapshot + exponential_years}→{second_snapshot}: Homeostasis (~{target_cells:,} cells)")
+    print(f"   Year {second_snapshot}: Extract for mixing")
+    print(f"")
+    print(f"📈 Growth Summary:")
+    print(f"   Total aging time: {timeline_duration} years")
+    print(f"   Exponential phase: {exponential_years} years ({exponential_years/timeline_duration*100:.1f}%)")
+    print(f"   Homeostasis phase: {homeostasis_years} years ({homeostasis_years/timeline_duration*100:.1f}%)")
+    print(f"   Target population: {target_cells:,} cells (2^{exponential_years})")
+
+
 def run_pipeline(args):
     """
     Main pipeline orchestrator using PetriDish objects.
     """
-    # Calculate derived values and validate
-    total_growth_years = args.second_snapshot - args.first_snapshot
-    homeostasis_years = total_growth_years - args.individual_growth_phase
-    expected_population = 2 ** args.individual_growth_phase
+    # Calculate derived values and validate using new helper functions
+    metrics = validate_timeline_parameters(args.first_snapshot, args.second_snapshot, args.individual_growth_phase)
     
-    # Validation
-    if args.second_snapshot <= args.first_snapshot:
-        raise ValueError(f"second-snapshot ({args.second_snapshot}) must be > first-snapshot ({args.first_snapshot})")
-    if args.individual_growth_phase > total_growth_years:
-        raise ValueError(f"individual-growth-phase ({args.individual_growth_phase}) cannot exceed total growth years ({total_growth_years})")
-    if args.individual_growth_phase < 1 or args.individual_growth_phase > 15:
-        raise ValueError(f"individual-growth-phase must be between 1 and 15, got {args.individual_growth_phase}")
+    # Extract metrics for backward compatibility
+    timeline_duration = metrics['timeline_duration']
+    homeostasis_years = metrics['homeostasis_years']
+    expected_population = metrics['target_cells']
+    
+    # Check for warnings and display if any
+    warnings = check_timeline_warnings(metrics, args.individual_growth_phase)
+    if warnings:
+        print(f"\n⚠️  TIMELINE WARNINGS:")
+        for warning in warnings:
+            print(warning)
+    
+    # Display timeline breakdown
+    print_timeline_breakdown(metrics, args.first_snapshot, args.second_snapshot, args.individual_growth_phase)
     
     start_time = time.time()
     
@@ -107,7 +220,7 @@ def run_pipeline(args):
     print(f"Cells per quantile: {args.cells_per_quantile}")
     print(f"Total individuals: {expected_individuals} per group")
     print(f"Snapshots: year {args.first_snapshot} → year {args.second_snapshot}")
-    print(f"Growth: {total_growth_years} years total ({args.individual_growth_phase} growth + {homeostasis_years} homeostasis)")
+    print(f"Growth: {timeline_duration} years total ({args.individual_growth_phase} growth + {homeostasis_years} homeostasis)")
     print(f"Target population: {expected_population} cells (2^{args.individual_growth_phase})")
     print(f"Mix ratio: {args.mix_ratio}% year {args.second_snapshot}, {100-args.mix_ratio}% grown")
     print(f"Seed: {args.seed}")
@@ -236,7 +349,7 @@ def run_pipeline(args):
     # STAGE 4: Grow Individuals (using PetriDish methods with homeostasis)
     # ========================================================================
     print(f"\n{'='*60}")
-    print(f"STAGE 4: Grow Individuals ({total_growth_years} years)")
+    print(f"STAGE 4: Grow Individuals ({timeline_duration} years)")
     print(f"{'='*60}")
     
     # Check mutant growth state
@@ -258,7 +371,7 @@ def run_pipeline(args):
             if current_cells == 1:
                 # Fresh individual, needs full growth
                 print(f"    Individual {i:02d}: {current_cells} → ~{expected_population} cells")
-                grow_petri_for_years(petri, total_growth_years, 
+                grow_petri_for_years(petri, timeline_duration, 
                                    growth_phase=args.individual_growth_phase, 
                                    verbose=True,
                                    track_history=args.plot_individuals,
@@ -293,7 +406,7 @@ def run_pipeline(args):
             if current_cells == 1:
                 # Fresh individual, needs full growth
                 print(f"    Individual {i:02d}: {current_cells} → ~{expected_population} cells")
-                grow_petri_for_years(petri, total_growth_years, 
+                grow_petri_for_years(petri, timeline_duration, 
                                    growth_phase=args.individual_growth_phase, 
                                    verbose=True,
                                    track_history=args.plot_individuals,
@@ -690,7 +803,7 @@ def run_pipeline(args):
             "first_snapshot": args.first_snapshot,
             "second_snapshot": args.second_snapshot,
             "individual_growth_phase": args.individual_growth_phase,
-            "total_growth_years": total_growth_years,
+            "timeline_duration": timeline_duration,
             "homeostasis_years": homeostasis_years,
             "expected_population": expected_population,
             "n_quantiles": args.n_quantiles,
@@ -805,15 +918,7 @@ def main():
         print(f"Error: second-snapshot must be non-negative, got {args.second_snapshot}")
         sys.exit(1)
     
-    if args.second_snapshot <= args.first_snapshot:
-        print(f"Error: second-snapshot ({args.second_snapshot}) must be greater than first-snapshot ({args.first_snapshot})")
-        sys.exit(1)
-    
-    # Check growth phase
-    total_growth = args.second_snapshot - args.first_snapshot
-    if args.individual_growth_phase > total_growth:
-        print(f"Error: individual-growth-phase ({args.individual_growth_phase}) cannot exceed total growth years ({total_growth})")
-        sys.exit(1)
+    # Validation is now handled by the new validation functions in run_pipeline()
     
     # Warn about obviously problematic values
     if args.second_snapshot > 200:

@@ -38,7 +38,7 @@ def plot_individual(filepath: str, output_dir: str, group_name: str, individual_
         petri = load_petri_dish(filepath, include_cell_history=True)
         
         # Check if history exists
-        if not hasattr(petri, 'history') or not petri.history:
+        if not hasattr(petri, 'cell_history') or not petri.cell_history:
             print(f"    No history found for {group_name} individual {individual_id:02d}")
             return False
         

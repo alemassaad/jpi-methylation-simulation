@@ -130,21 +130,45 @@ data/rate_0.00500/grow13-sites1000-years100-seed42-a3f7/
 ```
 
 ### Run Analysis Pipeline
+
+**Uniform Rate (from Phase 1 --rate):**
 ```bash
 cd phase2
 python run_pipeline.py --rate 0.005 \
     --simulation ../phase1/data/rate_0.00500/grow13-*/simulation.json.gz \
     --first-snapshot 50 --second-snapshot 60 --seed 42
-# Quick test: --n-quantiles 4 --cells-per-quantile 1 --individual-growth-phase 2
+```
 
-# With individual growth plots (NEW):
+**Gene-Specific Rates (NEW - from Phase 1 --gene-rate-groups):**
+```bash
+cd phase2
+python run_pipeline.py --gene-rate-groups "50:0.004,50:0.0045,50:0.005,50:0.0055" \
+    --simulation ../phase1/data/gene_rates_*/simulation.json.gz \
+    --first-snapshot 50 --second-snapshot 60 --seed 42
+```
+
+**With Uniform Mixing (FIXED - no more warnings):**
+```bash
+python run_pipeline.py --rate 0.005 \
+    --simulation ../phase1/data/.../simulation.json.gz \
+    --first-snapshot 50 --second-snapshot 60 \
+    --uniform-mixing --seed 42
+```
+
+**With Individual Growth Plots:**
+```bash
 python run_pipeline.py --rate 0.005 \
     --simulation ../phase1/data/.../simulation.json.gz \
     --first-snapshot 50 --second-snapshot 60 \
     --plot-individuals --seed 42
+```
 
-# Generate plots for existing run:
+**Generate plots for existing run:**
+```bash
 python plot_individuals.py data/.../pipeline_output_dir/
+```
+
+**Quick test parameters:** `--n-quantiles 4 --cells-per-quantile 1 --individual-growth-phase 2`
 ```
 
 Expected pipeline output:
@@ -303,14 +327,32 @@ The simulation supports two methylation modes:
 - Deterministic file I/O order
 
 ### Uniform Mixing Implementation
-When using `--uniform-mixing` flag:
-- **Stage 6**: Creates a shared pool of cells from the second snapshot (80% of target size)
-- **Mutant/Control1**: Receive this shared pool + their own grown cells
-- **Control2**: Receives the same shared pool + additional unique snapshot cells per individual
-- **Key functions**:
-  - `create_uniform_mixing_pool()`: Returns both cells and indices used
-  - `create_control2_with_uniform_base()`: Combines shared pool with additional cells
-- **Benefits**: Eliminates inter-individual sampling variation in the base 80%, allowing cleaner comparison of the growth effect in the remaining 20%
+When using `--uniform-mixing` flag, uses a **3-step normalization approach** (fixed in latest version):
+
+**Step 1: Normalize Individuals**
+- All individuals normalized to same size via `normalize_individuals_for_uniform_mixing()`
+- Uses minimum size across all individuals as target
+- Random sampling ensures diversity while eliminating size variation
+
+**Step 2: Create Uniform Pool**
+- `create_uniform_mixing_pool()` creates shared snapshot cells
+- Pool sized exactly for normalized individuals + mix ratio
+- All individuals receive identical pool cells
+
+**Step 3: Mix with Simplified Logic**
+- `mix_petri_uniform()` adds entire pool to each individual
+- All individuals end up with identical final size
+- Eliminates "pool size mismatch" warnings
+
+**Key Benefits:**
+- **Perfect size consistency**: All final individuals identical size
+- **Fair comparison**: No size-related sampling bias
+- **No warnings**: Pool always matches individual needs
+- **Preserved diversity**: Random sampling maintains cell variation
+
+**Control2 Integration:**
+- Uses same normalization-based size calculation
+- `create_control2_with_uniform_base()` ensures size matching
 
 ### History Tracking and Plotting
 - **Cell history**: Renamed from `history` to `cell_history` for clarity
@@ -381,13 +423,16 @@ for cell in petri.cells:
 - Output: Generates cell_JSD/methylation plots for each individual
 
 **--uniform-mixing**
-- Use when: Want to eliminate sampling variation between individuals
-- Skip when: Studying natural population variation
-- Effect: All individuals share the same base snapshot cells
-- Details: With this flag, all three groups (mutant, control1, control2) share the same 80% base cells from the second snapshot. The remaining 20% differs:
-  - Mutant/Control1: Their own grown cells (different per individual)
-  - Control2: Additional random snapshot cells (different per individual)
-- This isolates the effect of growth vs. pure snapshot in the 20% portion
+- Use when: Want perfect size consistency and eliminate sampling variation
+- Skip when: Studying natural population variation or size effects
+- Effect: **3-step normalization process** ensures identical final sizes
+- **New Implementation (Fixed):**
+  1. **Normalize**: All individuals reduced to minimum size via random sampling
+  2. **Pool**: Create uniform snapshot pool sized for normalized individuals  
+  3. **Mix**: Add identical pool to each individual → all same final size
+- **All three groups** (mutant, control1, control2) end up identical size
+- **Eliminates warnings**: No more "pool size mismatch" errors
+- **Perfect comparison**: Size variation completely removed
 
 **--normalize-size**
 - Use when: Cell count variation affects your analysis
@@ -439,10 +484,22 @@ for cell in petri.cells:
 - Increase --cells-per-quantile (more individuals)
 - Check homeostasis isn't too aggressive
 
+### ~~"Individual needs X but pool has Y" warnings (FIXED)~~
+- ~~This was a bug in uniform mixing that has been fixed~~
+- **Fixed in latest version** with 3-step normalization approach
+- Old versions: Pool was created for median size but individuals varied
+- **New behavior**: All individuals normalized first, then identical pool added
+
 ### Plots not generating
 - Ensure plotly and kaleido are installed
 - Check write permissions in output directory
 - Verify --plot-individuals flag is set
+- **Fixed**: "No history found" error resolved (attribute name fix)
+
+### Gene rate compatibility
+- Use `--gene-rate-groups` (not `--rate`) for gene-specific rate data
+- Format: `"50:0.004,50:0.005,50:0.006"` (n_genes:rate pairs)
+- Must match original Phase 1 simulation gene configuration
 
 ### Reproducibility issues
 - Always set --seed explicitly

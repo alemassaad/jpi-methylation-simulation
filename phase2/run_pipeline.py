@@ -20,7 +20,7 @@ import json
 import gzip
 import numpy as np
 import math
-from typing import List, Dict, Optional
+from typing import List, Dict, Optional, Tuple
 
 # Add parent directory to path
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -35,7 +35,8 @@ from pipeline_utils import (
     create_control2_with_uniform_base,
     grow_petri_for_years, get_petri_statistics, check_petri_files_state,
     get_jsd_array, calculate_population_statistics, print_mixing_statistics,
-    create_uniform_mixing_pool, mix_petri_uniform, normalize_populations
+    create_uniform_mixing_pool, mix_petri_uniform, normalize_populations,
+    normalize_individuals_for_uniform_mixing
 )
 from pipeline_analysis import (
     plot_jsd_distribution_from_cells,
@@ -152,9 +153,13 @@ def print_timeline_breakdown(metrics: dict, first_snapshot: int, second_snapshot
     print(f"   Target population: {target_cells:,} cells (2^{exponential_years})")
 
 
-def run_pipeline(args):
+def run_pipeline(args, rate_config):
     """
     Main pipeline orchestrator using PetriDish objects.
+    
+    Args:
+        args: Command-line arguments
+        rate_config: Dictionary with rate configuration (uniform or gene-specific)
     """
     # Calculate derived values and validate using new helper functions
     metrics = validate_timeline_parameters(args.first_snapshot, args.second_snapshot, args.individual_growth_phase)
@@ -253,7 +258,9 @@ def run_pipeline(args):
     print(f"{'='*60}")
     
     plot_path = os.path.join(results_dir, f"year{args.first_snapshot}_jsd_distribution_{args.bins}bins.png")
-    plot_jsd_distribution_from_cells(first_snapshot_cells, args.bins, plot_path, rate=args.rate)
+    # Use args.rate if available, otherwise None (for gene-specific rates)
+    plot_rate = args.rate if hasattr(args, 'rate') and args.rate is not None else None
+    plot_jsd_distribution_from_cells(first_snapshot_cells, args.bins, plot_path, rate=plot_rate)
     
     # ========================================================================
     # STAGE 3: Create Initial Individuals (as PetriDish objects)
@@ -280,9 +287,10 @@ def run_pipeline(args):
                                      seed=args.seed)
         
         for i, (cell, quantile) in enumerate(sampled):
-            # Create PetriDish with single cell
-            petri = PetriDish(rate=args.rate, n=len(cell.cpg_sites), 
-                            gene_size=cell.gene_size, seed=None)
+            # Create PetriDish with single cell using rate configuration
+            petri = create_petri_with_rate_config(rate_config, 
+                                                 growth_phase=args.individual_growth_phase,
+                                                 n=len(cell.cpg_sites))
             petri.cells = [cell]  # Start with 1 cell
             petri.year = 50
             
@@ -321,9 +329,10 @@ def run_pipeline(args):
                                       seed=args.seed + 1000)
         
         for i, cell in enumerate(sampled_cells):
-            # Create PetriDish with single cell
-            petri = PetriDish(rate=args.rate, n=len(cell.cpg_sites),
-                            gene_size=cell.gene_size, seed=None)
+            # Create PetriDish with single cell using rate configuration
+            petri = create_petri_with_rate_config(rate_config, 
+                                                 growth_phase=args.individual_growth_phase,
+                                                 n=len(cell.cpg_sites))
             petri.cells = [cell]
             petri.year = 50
             
@@ -436,6 +445,18 @@ def run_pipeline(args):
         print(f"  Cached {len(second_snapshot_cells)} cells for future use")
     
     # ========================================================================
+    # STAGE 5.5: Plot Second Snapshot JSD Distribution
+    # ========================================================================
+    print(f"\n{'='*60}")
+    print(f"STAGE 5.5: Plot Year {args.second_snapshot} JSD Distribution")
+    print(f"{'='*60}")
+    
+    second_plot_path = os.path.join(results_dir, f"year{args.second_snapshot}_jsd_distribution_{args.bins}bins.png")
+    # Use args.rate if available, otherwise None (for gene-specific rates)
+    plot_rate = args.rate if hasattr(args, 'rate') and args.rate is not None else None
+    plot_jsd_distribution_from_cells(second_snapshot_cells, args.bins, second_plot_path, rate=plot_rate)
+    
+    # ========================================================================
     # STAGE 6: Mix Populations
     # ========================================================================
     print(f"\n{'='*60}")
@@ -488,88 +509,87 @@ def run_pipeline(args):
         print(f"  Normalized all individuals to {normalization_threshold} cells")
     
     if args.uniform_mixing:
-        print("\n  === UNIFORM MIXING MODE ===")
+        print("\n  === UNIFORM MIXING MODE (Fixed Normalization) ===")
         
-        # Calculate statistics
-        mutant_stats = calculate_population_statistics(mutant_dishes, "Mutant")
-        control1_stats = calculate_population_statistics(control1_dishes, "Control1")
+        # Step 1: Normalize all individuals to same size first
+        print(f"  Step 1: Normalizing individuals for uniform mixing...")
+        normalized_mutant, normalized_control1, normalized_size = normalize_individuals_for_uniform_mixing(
+            mutant_dishes, control1_dishes, seed=args.seed + 999
+        )
         
-        # Get target size (use normalization threshold if available, otherwise median)
-        if normalization_threshold:
-            target_size = normalization_threshold
-            print(f"  Using normalization threshold: {target_size} cells")
-        else:
-            all_sizes = mutant_stats['sizes'] + control1_stats['sizes']
-            target_size = int(np.median(all_sizes))
-            print(f"  Using median size: {target_size} cells")
+        # Update the dish lists to use normalized versions
+        mutant_dishes = normalized_mutant
+        control1_dishes = normalized_control1
         
-        # Print statistics
-        print_mixing_statistics(mutant_stats, control1_stats, target_size)
+        # Step 2: Create uniform pool based on normalized size
+        print(f"\n  Step 2: Creating uniform mixing pool from year {args.second_snapshot}...")
+        uniform_pool, uniform_indices = create_uniform_mixing_pool(
+            second_snapshot_cells,
+            normalized_size,  # Now using the exact normalized size
+            args.mix_ratio / 100,
+            seed=args.seed + 1000
+        )
+        
+        # Calculate statistics after normalization
+        mutant_stats = calculate_population_statistics(mutant_dishes, "Mutant (normalized)")
+        control1_stats = calculate_population_statistics(control1_dishes, "Control1 (normalized)")
+        print_mixing_statistics(mutant_stats, control1_stats, normalized_size)
         
         # Save statistics to file
         stats_path = os.path.join(results_dir, "mixing_statistics.json")
         mixing_stats = {
             'mutant': mutant_stats,
             'control1': control1_stats,
-            'combined_median': target_size,  # Use target_size which is set above
-            'uniform_mixing': True
+            'combined_median': normalized_size,
+            'uniform_mixing': True,
+            'normalization_applied': True
         }
         with open(stats_path, 'w') as f:
             json.dump(mixing_stats, f, indent=2, default=str)
         print(f"\n  Saved mixing statistics to {stats_path}")
         
-        # Create uniform pool
-        print(f"\n  Creating uniform mixing pool from year {args.second_snapshot}...")
-        uniform_pool, uniform_indices = create_uniform_mixing_pool(
-            second_snapshot_cells,
-            target_size,  # Uses normalization threshold if available, otherwise median
-            args.mix_ratio / 100,
-            seed=args.seed + 1000
-        )
+        # Step 3: Mix all individuals (simplified since they're all the same size)
+        print(f"\n  Step 3: Mixing normalized individuals with uniform pool...")
         
         # Mix mutant individuals
-        print(f"\n  Mixing mutant individuals with uniform pool...")
+        print(f"  Processing {len(mutant_dishes)} mutant individuals...")
         for i, petri in enumerate(mutant_dishes):
-            if expected_population * 0.5 <= len(petri.cells) <= expected_population * 1.5:
-                initial_size = len(petri.cells)
-                final_size = mix_petri_uniform(petri, uniform_pool, args.mix_ratio / 100)
-                print(f"    Individual {i:02d}: {initial_size} → {final_size} cells")
-                
-                # Update metadata
-                if not hasattr(petri, 'metadata'):
-                    petri.metadata = {}
-                petri.metadata['mixed'] = True
-                petri.metadata['mix_mode'] = 'uniform'
-                petri.metadata['mix_ratio'] = args.mix_ratio
-                petri.metadata['final_cells'] = final_size
-                
-                # Save (with history if tracking)
-                filepath = os.path.join(mutant_dir, f"individual_{i:02d}.json.gz")
-                save_petri_dish(petri, filepath, include_cell_history=args.plot_individuals)
-            elif len(petri.cells) > expected_population * 1.5:
-                print(f"    Individual {i:02d}: Already mixed ({len(petri.cells)} cells)")
+            initial_size = len(petri.cells)
+            final_size = mix_petri_uniform(petri, uniform_pool, args.mix_ratio / 100)
+            print(f"    Mutant {i:02d}: {initial_size} → {final_size} cells")
+            
+            # Update metadata
+            if not hasattr(petri, 'metadata'):
+                petri.metadata = {}
+            petri.metadata['mixed'] = True
+            petri.metadata['mix_mode'] = 'uniform'
+            petri.metadata['mix_ratio'] = args.mix_ratio
+            petri.metadata['normalized'] = True
+            petri.metadata['final_cells'] = final_size
+            
+            # Save (with history if tracking)
+            filepath = os.path.join(mutant_dir, f"individual_{i:02d}.json.gz")
+            save_petri_dish(petri, filepath, include_cell_history=args.plot_individuals)
         
         # Mix control1 individuals (using SAME pool)
-        print(f"\n  Mixing control1 individuals with uniform pool...")
+        print(f"  Processing {len(control1_dishes)} control1 individuals...")
         for i, petri in enumerate(control1_dishes):
-            if expected_population * 0.5 <= len(petri.cells) <= expected_population * 1.5:
-                initial_size = len(petri.cells)
-                final_size = mix_petri_uniform(petri, uniform_pool, args.mix_ratio / 100)
-                print(f"    Individual {i:02d}: {initial_size} → {final_size} cells")
-                
-                # Update metadata
-                if not hasattr(petri, 'metadata'):
-                    petri.metadata = {}
-                petri.metadata['mixed'] = True
-                petri.metadata['mix_mode'] = 'uniform'
-                petri.metadata['mix_ratio'] = args.mix_ratio
-                petri.metadata['final_cells'] = final_size
-                
-                # Save (with history if tracking)
-                filepath = os.path.join(control1_dir, f"individual_{i:02d}.json.gz")
-                save_petri_dish(petri, filepath, include_cell_history=args.plot_individuals)
-            elif len(petri.cells) > expected_population * 1.5:
-                print(f"    Individual {i:02d}: Already mixed ({len(petri.cells)} cells)")
+            initial_size = len(petri.cells)
+            final_size = mix_petri_uniform(petri, uniform_pool, args.mix_ratio / 100)
+            print(f"    Control1 {i:02d}: {initial_size} → {final_size} cells")
+            
+            # Update metadata
+            if not hasattr(petri, 'metadata'):
+                petri.metadata = {}
+            petri.metadata['mixed'] = True
+            petri.metadata['mix_mode'] = 'uniform'
+            petri.metadata['mix_ratio'] = args.mix_ratio
+            petri.metadata['normalized'] = True
+            petri.metadata['final_cells'] = final_size
+            
+            # Save (with history if tracking)
+            filepath = os.path.join(control1_dir, f"individual_{i:02d}.json.gz")
+            save_petri_dish(petri, filepath, include_cell_history=args.plot_individuals)
                 
     else:
         print("\n  === INDEPENDENT MIXING MODE (default) ===")
@@ -670,10 +690,16 @@ def run_pipeline(args):
     
     # Calculate expected final cells (needed for both mixing modes)
     if args.uniform_mixing:
-        # Use the median-based calculation from uniform mixing
-        all_sizes = [len(dish.cells) for dish in mutant_dishes] + [len(dish.cells) for dish in control1_dishes]
-        median_after_mix = int(np.median(all_sizes))
-        expected_final_cells = median_after_mix
+        # With new normalization: all individuals have same final size
+        # Calculate based on normalized size + uniform pool
+        if 'normalized_size' in locals():
+            # Use our normalized size + pool calculation
+            expected_final_cells = int(normalized_size / (1 - args.mix_ratio / 100))
+        else:
+            # Fallback: Use median of actual mixed sizes
+            all_sizes = [len(dish.cells) for dish in mutant_dishes] + [len(dish.cells) for dish in control1_dishes]
+            expected_final_cells = int(np.median(all_sizes))
+        print(f"  Using uniform mixing final size: {expected_final_cells} cells")
     else:
         # Use the standard calculation
         grown_cells = expected_population
@@ -838,6 +864,58 @@ def run_pipeline(args):
     return stats
 
 
+def parse_gene_rate_groups(groups_str: str) -> List[Tuple[int, float]]:
+    """
+    Parse gene rate groups string into list of tuples.
+    Example: "50:0.004,50:0.005" -> [(50, 0.004), (50, 0.005)]
+    """
+    groups = []
+    for group in groups_str.split(','):
+        n, rate = group.split(':')
+        groups.append((int(n), float(rate)))
+    return groups
+
+
+def validate_gene_rate_groups(groups: List[Tuple[int, float]], 
+                             n_sites: int, gene_size: int):
+    """
+    Validate gene rate groups match expected configuration.
+    """
+    total_genes = sum(n for n, _ in groups)
+    expected_genes = n_sites // gene_size
+    
+    if total_genes != expected_genes:
+        raise ValueError(
+            f"Gene rate groups specify {total_genes} genes, "
+            f"but simulation expects {expected_genes} genes "
+            f"({n_sites} sites / {gene_size} sites per gene)"
+        )
+    
+    # Validate rates are reasonable
+    for n, rate in groups:
+        if rate < 0 or rate > 1:
+            raise ValueError(f"Invalid rate {rate}: must be between 0 and 1")
+
+
+def create_petri_with_rate_config(rate_config: dict, growth_phase: int, n: int = 1000) -> PetriDish:
+    """Create PetriDish with proper rate configuration.
+    
+    Args:
+        rate_config: Dictionary with rate configuration
+        growth_phase: Years of exponential growth
+        n: Number of CpG sites (default 1000)
+    """
+    if rate_config['type'] == 'uniform':
+        return PetriDish(rate=rate_config['rate'], growth_phase=growth_phase, n=n)
+    else:
+        return PetriDish(
+            gene_rate_groups=rate_config['gene_rate_groups'],
+            gene_size=rate_config['gene_size'],
+            growth_phase=growth_phase,
+            n=n
+        )
+
+
 def main():
     parser = argparse.ArgumentParser(
         description="Phase 2 Pipeline using PetriDish and Cell classes",
@@ -845,8 +923,15 @@ def main():
     )
     
     # Required arguments
-    parser.add_argument("--rate", type=float, required=True,
-                       help="Methylation rate (must match simulation)")
+    # Rate configuration - mutually exclusive group
+    rate_group = parser.add_mutually_exclusive_group(required=True)
+    rate_group.add_argument("--rate", type=float,
+                           help="Uniform methylation rate (must match simulation)")
+    rate_group.add_argument("--gene-rate-groups", type=str,
+                           help="Gene-specific methylation rates (format: 'n1:rate1,n2:rate2,...')")
+    parser.add_argument("--gene-size", type=int, default=5,
+                       help="Sites per gene (only used with --gene-rate-groups, default: 5)")
+    
     parser.add_argument("--simulation", type=str, required=True,
                        help="Path to phase1 simulation file")
     
@@ -892,6 +977,22 @@ def main():
     
     args = parser.parse_args()
     
+    # Parse rate configuration
+    if args.gene_rate_groups:
+        gene_rate_groups = parse_gene_rate_groups(args.gene_rate_groups)
+        # Validate gene rate groups (assuming default 1000 sites)
+        validate_gene_rate_groups(gene_rate_groups, 1000, args.gene_size)
+        rate_config = {
+            'type': 'gene_specific',
+            'gene_rate_groups': gene_rate_groups,
+            'gene_size': args.gene_size
+        }
+    else:
+        rate_config = {
+            'type': 'uniform',
+            'rate': args.rate
+        }
+    
     # Validate arguments
     if not os.path.exists(args.simulation):
         print(f"Error: Simulation file not found: {args.simulation}")
@@ -925,7 +1026,7 @@ def main():
         print(f"Warning: Second snapshot year {args.second_snapshot} seems very high. Make sure your simulation runs that long.")
     
     # Run pipeline
-    run_pipeline(args)
+    run_pipeline(args, rate_config)
 
 
 if __name__ == "__main__":

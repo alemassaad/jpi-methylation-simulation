@@ -302,7 +302,7 @@ def load_all_petri_dishes(directory: str, include_history: bool = False) -> List
     
     for filepath in files:
         try:
-            petri = load_petri_dish(filepath, include_history=include_history)
+            petri = load_petri_dish(filepath, include_cell_history=include_history)
             dishes.append(petri)
         except Exception as e:
             print(f"  Warning: Could not load {filepath}: {e}")

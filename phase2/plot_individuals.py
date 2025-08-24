@@ -35,7 +35,7 @@ def plot_individual(filepath: str, output_dir: str, group_name: str, individual_
     """
     try:
         # Load with history
-        petri = load_petri_dish(filepath, include_history=True)
+        petri = load_petri_dish(filepath, include_cell_history=True)
         
         # Check if history exists
         if not hasattr(petri, 'history') or not petri.history:

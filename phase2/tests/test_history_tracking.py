@@ -39,18 +39,18 @@ def test_history_save_load():
         temp_file = f.name
     
     try:
-        save_petri_dish(petri, temp_file, include_history=True)
+        save_petri_dish(petri, temp_file, include_cell_history=True)
         print(f"  ✓ Saved PetriDish with {len(petri.history)} history entries")
         
         # Load without history
-        petri_no_hist = load_petri_dish(temp_file, include_history=False)
+        petri_no_hist = load_petri_dish(temp_file, include_cell_history=False)
         # When loaded without history flag, history should not be restored
         has_history = hasattr(petri_no_hist, 'history') and petri_no_hist.history and len(petri_no_hist.history) > 0
-        assert not has_history, "History should not be loaded when include_history=False"
+        assert not has_history, "History should not be loaded when include_cell_history=False"
         print("  ✓ Loaded without history - no history present")
         
         # Load with history
-        petri_with_hist = load_petri_dish(temp_file, include_history=True)
+        petri_with_hist = load_petri_dish(temp_file, include_cell_history=True)
         assert hasattr(petri_with_hist, 'history')
         assert len(petri_with_hist.history) == len(petri.history)
         print(f"  ✓ Loaded with history - {len(petri_with_hist.history)} entries restored")

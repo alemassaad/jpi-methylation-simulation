@@ -379,7 +379,7 @@ def run_pipeline(args):
                 
                 # Save updated state (with history if tracked)
                 filepath = os.path.join(mutant_dir, f"individual_{i:02d}.json.gz")
-                save_petri_dish(petri, filepath, include_history=args.plot_individuals)
+                save_petri_dish(petri, filepath, include_cell_history=args.plot_individuals)
             elif current_cells >= expected_population * 0.5 and current_cells <= expected_population * 1.5:
                 # Already grown (with homeostasis variation)
                 print(f"    Individual {i:02d}: Already at {current_cells} cells")
@@ -414,7 +414,7 @@ def run_pipeline(args):
                 
                 # Save updated state (with history if tracked)
                 filepath = os.path.join(control1_dir, f"individual_{i:02d}.json.gz")
-                save_petri_dish(petri, filepath, include_history=args.plot_individuals)
+                save_petri_dish(petri, filepath, include_cell_history=args.plot_individuals)
     
     # ========================================================================
     # STAGE 5: Extract Second Snapshot
@@ -443,8 +443,8 @@ def run_pipeline(args):
     print(f"{'='*60}")
     
     # Reload current dishes for mixing (with history if tracking)
-    mutant_dishes = load_all_petri_dishes(mutant_dir, include_history=args.plot_individuals)
-    control1_dishes = load_all_petri_dishes(control1_dir, include_history=args.plot_individuals)
+    mutant_dishes = load_all_petri_dishes(mutant_dir, include_cell_history=args.plot_individuals)
+    control1_dishes = load_all_petri_dishes(control1_dir, include_cell_history=args.plot_individuals)
     
     # Apply normalization if requested
     normalization_threshold = None
@@ -545,7 +545,7 @@ def run_pipeline(args):
                 
                 # Save (with history if tracking)
                 filepath = os.path.join(mutant_dir, f"individual_{i:02d}.json.gz")
-                save_petri_dish(petri, filepath, include_history=args.plot_individuals)
+                save_petri_dish(petri, filepath, include_cell_history=args.plot_individuals)
             elif len(petri.cells) > expected_population * 1.5:
                 print(f"    Individual {i:02d}: Already mixed ({len(petri.cells)} cells)")
         
@@ -567,7 +567,7 @@ def run_pipeline(args):
                 
                 # Save (with history if tracking)
                 filepath = os.path.join(control1_dir, f"individual_{i:02d}.json.gz")
-                save_petri_dish(petri, filepath, include_history=args.plot_individuals)
+                save_petri_dish(petri, filepath, include_cell_history=args.plot_individuals)
             elif len(petri.cells) > expected_population * 1.5:
                 print(f"    Individual {i:02d}: Already mixed ({len(petri.cells)} cells)")
                 
@@ -607,7 +607,7 @@ def run_pipeline(args):
                     
                     # Save updated state (with history if tracking)
                     filepath = os.path.join(mutant_dir, f"individual_{i:02d}.json.gz")
-                    save_petri_dish(petri, filepath, include_history=args.plot_individuals)
+                    save_petri_dish(petri, filepath, include_cell_history=args.plot_individuals)
                 elif len(petri.cells) > expected_population * 1.5:
                     print(f"    Individual {i:02d}: Already mixed ({len(petri.cells)} cells)")
     
@@ -637,7 +637,7 @@ def run_pipeline(args):
                     
                     # Save updated state (with history if tracking)
                     filepath = os.path.join(control1_dir, f"individual_{i:02d}.json.gz")
-                    save_petri_dish(petri, filepath, include_history=args.plot_individuals)
+                    save_petri_dish(petri, filepath, include_cell_history=args.plot_individuals)
     
     # Store uniform pool data for Control2 creation (if using uniform mixing)
     uniform_pool_for_control2 = None

@@ -76,7 +76,10 @@ python run_pipeline.py \
 
 6. **Mix Populations** (with optional normalization)
    - If `--normalize-size`: Apply median - 0.5σ normalization
-   - If `--uniform-mixing`: Create shared pool of snapshot cells
+   - If `--uniform-mixing`: **NEW 3-step process** (fixed):
+     1. Normalize all individuals to same size
+     2. Create uniform pool sized for normalized individuals
+     3. Add identical pool to each → perfect size consistency
    - Mix grown individuals with snapshot cells
 
 7. **Create Control2**
@@ -128,10 +131,12 @@ data/
 - Exponential phase followed by steady-state
 - Stochastic population maintenance
 
-### Uniform Mixing
-- Reduces sampling variation
-- All individuals get identical snapshot cells
-- Useful for controlled comparisons
+### Uniform Mixing (FIXED)
+- **NEW**: 3-step normalization process eliminates size mismatches
+- **Step 1**: Normalize all individuals to minimum size
+- **Step 2**: Create uniform pool sized exactly for normalized individuals  
+- **Step 3**: Add identical pool → perfect size consistency
+- **Benefits**: No warnings, fair comparisons, preserved diversity
 
 ### Size Normalization
 - Addresses homeostasis variation

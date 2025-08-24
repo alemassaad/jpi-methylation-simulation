@@ -97,7 +97,7 @@ python test_normalization_comprehensive.py --cleanup
 
 ## Recommendations
 
-1. **Use with Uniform Mixing**: Normalization makes most sense with uniform mixing since all individuals then receive identical treatment
+1. **Use with Uniform Mixing**: **NEW - Uniform mixing now includes automatic normalization!** In latest version, `--uniform-mixing` automatically normalizes individuals first, then applies uniform pool. You can still combine with `--normalize-size` for the traditional median-0.5σ approach, but it's no longer required to avoid pool size warnings.
 
 2. **Check Retention Rate**: If < 50% of individuals are retained, consider:
    - Adjusting growth phase parameters

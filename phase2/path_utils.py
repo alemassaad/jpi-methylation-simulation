@@ -23,7 +23,7 @@ def parse_step1_simulation_path(filepath: str) -> Optional[Dict]:
     # Try new hierarchical format first
     if 'simulation.json.gz' in filepath:
         # Extract from directory structure
-        # Pattern: .../rate_X.XXXXX/growG-sitesN-yearsT-seedS-HASH/simulation.json.gz
+        # Pattern for uniform rate: .../rate_X.XXXXX/growG-sitesN-yearsT-seedS-HASH/simulation.json.gz
         pattern = r"rate_([\d.]+)/grow(\d+)-sites(\d+)-years(\d+)-(seed\d+|noseed)-"
         match = re.search(pattern, filepath)
         if match:
@@ -34,6 +34,20 @@ def parse_step1_simulation_path(filepath: str) -> Optional[Dict]:
                 'growth_phase': int(match.group(2)),
                 'n_sites': int(match.group(3)),
                 'sim_years': int(match.group(4)),
+                'sim_seed': seed
+            }
+        
+        # Pattern for gene-specific rates: .../gene_rates_.../growG-sitesN-yearsT-seedS-HASH/simulation.json.gz
+        pattern = r"gene_rates_[^/]+/grow(\d+)-sites(\d+)-years(\d+)-(seed\d+|noseed)-"
+        match = re.search(pattern, filepath)
+        if match:
+            seed_str = match.group(4)
+            seed = int(seed_str.replace('seed', '')) if seed_str != 'noseed' else None
+            return {
+                'rate': None,  # Gene-specific rates, not a single rate
+                'growth_phase': int(match.group(1)),
+                'n_sites': int(match.group(2)),
+                'sim_years': int(match.group(3)),
                 'sim_seed': seed
             }
     
@@ -81,7 +95,21 @@ def generate_step23_output_dir(args, sim_params: Dict) -> str:
         Full path to output directory
     """
     # Level 1: Rate and source simulation params
-    level1 = (f"rate_{args.rate:.5f}-"
+    # Generate rate string based on configuration
+    if hasattr(args, 'gene_rate_groups') and args.gene_rate_groups:
+        # Parse and format gene rate groups
+        groups = []
+        for group in args.gene_rate_groups.split(','):
+            n, rate = group.split(':')
+            groups.append(f"{n}x{float(rate):.5f}")
+        rate_str = "gene_rates_" + "_".join(groups)
+        # Truncate if too long to avoid filesystem issues
+        if len(rate_str) > 50:
+            rate_str = rate_str[:47] + "..."
+    else:
+        rate_str = f"rate_{args.rate:.5f}"
+    
+    level1 = (f"{rate_str}-"
               f"grow{sim_params['growth_phase']}-"
               f"sites{sim_params['n_sites']}-"
               f"years{sim_params['sim_years']}")
@@ -102,7 +130,8 @@ def generate_step23_output_dir(args, sim_params: Dict) -> str:
     
     # Add 4-char hash for uniqueness
     # Include all parameters in hash to ensure uniqueness
-    hash_input = (f"{args.rate:.5f}-{sim_params['growth_phase']}-"
+    rate_hash_part = args.gene_rate_groups if hasattr(args, 'gene_rate_groups') and args.gene_rate_groups else f"{args.rate:.5f}"
+    hash_input = (f"{rate_hash_part}-{sim_params['growth_phase']}-"
                   f"{sim_params['n_sites']}-{sim_params['sim_years']}-"
                   f"{args.first_snapshot}-{args.second_snapshot}-"
                   f"{args.individual_growth_phase}-{args.n_quantiles}-"

@@ -5,7 +5,7 @@ import json
 import gzip
 import os
 import copy
-from typing import List, Dict, Any
+from typing import List, Dict, Any, Tuple, Optional
 
 # Try to import numpy, but make it optional
 try:
@@ -58,11 +58,51 @@ class Cell:
         to_dict(): Convert to dictionary for serialization
     """
     
-    def __init__(self, n: int = N, rate: float = RATE, gene_size: int = GENE_SIZE, 
-                 baseline_methylation_distribution: List[float] = None) -> None:
+    def __init__(self, n: int = N, rate: float = None, gene_size: int = GENE_SIZE, 
+                 baseline_methylation_distribution: List[float] = None,
+                 gene_rate_groups: List[Tuple[int, float]] = None) -> None:
+        
+        # Validation: Can't specify both rate types
+        if rate is not None and gene_rate_groups is not None:
+            raise ValueError(
+                "Cannot specify both 'rate' and 'gene_rate_groups'. "
+                "Use 'rate' for uniform methylation or 'gene_rate_groups' for gene-specific rates."
+            )
+        
+        # Validation: Must specify at least one
+        if rate is None and gene_rate_groups is None:
+            raise ValueError(
+                "Must specify either 'rate' (uniform) or 'gene_rate_groups' (gene-specific)"
+            )
+        
         self.n = n
-        self.rate = rate
         self.gene_size = gene_size
+        self.rate = rate  # Keep for backward compatibility
+        self.gene_rate_groups = gene_rate_groups  # NEW attribute
+        
+        # Validate gene_rate_groups if provided
+        if gene_rate_groups is not None:
+            total_genes = sum(n_genes for n_genes, _ in gene_rate_groups)
+            expected_genes = n // gene_size
+            if total_genes != expected_genes:
+                raise ValueError(
+                    f"gene_rate_groups specifies {total_genes} genes, but cell has {expected_genes} genes "
+                    f"(n={n}, gene_size={gene_size}). Adjust gene counts to match."
+                )
+            
+            # Validate each group
+            for i, (n_genes, rate_val) in enumerate(gene_rate_groups):
+                if n_genes <= 0:
+                    raise ValueError(f"Group {i}: number of genes must be positive, got {n_genes}")
+                if rate_val <= 0:
+                    raise ValueError(f"Group {i}: rate must be positive, got {rate_val}")
+        
+        # Validate n % gene_size
+        if self.n % self.gene_size != 0:
+            raise ValueError(f"Gene size ({gene_size}) must divide the number of sites ({n}) evenly.")
+        
+        # Build site_rates array (NEW)
+        self._build_site_rates()
         
         # Create baseline distribution matching gene_size if not provided
         if baseline_methylation_distribution is None:
@@ -70,9 +110,7 @@ class Cell:
         else:
             self.baseline_methylation_distribution = baseline_methylation_distribution
         
-        if self.n % self.gene_size != 0:
-            raise ValueError("Gene size must divide the number of cells evenly.")
-    
+        # Initialize methylation pattern
         self.cpg_sites = [0 for _ in range(n)]  
         self.age = 0
         self.methylation_proportion = 0.0
@@ -80,10 +118,30 @@ class Cell:
         self.methylation_distribution = [0.0 for _ in range(0, self.gene_size + 1)]
         self.methylation_distribution[0] = 1.0  # initially all genes are unmethylated
         self.cell_JSD = JS_div(self.methylation_distribution, self.baseline_methylation_distribution)
+    
+    def _build_site_rates(self) -> None:
+        """Build array of per-site methylation rates based on configuration."""
+        if self.rate is not None:
+            # Uniform rate (backward compatible)
+            if HAS_NUMPY:
+                self.site_rates = np.full(self.n, self.rate, dtype=np.float64)
+            else:
+                self.site_rates = [self.rate] * self.n
+        else:
+            # Gene-specific rates
+            site_rates_list = []
+            for n_genes, rate_val in self.gene_rate_groups:
+                sites_for_group = n_genes * self.gene_size
+                site_rates_list.extend([rate_val] * sites_for_group)
+            
+            if HAS_NUMPY:
+                self.site_rates = np.array(site_rates_list, dtype=np.float64)
+            else:
+                self.site_rates = site_rates_list
         
     def methylate(self) -> None:
         """
-        Apply stochastic methylation to unmethylated sites.
+        Apply stochastic methylation to unmethylated sites using per-site rates.
         This is the core aging mechanism (formerly age_1_year).
         """
         self.age += 1
@@ -92,15 +150,27 @@ class Cell:
         if self.methylation_proportion >= 1.0:
             return
         
-        # Optimized: count methylated sites while updating
         methylated_count = 0
-        for i in range(self.n):
-            if self.cpg_sites[i] == 0:
-                if random.random() < self.rate:
-                    self.cpg_sites[i] = 1
+        
+        if HAS_NUMPY and isinstance(self.site_rates, np.ndarray):
+            # Numpy vectorized implementation
+            unmethylated_mask = np.array(self.cpg_sites) == 0
+            random_vals = np.random.random(self.n)
+            new_methylations = unmethylated_mask & (random_vals < self.site_rates)
+            
+            for i in np.where(new_methylations)[0]:
+                self.cpg_sites[i] = 1
+            
+            methylated_count = sum(self.cpg_sites)
+        else:
+            # Pure Python implementation
+            for i in range(self.n):
+                if self.cpg_sites[i] == 0:
+                    if random.random() < self.site_rates[i]:  # Use per-site rate
+                        self.cpg_sites[i] = 1
+                        methylated_count += 1
+                else:
                     methylated_count += 1
-            else:
-                methylated_count += 1
                 
         self.methylation_proportion = methylated_count / self.n
         self.compute_methylation_distribution()
@@ -133,15 +203,28 @@ class Cell:
     
     def to_dict(self) -> Dict[str, Any]:
         """Convert cell state to dictionary for serialization."""
-        return {
+        data = {
             'cpg_sites': self.cpg_sites[:],
             'methylation_proportion': self.methylation_proportion,
             'methylation_distribution': self.methylation_distribution[:],
             'cell_jsd': self.cell_JSD,
             'age': self.age,
-            'gene_size': self.gene_size,
-            'rate': self.rate
+            'gene_size': self.gene_size
         }
+        
+        # Save rate configuration
+        if self.rate is not None:
+            data['rate'] = self.rate
+        else:
+            data['gene_rate_groups'] = self.gene_rate_groups
+        
+        # Save site_rates for faster loading
+        if HAS_NUMPY and isinstance(self.site_rates, np.ndarray):
+            data['site_rates'] = self.site_rates.tolist()
+        else:
+            data['site_rates'] = self.site_rates
+        
+        return data
 
 
 class PetriDish:
@@ -160,14 +243,16 @@ class PetriDish:
         run_simulation(): Run complete simulation
     """
     
-    def __init__(self, rate: float = RATE, n: int = N, gene_size: int = GENE_SIZE, 
+    def __init__(self, rate: float = None, gene_rate_groups: List[Tuple[int, float]] = None,
+                 n: int = N, gene_size: int = GENE_SIZE, 
                  seed: int = None, growth_phase: int = DEFAULT_GROWTH_PHASE, 
                  cells: List['Cell'] = None, calculate_jsds: bool = True) -> None:
         """
         Initialize petri dish with a single unmethylated cell or provided cells.
         
         Args:
-            rate: Methylation rate per site per year
+            rate: Uniform methylation rate per site per year
+            gene_rate_groups: Gene-specific rates as [(n_genes, rate), ...]
             n: Number of CpG sites per cell
             gene_size: Number of sites per gene
             seed: Random seed for reproducibility
@@ -175,6 +260,17 @@ class PetriDish:
             cells: Optional list of cells to start with (for phase2 compatibility)
             calculate_jsds: Whether to calculate cell and gene JSDs (for performance)
         """
+        # Validate rate specification
+        if rate is not None and gene_rate_groups is not None:
+            raise ValueError(
+                "Cannot specify both 'rate' and 'gene_rate_groups'. "
+                "Use 'rate' for uniform methylation or 'gene_rate_groups' for gene-specific rates."
+            )
+        
+        if rate is None and gene_rate_groups is None:
+            # Use default RATE if neither specified
+            rate = RATE
+        
         # Validate gene_size divides n evenly
         if n % gene_size != 0:
             raise ValueError(f"n ({n}) must be divisible by gene_size ({gene_size})")
@@ -189,6 +285,7 @@ class PetriDish:
             random.seed(seed)
             
         self.rate = rate
+        self.gene_rate_groups = gene_rate_groups
         self.n = n
         self.gene_size = gene_size
         self.n_genes = n // gene_size
@@ -200,8 +297,14 @@ class PetriDish:
         # Initialize cells - either provided or single unmethylated cell
         if cells is not None:
             self.cells = cells
+            # Validate all cells have same rate configuration
+            self._validate_cell_rate_consistency()
         else:
-            self.cells = [Cell(n=n, rate=rate, gene_size=gene_size)]
+            # Create initial cell with appropriate rate structure
+            if self.rate is not None:
+                self.cells = [Cell(n=n, rate=self.rate, gene_size=gene_size)]
+            else:
+                self.cells = [Cell(n=n, gene_rate_groups=self.gene_rate_groups, gene_size=gene_size)]
         
         self.year = 0
         
@@ -224,6 +327,38 @@ class PetriDish:
         else:
             self.cell_history = {}
         
+    def _validate_cell_rate_consistency(self) -> None:
+        """Ensure all cells have the same rate configuration."""
+        if not self.cells:
+            return
+        
+        first_cell = self.cells[0]
+        has_uniform = first_cell.rate is not None
+        first_groups = first_cell.gene_rate_groups
+        
+        for i, cell in enumerate(self.cells[1:], 1):
+            cell_has_uniform = cell.rate is not None
+            
+            if has_uniform != cell_has_uniform:
+                raise ValueError(
+                    f"Cell rate configuration mismatch: cell 0 has {'uniform' if has_uniform else 'gene-specific'} "
+                    f"rates, but cell {i} has {'uniform' if cell_has_uniform else 'gene-specific'} rates. "
+                    f"All cells must use the same rate configuration."
+                )
+            
+            if has_uniform:
+                if cell.rate != first_cell.rate:
+                    raise ValueError(
+                        f"Cell rate mismatch: cell 0 has rate={first_cell.rate}, "
+                        f"but cell {i} has rate={cell.rate}"
+                    )
+            else:
+                if cell.gene_rate_groups != first_groups:
+                    raise ValueError(
+                        f"Cell gene_rate_groups mismatch: cell 0 has {first_groups}, "
+                        f"but cell {i} has {cell.gene_rate_groups}"
+                    )
+    
     def divide_cells(self) -> None:
         """
         Cell division: Each cell divides into two identical daughters.
@@ -325,7 +460,12 @@ class PetriDish:
         print("STEP1-PRIME SIMULATION")
         print("="*60)
         print(f"Parameters:")
-        print(f"  Methylation rate: {self.rate:.3%}")
+        if self.rate is not None:
+            print(f"  Methylation rate: {self.rate:.3%}")
+        else:
+            print(f"  Gene-specific rates: {len(self.gene_rate_groups)} groups")
+            for i, (n_genes, rate) in enumerate(self.gene_rate_groups):
+                print(f"    Group {i+1}: {n_genes} genes at {rate:.3%}")
         print(f"  CpG sites per cell: {self.n}")
         print(f"  Gene size: {self.gene_size}")
         print(f"  Growth phase: {self.growth_phase} years")
@@ -358,15 +498,22 @@ class PetriDish:
         import hashlib
         
         # Generate hierarchical path
-        # Level 1: Rate with 5 decimal places
-        level1 = f"rate_{self.rate:.5f}"
+        # Level 1: Rate with 5 decimal places or gene rate groups
+        if self.rate is not None:
+            level1 = f"rate_{self.rate:.5f}"
+            rate_str = f"{self.rate:.5f}"
+        else:
+            # For gene rate groups, create a descriptive name
+            groups_str = "_".join([f"{n}x{rate:.5f}" for n, rate in self.gene_rate_groups])
+            level1 = f"gene_rates_{groups_str}"[:50]  # Limit length
+            rate_str = groups_str
         
         # Level 2: Parameters with hyphen separators
         seed_str = f"seed{self.seed}" if self.seed is not None else "noseed"
         params_str = f"grow{self.growth_phase}-sites{self.n}-years{self.year}-{seed_str}"
         
         # Add 4-char hash for uniqueness
-        hash_input = f"{self.rate:.5f}-{self.growth_phase}-{self.n}-{self.year}-{seed_str}"
+        hash_input = f"{rate_str}-{self.growth_phase}-{self.n}-{self.year}-{seed_str}"
         hash_str = hashlib.md5(hash_input.encode()).hexdigest()[:4]
         level2 = f"{params_str}-{hash_str}"
         

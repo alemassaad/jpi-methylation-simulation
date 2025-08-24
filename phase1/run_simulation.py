@@ -23,8 +23,8 @@ def parse_arguments():
     )
     
     # Simulation parameters
-    parser.add_argument('-r', '--rate', type=float, default=RATE,
-                        help='Methylation rate per site per year (0.01 = 1%%, 0.005 = 0.5%%)')
+    parser.add_argument('-r', '--rate', type=float, default=None, nargs='?', const=RATE,
+                        help='Uniform methylation rate per site per year (default: 0.005 if flag used without value)')
     parser.add_argument('-n', '--sites', type=int, default=N,
                         help='Number of CpG sites per cell')
     parser.add_argument('-t', '--years', type=int, default=T_MAX,
@@ -34,6 +34,10 @@ def parse_arguments():
     parser.add_argument('--growth-phase', type=int, default=DEFAULT_GROWTH_PHASE,
                         help='Duration of growth phase in years (cells double each year). '
                              'Final population = 2^growth_phase. Default: 13 (8192 cells). Range: 1-20')
+    parser.add_argument('--gene-rate-groups', type=str, default=None,
+                        help='Gene-specific rates as "n1:rate1,n2:rate2,..." '
+                             'Example: "50:0.004,50:0.0045,50:0.005,50:0.0055" '
+                             'Total genes must equal n_sites/gene_size')
     
     # Optional parameters
     parser.add_argument('-o', '--output', type=str, default=None,
@@ -52,18 +56,85 @@ def parse_arguments():
     return parser.parse_args()
 
 
+def parse_gene_rate_groups(groups_str: str, n_sites: int, gene_size: int):
+    """
+    Parse gene rate groups string into list of tuples.
+    
+    Args:
+        groups_str: String like "50:0.004,50:0.0045,50:0.005,50:0.0055"
+        n_sites: Total number of CpG sites
+        gene_size: Sites per gene
+        
+    Returns:
+        List of (n_genes, rate) tuples
+    """
+    groups = []
+    
+    try:
+        for i, group in enumerate(groups_str.split(',')):
+            if ':' not in group:
+                raise ValueError(f"Group {i} missing ':' separator: '{group}'")
+            
+            parts = group.split(':')
+            if len(parts) != 2:
+                raise ValueError(f"Group {i} should have format 'n:rate', got: '{group}'")
+            
+            n_genes = int(parts[0])
+            rate = float(parts[1])
+            
+            if n_genes <= 0:
+                raise ValueError(f"Group {i}: number of genes must be positive, got {n_genes}")
+            if rate <= 0:
+                raise ValueError(f"Group {i}: rate must be positive, got {rate}")
+            
+            groups.append((n_genes, rate))
+            
+    except ValueError as e:
+        raise ValueError(f"Invalid gene-rate-groups format: {e}")
+    
+    # Validate total
+    total_genes = sum(n for n, _ in groups)
+    expected_genes = n_sites // gene_size
+    if total_genes != expected_genes:
+        raise ValueError(
+            f"gene-rate-groups specifies {total_genes} genes, but simulation has {expected_genes} genes "
+            f"(n_sites={n_sites}, gene_size={gene_size})"
+        )
+    
+    return groups
+
+
 def main():
     """Main entry point for the simulation."""
     # Parse command-line arguments
     args = parse_arguments()
     
     # Extract parameters
-    rate = args.rate
     n = args.sites
     t_max = args.years
     gene_size = args.gene_size
     growth_phase = args.growth_phase
     seed = args.seed if args.seed != -1 else None  # -1 means no seed
+    
+    # Validate rate specification
+    if args.rate is not None and args.gene_rate_groups is not None:
+        print("Error: Cannot specify both --rate and --gene-rate-groups")
+        return 1
+    
+    if args.rate is None and args.gene_rate_groups is None:
+        print("Error: Must specify either --rate (uniform) or --gene-rate-groups (gene-specific)")
+        return 1
+    
+    # Parse gene rate groups if specified
+    gene_rate_groups = None
+    if args.gene_rate_groups:
+        try:
+            gene_rate_groups = parse_gene_rate_groups(
+                args.gene_rate_groups, n, gene_size
+            )
+        except ValueError as e:
+            print(f"Error: {e}")
+            return 1
     
     # Validate parameters
     if n % gene_size != 0:
@@ -78,16 +149,26 @@ def main():
     # Start timing
     start_time = time.time()
     
-    # Create and run simulation
+    # Create and run simulation with appropriate rate configuration
     print("\nInitializing PetriDish simulation...")
-    petri_dish = PetriDish(
-        rate=rate,
-        n=n,
-        gene_size=gene_size,
-        seed=seed,
-        growth_phase=growth_phase,
-        calculate_jsds=not args.no_jsds
-    )
+    if args.rate is not None:
+        petri_dish = PetriDish(
+            rate=args.rate,
+            n=n,
+            gene_size=gene_size,
+            seed=seed,
+            growth_phase=growth_phase,
+            calculate_jsds=not args.no_jsds
+        )
+    else:
+        petri_dish = PetriDish(
+            gene_rate_groups=gene_rate_groups,
+            n=n,
+            gene_size=gene_size,
+            seed=seed,
+            growth_phase=growth_phase,
+            calculate_jsds=not args.no_jsds
+        )
     
     # Enable gene JSD tracking if requested
     if args.track_gene_jsd:

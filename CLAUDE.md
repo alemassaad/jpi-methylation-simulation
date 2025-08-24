@@ -43,8 +43,13 @@ Population-level measure of methylation heterogeneity for each gene:
 
 ### Core Classes (phase1/cell.py)
 ```python
+# Uniform methylation rate
 Cell(n=1000, rate=0.005)        # Individual cell with CpG sites
 PetriDish(rate=0.005, growth_phase=13)  # Population manager
+
+# Gene-specific methylation rates
+Cell(n=1000, gene_rate_groups=[(50, 0.004), (50, 0.006)])
+PetriDish(gene_rate_groups=[(50, 0.004), (50, 0.006)], growth_phase=13)
 ```
 
 Key methods:
@@ -89,7 +94,12 @@ phase2/data/rate_0.00500-grow13-sites1000-years100/snap50to60-growth7-quant10x3-
 ### Run Simulation
 ```bash
 cd phase1
+# Uniform methylation rate (all genes methylate at same rate)
 python run_simulation.py --rate 0.005 --years 100 --growth-phase 13 --seed 42
+
+# Gene-specific methylation rates (different gene groups methylate at different rates)
+python run_simulation.py --gene-rate-groups "50:0.004,50:0.0045,50:0.005,50:0.0055" \
+    --years 100 --growth-phase 13 --seed 42
 
 # With gene JSD tracking:
 python run_simulation.py --rate 0.005 --years 100 --track-gene-jsd --seed 42
@@ -204,6 +214,27 @@ python compare_two_runs.py --dir1 path1 --dir2 path2
 - **Inheritance**: Daughter cells inherit parent's methylation pattern exactly
 - **Population dynamics**: Growth phase → steady state via division and culling
 - **Gene-level distribution**: Tracks methylation per gene (5 sites/gene by default)
+
+### Variable Methylation Rates
+The simulation supports two methylation modes:
+
+**Uniform Rate (default):**
+- All genes methylate at the same rate
+- Specified via `--rate` parameter
+- Example: `--rate 0.005` (all sites methylate at 0.5% per year)
+
+**Gene-Specific Rates:**
+- Different gene groups can have different methylation rates
+- Specified via `--gene-rate-groups` parameter
+- Format: `"n1:rate1,n2:rate2,..."` where n is number of genes
+- Example: `"50:0.004,50:0.0045,50:0.005,50:0.0055"` 
+  - First 50 genes: 0.4% per year
+  - Next 50 genes: 0.45% per year
+  - Next 50 genes: 0.5% per year
+  - Last 50 genes: 0.55% per year
+- Total genes must equal n_sites/gene_size
+- Cannot specify both `--rate` and `--gene-rate-groups`
+- All cells in a PetriDish share the same rate configuration
 
 ### Growth Phase vs Steady State
 

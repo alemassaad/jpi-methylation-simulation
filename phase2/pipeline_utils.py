@@ -17,25 +17,37 @@ from typing import List, Dict, Tuple, Optional, Any
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 sys.path.append(os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'phase1'))
-from cell import Cell, PetriDish, GENE_SIZE, BASELINE_METHYLATION_DISTRIBUTION
+from cell import Cell, PetriDish, GENE_SIZE, BASELINE_METHYLATION_DISTRIBUTION, RATE
 
 
-def dict_to_cell(cell_dict: Dict[str, Any]) -> Cell:
+def dict_to_cell(cell_dict: Dict[str, Any], rate: Optional[float] = None) -> Cell:
     """
     Convert dictionary from JSON to Cell object.
     
     Args:
         cell_dict: Dictionary with cell data
+        rate: Optional rate override (deprecated, use cell's own rate)
     
     Returns:
         Cell: Initialized Cell object
     """
-    # Create cell with proper parameters
-    cell = Cell(
-        n=len(cell_dict['cpg_sites']),
-        rate=cell_dict['rate'],
-        gene_size=cell_dict.get('gene_size', GENE_SIZE)
-    )
+    # Determine rate configuration
+    if 'gene_rate_groups' in cell_dict:
+        # Gene-specific rates
+        gene_rate_groups = [tuple(group) for group in cell_dict['gene_rate_groups']]
+        cell = Cell(
+            n=len(cell_dict['cpg_sites']),
+            gene_rate_groups=gene_rate_groups,
+            gene_size=cell_dict.get('gene_size', GENE_SIZE)
+        )
+    else:
+        # Uniform rate (backward compatible)
+        cell_rate = cell_dict.get('rate', rate or RATE)
+        cell = Cell(
+            n=len(cell_dict['cpg_sites']),
+            rate=cell_rate,
+            gene_size=cell_dict.get('gene_size', GENE_SIZE)
+        )
     
     # Set attributes directly
     cell.cpg_sites = cell_dict['cpg_sites']
@@ -43,6 +55,17 @@ def dict_to_cell(cell_dict: Dict[str, Any]) -> Cell:
     cell.methylation_proportion = cell_dict['methylation_proportion']
     cell.methylation_distribution = cell_dict['methylation_distribution']
     cell.cell_JSD = cell_dict.get('cell_jsd', cell_dict.get('jsd', 0.0))  # Support old format for compatibility
+    
+    # Restore site_rates if available (faster) or rebuild
+    if 'site_rates' in cell_dict:
+        # Try to import numpy for efficiency
+        try:
+            import numpy as np
+            cell.site_rates = np.array(cell_dict['site_rates'], dtype=np.float64)
+        except ImportError:
+            cell.site_rates = cell_dict['site_rates']
+    else:
+        cell._build_site_rates()
     
     return cell
 
@@ -190,28 +213,43 @@ def load_petri_dish(filepath: str, include_cell_history: bool = False, include_g
     with gzip.open(filepath, 'rt') as f:
         data = json.load(f)
     
-    # Get first cell to extract parameters
+    # Get first cell to extract parameters and determine rate configuration
     if data['cells']:
-        first_cell = data['cells'][0]
-        rate = first_cell.get('rate', 0.005)
-        n = len(first_cell['cpg_sites'])
-        gene_size = first_cell.get('gene_size', GENE_SIZE)
+        first_cell_dict = data['cells'][0]
+        n = len(first_cell_dict['cpg_sites'])
+        gene_size = first_cell_dict.get('gene_size', GENE_SIZE)
+        
+        # Determine rate configuration from first cell
+        if 'gene_rate_groups' in first_cell_dict:
+            gene_rate_groups = [tuple(group) for group in first_cell_dict['gene_rate_groups']]
+            petri = PetriDish(
+                gene_rate_groups=gene_rate_groups,
+                n=n,
+                gene_size=data.get('metadata', {}).get('gene_size', gene_size),
+                seed=None
+            )
+        else:
+            rate = first_cell_dict.get('rate', data.get('metadata', {}).get('rate', 0.005))
+            petri = PetriDish(
+                rate=rate,
+                n=n,
+                gene_size=data.get('metadata', {}).get('gene_size', gene_size),
+                seed=None
+            )
     else:
         # Defaults if no cells
-        rate = 0.005
-        n = 1000
-        gene_size = GENE_SIZE
-    
-    # Create PetriDish with proper gene parameters
-    petri = PetriDish(
-        rate=rate, 
-        n=n, 
-        gene_size=data.get('metadata', {}).get('gene_size', gene_size),
-        seed=None
-    )
+        petri = PetriDish(
+            rate=0.005,
+            n=1000,
+            gene_size=GENE_SIZE,
+            seed=None
+        )
     
     # Replace cells with loaded cells
     petri.cells = [dict_to_cell(cd) for cd in data['cells']]
+    
+    # Validate consistency
+    petri._validate_cell_rate_consistency()
     
     # Restore year if available
     if 'year' in data['metadata']:

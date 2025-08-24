@@ -173,6 +173,66 @@ def test_population_variability():
     
     print(f"✓ Steady state shows natural variation: {unique_pops} different populations")
 
+def test_gene_rate_edge_cases():
+    """Test edge cases for gene rate groups."""
+    print("Testing gene rate edge cases...")
+    
+    # Single gene group (effectively uniform)
+    cell = Cell(n=100, gene_rate_groups=[(20, 0.01)], gene_size=5)
+    assert all(r == 0.01 for r in cell.site_rates), "Single group should be uniform"
+    
+    # Many small groups
+    groups = [(1, 0.001 * i) for i in range(1, 21)]
+    cell = Cell(n=100, gene_rate_groups=groups, gene_size=5)
+    assert len(cell.site_rates) == 100, "Wrong number of site rates"
+    
+    # Very high rates (>1 is allowed)
+    cell = Cell(n=100, gene_rate_groups=[(20, 2.0)], gene_size=5)
+    cell.methylate()
+    # Most sites should be methylated with rate 2.0
+    assert sum(cell.cpg_sites) > 80, "High rate should methylate most sites"
+    
+    # Mixed very low and very high
+    groups = [(10, 0.0001), (10, 10.0)]
+    cell = Cell(n=100, gene_rate_groups=groups, gene_size=5)
+    cell.methylate()
+    # First half should have few methylated, second half should have many
+    first_half_meth = sum(cell.cpg_sites[:50])
+    second_half_meth = sum(cell.cpg_sites[50:])
+    assert second_half_meth > first_half_meth * 10, "High rate genes should methylate much more"
+    
+    print("✓ Gene rate edge cases work")
+
+
+def test_gene_rate_with_petri_dish():
+    """Test gene rates work properly in PetriDish simulation."""
+    print("Testing gene rates in PetriDish simulation...")
+    
+    # Create with very different rates per gene group
+    groups = [(5, 0.001), (5, 0.01), (5, 0.1), (5, 1.0)]
+    petri = PetriDish(gene_rate_groups=groups, n=100, gene_size=5, seed=42, growth_phase=2)
+    
+    # Run simulation
+    petri.run_simulation(t_max=5)
+    
+    # Check all cells have the same configuration
+    for cell in petri.cells:
+        assert cell.gene_rate_groups == groups, "Cell has wrong gene_rate_groups"
+        assert len(cell.site_rates) == 100, "Cell has wrong site_rates length"
+    
+    # Check methylation patterns reflect different rates
+    # High-rate genes (last 5 genes) should be more methylated
+    for cell in petri.cells:
+        # Count methylation in different gene groups
+        group1_meth = sum(cell.cpg_sites[0:25])   # rate 0.001
+        group4_meth = sum(cell.cpg_sites[75:100]) # rate 1.0
+        # With rate 1.0 for 5 years, most sites should be methylated
+        if group4_meth < group1_meth:
+            print(f"Warning: High rate genes less methylated ({group4_meth} vs {group1_meth})")
+    
+    print("✓ Gene rates work in PetriDish simulation")
+
+
 def run_all_edge_tests():
     """Run all edge case tests."""
     print("="*60)
@@ -189,7 +249,9 @@ def run_all_edge_tests():
         test_minimum_gene_configuration,
         test_large_growth_phase,
         test_filename_formats,
-        test_population_variability
+        test_population_variability,
+        test_gene_rate_edge_cases,
+        test_gene_rate_with_petri_dish
     ]
     
     passed = 0

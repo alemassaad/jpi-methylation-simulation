@@ -995,6 +995,188 @@ def test_full_pipeline_with_growth_phase():
 
 
 # ==============================================================================
+# SECTION 9: GENE-SPECIFIC RATE TESTS
+# ==============================================================================
+
+def test_gene_rate_groups():
+    """Test 9.1: Test gene-specific methylation rates."""
+    test_name = "Gene Rate Groups"
+    try:
+        # Test basic functionality
+        groups = [(50, 0.01), (50, 0.02), (50, 0.03), (50, 0.04)]
+        cell = Cell(n=1000, gene_rate_groups=groups, gene_size=5)
+        
+        # Verify site_rates built correctly
+        if len(cell.site_rates) != 1000:
+            results.record(test_name, False, f"Wrong site_rates length: {len(cell.site_rates)}")
+            return
+            
+        # Check first 250 sites have rate 0.01
+        for i in range(250):
+            if cell.site_rates[i] != 0.01:
+                results.record(test_name, False, f"Site {i} has rate {cell.site_rates[i]}, expected 0.01")
+                return
+        
+        # Check next 250 sites have rate 0.02
+        for i in range(250, 500):
+            if cell.site_rates[i] != 0.02:
+                results.record(test_name, False, f"Site {i} has rate {cell.site_rates[i]}, expected 0.02")
+                return
+        
+        # Test methylation works
+        cell.methylate()
+        
+        # Test daughter cells inherit rate structure
+        daughter = cell.create_daughter_cell()
+        if daughter.gene_rate_groups != groups:
+            results.record(test_name, False, "Daughter has different gene_rate_groups")
+            return
+        
+        # Verify daughter has same site_rates
+        if len(daughter.site_rates) != len(cell.site_rates):
+            results.record(test_name, False, "Daughter has different site_rates length")
+            return
+        
+        for i in range(len(cell.site_rates)):
+            if daughter.site_rates[i] != cell.site_rates[i]:
+                results.record(test_name, False, f"Daughter site_rates[{i}] differs")
+                return
+        
+        results.record(test_name, True)
+    except Exception as e:
+        results.record(test_name, False, str(e))
+
+
+def test_rate_validation():
+    """Test 9.2: Test validation of rate specifications."""
+    test_name = "Rate Validation"
+    try:
+        # Can't specify both
+        try:
+            cell = Cell(n=1000, rate=0.01, gene_rate_groups=[(200, 0.01)], gene_size=5)
+            results.record(test_name, False, "No error when both rate and gene_rate_groups specified")
+            return
+        except ValueError as e:
+            if "cannot specify both" not in str(e).lower():
+                results.record(test_name, False, f"Wrong error message: {e}")
+                return
+        
+        # Must specify one
+        try:
+            cell = Cell(n=1000, gene_size=5)
+            results.record(test_name, False, "No error when neither rate nor gene_rate_groups specified")
+            return
+        except ValueError as e:
+            if "must specify either" not in str(e).lower():
+                results.record(test_name, False, f"Wrong error message: {e}")
+                return
+        
+        # Gene counts must match
+        try:
+            cell = Cell(n=1000, gene_rate_groups=[(100, 0.01), (50, 0.02)], gene_size=5)
+            results.record(test_name, False, "No error when gene counts don't match")
+            return
+        except ValueError as e:
+            if "150 genes" not in str(e) or "200 genes" not in str(e):
+                results.record(test_name, False, f"Wrong error message: {e}")
+                return
+        
+        results.record(test_name, True)
+    except Exception as e:
+        results.record(test_name, False, str(e))
+
+
+def test_gene_rate_inheritance():
+    """Test 9.3: Test that gene rates are properly inherited in PetriDish."""
+    test_name = "Gene Rate Inheritance"
+    try:
+        # Create PetriDish with gene-specific rates
+        groups = [(10, 0.001), (10, 0.01), (10, 0.1), (10, 0.5)]
+        petri = PetriDish(gene_rate_groups=groups, n=200, gene_size=5, seed=42, growth_phase=2)
+        
+        # Run for a few years
+        for _ in range(3):
+            petri.simulate_year()
+        
+        # Check all cells have the same gene_rate_groups
+        for i, cell in enumerate(petri.cells):
+            if cell.gene_rate_groups != groups:
+                results.record(test_name, False, f"Cell {i} has different gene_rate_groups")
+                return
+            
+            # Also check site_rates are consistent
+            if len(cell.site_rates) != 200:
+                results.record(test_name, False, f"Cell {i} has wrong site_rates length")
+                return
+        
+        results.record(test_name, True)
+    except Exception as e:
+        results.record(test_name, False, str(e))
+
+
+def test_gene_rate_serialization():
+    """Test 9.4: Test saving and loading cells with gene-specific rates."""
+    test_name = "Gene Rate Serialization"
+    try:
+        # Create cell with gene-specific rates
+        groups = [(25, 0.005), (25, 0.01), (25, 0.015), (25, 0.02)]
+        cell = Cell(n=500, gene_rate_groups=groups, gene_size=5)
+        cell.methylate()
+        
+        # Convert to dict
+        cell_dict = cell.to_dict()
+        
+        # Check gene_rate_groups is saved
+        if 'gene_rate_groups' not in cell_dict:
+            results.record(test_name, False, "gene_rate_groups not in dict")
+            return
+        
+        if 'site_rates' not in cell_dict:
+            results.record(test_name, False, "site_rates not in dict")
+            return
+        
+        # Recreate cell from dict (simulate loading)
+        # We need to use the dict_to_cell function from pipeline_utils
+        import sys
+        import os
+        phase2_path = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), 'phase2')
+        if phase2_path not in sys.path:
+            sys.path.append(phase2_path)
+        
+        try:
+            from pipeline_utils import dict_to_cell
+            loaded_cell = dict_to_cell(cell_dict)
+            
+            # Verify gene_rate_groups matches
+            if loaded_cell.gene_rate_groups != groups:
+                results.record(test_name, False, "Loaded cell has different gene_rate_groups")
+                return
+            
+            # Verify site_rates matches
+            if len(loaded_cell.site_rates) != len(cell.site_rates):
+                results.record(test_name, False, "Loaded cell has different site_rates length")
+                return
+            
+            for i in range(len(cell.site_rates)):
+                if loaded_cell.site_rates[i] != cell.site_rates[i]:
+                    results.record(test_name, False, f"Loaded site_rates[{i}] differs")
+                    return
+        except ImportError:
+            # If we can't import pipeline_utils, just check the dict format
+            if not isinstance(cell_dict['gene_rate_groups'], list):
+                results.record(test_name, False, "gene_rate_groups not a list")
+                return
+            
+            if not isinstance(cell_dict['site_rates'], list):
+                results.record(test_name, False, "site_rates not a list")
+                return
+        
+        results.record(test_name, True)
+    except Exception as e:
+        results.record(test_name, False, str(e))
+
+
+# ==============================================================================
 # MAIN TEST RUNNER
 # ==============================================================================
 
@@ -1045,6 +1227,12 @@ def run_all_tests():
     test_filename_includes_growth_phase()
     test_backwards_compatibility()
     test_full_pipeline_with_growth_phase()
+    
+    print("\n--- GENE-SPECIFIC RATE TESTS ---")
+    test_gene_rate_groups()
+    test_rate_validation()
+    test_gene_rate_inheritance()
+    test_gene_rate_serialization()
     
     # Print summary
     all_passed = results.summary()

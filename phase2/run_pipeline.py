@@ -443,8 +443,8 @@ def run_pipeline(args):
     print(f"{'='*60}")
     
     # Reload current dishes for mixing (with history if tracking)
-    mutant_dishes = load_all_petri_dishes(mutant_dir, include_cell_history=args.plot_individuals)
-    control1_dishes = load_all_petri_dishes(control1_dir, include_cell_history=args.plot_individuals)
+    mutant_dishes = load_all_petri_dishes(mutant_dir, include_history=args.plot_individuals)
+    control1_dishes = load_all_petri_dishes(control1_dir, include_history=args.plot_individuals)
     
     # Apply normalization if requested
     normalization_threshold = None

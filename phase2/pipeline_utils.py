@@ -286,13 +286,13 @@ def load_petri_dish(filepath: str, include_cell_history: bool = False, include_g
     return petri
 
 
-def load_all_petri_dishes(directory: str, include_history: bool = False) -> List[PetriDish]:
+def load_all_petri_dishes(directory: str, include_cell_history: bool = False) -> List[PetriDish]:
     """
     Load all PetriDish objects from a directory.
     
     Args:
         directory: Directory containing .json.gz files
-        include_history: Whether to load history if available (new)
+        include_cell_history: Whether to load cell history if available
     
     Returns:
         List of PetriDish objects
@@ -302,7 +302,7 @@ def load_all_petri_dishes(directory: str, include_history: bool = False) -> List
     
     for filepath in files:
         try:
-            petri = load_petri_dish(filepath, include_cell_history=include_history)
+            petri = load_petri_dish(filepath, include_cell_history=include_cell_history)
             dishes.append(petri)
         except Exception as e:
             print(f"  Warning: Could not load {filepath}: {e}")
@@ -896,9 +896,16 @@ def normalize_populations(mutant_dishes: List[PetriDish],
     """
     Normalize populations to the same size using median - 0.5 stdev threshold.
     
-    Calculates median - 0.5 * standard deviation and:
-    1. Excludes individuals below this threshold
-    2. Randomly samples cells from larger individuals to match threshold
+    This threshold was chosen to:
+    - Exclude individuals that are somewhat below average (likely due to stochastic effects)
+    - Preserve most of the population (less aggressive than median - 1σ)
+    - Adapt to actual variance in the population (unlike fixed percentiles)
+    
+    Algorithm:
+    1. Calculate median and standard deviation of all individual sizes
+    2. Set threshold = median - 0.5 * standard_deviation
+    3. Exclude individuals below this threshold
+    4. Randomly sample cells from larger individuals to match threshold size
     
     Args:
         mutant_dishes: List of mutant PetriDish objects
@@ -936,11 +943,11 @@ def normalize_populations(mutant_dishes: List[PetriDish],
         print(f"  WARNING: Calculated threshold ({threshold_size}) < 1, using minimum size instead")
         threshold_size = min(all_sizes)
     
-    print(f"\n  === NORMALIZATION STATISTICS ===")
+    print(f"\n  === NORMALIZATION STATISTICS (median - 0.5σ method) ===")
     print(f"  All individual sizes: min={min(all_sizes)}, max={max(all_sizes)}")
     print(f"  Median: {median_size:.1f} cells")
     print(f"  Std Dev: {std_size:.1f} cells")
-    print(f"  Threshold (median - 0.5σ): {threshold_size} cells")
+    print(f"  Threshold calculation: {median_size:.1f} - 0.5 * {std_size:.1f} = {threshold_size} cells")
     
     # Process mutant dishes
     normalized_mutant = []

@@ -104,9 +104,9 @@ def plot_distribution(sizes_dict, title="Individual Size Distribution"):
     # 1. Histogram with thresholds
     ax1 = axes[0, 0]
     ax1.hist(combined, bins=30, alpha=0.7, color='blue', edgecolor='black')
-    ax1.axvline(threshold_20p, color='red', linestyle='--', label=f'20th percentile: {threshold_20p:.0f}')
-    ax1.axvline(threshold_med_1std, color='green', linestyle='--', label=f'Median-1σ: {threshold_med_1std:.0f}')
-    ax1.axvline(threshold_med_0_5std, color='orange', linestyle='--', label=f'Median-0.5σ: {threshold_med_0_5std:.0f}')
+    ax1.axvline(threshold_20p, color='red', linestyle='--', alpha=0.5, label=f'20th percentile (comparison): {threshold_20p:.0f}')
+    ax1.axvline(threshold_med_1std, color='green', linestyle='--', alpha=0.5, label=f'Median-1σ (comparison): {threshold_med_1std:.0f}')
+    ax1.axvline(threshold_med_0_5std, color='orange', linestyle='-', linewidth=2, label=f'Median-0.5σ (USED): {threshold_med_0_5std:.0f}')
     ax1.axvline(median, color='black', linestyle='-', alpha=0.5, label=f'Median: {median:.0f}')
     ax1.set_xlabel('Individual Size (cells)')
     ax1.set_ylabel('Count')
@@ -164,6 +164,7 @@ def plot_distribution(sizes_dict, title="Individual Size Distribution"):
     
     THRESHOLD COMPARISON
     ====================
+    Threshold options (for comparison):
     20th percentile:
       Threshold: {threshold_20p:.0f} cells
       Keep: {keep_20p}/{len(combined)} ({keep_20p/len(combined)*100:.1f}%)
@@ -172,7 +173,7 @@ def plot_distribution(sizes_dict, title="Individual Size Distribution"):
       Threshold: {threshold_med_1std:.0f} cells
       Keep: {keep_med_1std}/{len(combined)} ({keep_med_1std/len(combined)*100:.1f}%)
     
-    Median - 0.5 StDev:
+    Median - 0.5 StDev (ACTUALLY USED):
       Threshold: {threshold_med_0_5std:.0f} cells
       Keep: {keep_med_0_5std}/{len(combined)} ({keep_med_0_5std/len(combined)*100:.1f}%)
     """

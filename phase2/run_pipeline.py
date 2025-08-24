@@ -443,8 +443,8 @@ def run_pipeline(args):
     print(f"{'='*60}")
     
     # Reload current dishes for mixing (with history if tracking)
-    mutant_dishes = load_all_petri_dishes(mutant_dir, include_history=args.plot_individuals)
-    control1_dishes = load_all_petri_dishes(control1_dir, include_history=args.plot_individuals)
+    mutant_dishes = load_all_petri_dishes(mutant_dir, include_cell_history=args.plot_individuals)
+    control1_dishes = load_all_petri_dishes(control1_dir, include_cell_history=args.plot_individuals)
     
     # Apply normalization if requested
     normalization_threshold = None
@@ -876,7 +876,7 @@ def main():
     parser.add_argument("--uniform-mixing", action='store_true',
                        help="Use same snapshot cells for all individuals (default: independent random sampling)")
     parser.add_argument("--normalize-size", action='store_true',
-                       help="Normalize all individuals to same size before mixing (uses 20th percentile)")
+                       help="Normalize all individuals to same size before mixing (uses median - 0.5σ threshold)")
     
     # Other parameters
     parser.add_argument("--seed", type=int, default=42,

@@ -73,6 +73,7 @@ def dict_to_cell(cell_dict: Dict[str, Any], rate: Optional[float] = None) -> Cel
 def load_snapshot_as_cells(simulation_file: str, year: int) -> List[Cell]:
     """
     Load a year from simulation and convert to Cell objects.
+    Expects new format with 'parameters' and 'history' sections.
     
     Args:
         simulation_file: Path to phase1 simulation
@@ -83,17 +84,35 @@ def load_snapshot_as_cells(simulation_file: str, year: int) -> List[Cell]:
     """
     print(f"Loading year {year} snapshot from {simulation_file}...")
     
-    with gzip.open(simulation_file, 'rt') as f:
-        history = json.load(f)
+    # Handle both compressed and uncompressed files
+    if simulation_file.endswith('.gz'):
+        with gzip.open(simulation_file, 'rt') as f:
+            data = json.load(f)
+    else:
+        with open(simulation_file, 'r') as f:
+            data = json.load(f)
     
     year_str = str(year)
+    
+    # Extract parameters and history (new format)
+    params = data['parameters']
+    history = data['history']
+    
     if year_str not in history:
         available_years = sorted([int(y) for y in history.keys()])
         raise ValueError(f"Year {year} not found. Available: {available_years}")
     
-    # Convert all cell dicts to Cell objects
-    cell_dicts = history[year_str]
-    cells = [dict_to_cell(cd) for cd in cell_dicts]
+    year_data = history[year_str]
+    cell_dicts = year_data['cells']
+    
+    # Extract rate configuration from parameters
+    rate = params.get('rate')
+    gene_rate_groups = params.get('gene_rate_groups')
+    gene_size = params.get('gene_size', GENE_SIZE)
+    
+    # Use Cell.from_dict with parameters
+    cells = [Cell.from_dict(cd, rate=rate, gene_rate_groups=gene_rate_groups, 
+                           gene_size=gene_size) for cd in cell_dicts]
     
     print(f"  Loaded {len(cells)} cells from year {year}")
     return cells

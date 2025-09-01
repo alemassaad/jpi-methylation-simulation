@@ -150,9 +150,10 @@ data/
         ├── results/
         │   ├── year50_jsd_distribution_200bins.png
         │   ├── cell_jsd_comparison.png
-        │   ├── cell_jsd_analysis.json         # Consolidated cell JSD analysis
+        │   ├── cell_jsd_analysis.json         # Cell-level JSD analysis
+        │   ├── gene_jsd_analysis.json          # Gene-level JSD distributions
         │   ├── mixing_statistics.json          # Only when --uniform-mixing
-        │   └── pipeline_metadata.json
+        │   └── pipeline_metadata.json          # Pipeline parameters only
         └── individual_plots/  # If --plot-individuals used
             ├── mutant_01_jsd.png
             ├── mutant_01_methylation.png
@@ -193,8 +194,33 @@ Contains all cell JSD statistics and individual-level data:
 }
 ```
 
+#### gene_jsd_analysis.json (NEW)
+Gene-level JSD distributions for each gene across all batches:
+```json
+{
+  "gene_jsd_distributions": {
+    "gene_0": {
+      "mutant": [0.234, 0.189, ...],     // JSD values from mutant individuals
+      "control1": [0.198, 0.211, ...],   // JSD values from control1 individuals
+      "control2": [0.165, 0.171, ...]    // JSD values from control2 individuals
+    },
+    "gene_1": { ... },
+    // ... for all genes
+  },
+  "gene_metadata": {
+    "n_genes": 200,
+    "n_individuals_per_batch": {
+      "mutant": 8,
+      "control1": 8,
+      "control2": 8
+    },
+    "gene_rate_groups": [...]  // Only if using gene-specific rates
+  }
+}
+```
+
 #### pipeline_metadata.json
-Complete pipeline configuration and runtime information.
+Complete pipeline configuration and runtime information (parameters only, no results).
 
 #### mixing_statistics.json
 Created only when `--uniform-mixing` is used. Contains pool size and normalization details.

@@ -180,6 +180,115 @@ def get_mean_cell_jsds_from_petri_dishes(dishes: List[PetriDish]) -> np.ndarray:
     return np.array(mean_cell_jsds)
 
 
+def generate_gene_jsd_analysis(mutant_dishes: List[PetriDish],
+                               control1_dishes: List[PetriDish], 
+                               control2_dishes: List[PetriDish],
+                               output_dir: str) -> Dict[str, Any]:
+    """
+    Generate gene-level JSD analysis for all genes across all batches.
+    
+    Args:
+        mutant_dishes: List of mutant PetriDish objects
+        control1_dishes: List of control1 PetriDish objects
+        control2_dishes: List of control2 PetriDish objects
+        output_dir: Directory to save results
+        
+    Returns:
+        Dictionary with gene JSD analysis
+    """
+    print(f"\nGenerating gene JSD analysis...")
+    
+    # Calculate gene JSDs for each individual in each batch
+    def calculate_batch_gene_jsds(dishes: List[PetriDish]) -> Dict[int, List[float]]:
+        """Calculate gene JSDs for all genes across all individuals in a batch."""
+        if not dishes or not dishes[0].cells:
+            return {}
+        
+        # Get number of genes from first cell
+        n_sites = dishes[0].cells[0].n
+        gene_size = dishes[0].cells[0].gene_size
+        n_genes = n_sites // gene_size
+        
+        # Initialize storage for each gene
+        gene_jsds = {i: [] for i in range(n_genes)}
+        
+        # Calculate gene JSD for each individual
+        for petri in dishes:
+            individual_gene_jsds = petri.calculate_gene_jsd()
+            for gene_idx, jsd_value in enumerate(individual_gene_jsds):
+                gene_jsds[gene_idx].append(float(jsd_value))
+        
+        return gene_jsds
+    
+    # Calculate for each batch
+    print("  Calculating gene JSDs for mutant batch...")
+    mutant_gene_jsds = calculate_batch_gene_jsds(mutant_dishes)
+    
+    print("  Calculating gene JSDs for control1 batch...")
+    control1_gene_jsds = calculate_batch_gene_jsds(control1_dishes)
+    
+    print("  Calculating gene JSDs for control2 batch...")
+    control2_gene_jsds = calculate_batch_gene_jsds(control2_dishes)
+    
+    # Get number of genes
+    n_genes = len(mutant_gene_jsds) if mutant_gene_jsds else 0
+    
+    # Build gene JSD distributions structure
+    gene_jsd_distributions = {}
+    for gene_idx in range(n_genes):
+        gene_jsd_distributions[f"gene_{gene_idx}"] = {
+            "mutant": mutant_gene_jsds.get(gene_idx, []),
+            "control1": control1_gene_jsds.get(gene_idx, []),
+            "control2": control2_gene_jsds.get(gene_idx, [])
+        }
+    
+    # Build metadata
+    gene_metadata = {
+        "n_genes": n_genes,
+        "n_individuals_per_batch": {
+            "mutant": len(mutant_dishes),
+            "control1": len(control1_dishes),
+            "control2": len(control2_dishes)
+        }
+    }
+    
+    # Check if gene-specific rates were used
+    if mutant_dishes and mutant_dishes[0].cells and hasattr(mutant_dishes[0].cells[0], 'gene_rate_groups'):
+        gene_rate_groups = mutant_dishes[0].cells[0].gene_rate_groups
+        if gene_rate_groups:
+            # Convert to metadata format
+            rate_groups = []
+            start_idx = 0
+            for n_genes_in_group, rate in gene_rate_groups:
+                rate_groups.append({
+                    "start": start_idx,
+                    "end": start_idx + n_genes_in_group - 1,
+                    "rate": float(rate)
+                })
+                start_idx += n_genes_in_group
+            gene_metadata["gene_rate_groups"] = rate_groups
+    
+    # Create final structure
+    gene_jsd_analysis = {
+        "gene_jsd_distributions": gene_jsd_distributions,
+        "gene_metadata": gene_metadata
+    }
+    
+    # Save to file
+    gene_jsd_path = os.path.join(output_dir, "gene_jsd_analysis.json")
+    os.makedirs(output_dir, exist_ok=True)
+    with open(gene_jsd_path, 'w') as f:
+        json.dump(gene_jsd_analysis, f, indent=2)
+    
+    print(f"  Saved gene JSD analysis to {gene_jsd_path}")
+    print(f"    Analyzed {n_genes} genes across {sum(gene_metadata['n_individuals_per_batch'].values())} individuals")
+    
+    return {
+        "gene_jsd_analysis": gene_jsd_analysis,
+        "gene_jsd_path": gene_jsd_path
+    }
+
+
 def analyze_populations_from_dishes(mutant_dishes: List[PetriDish], 
                                    control1_dishes: List[PetriDish],
                                    control2_dishes: List[PetriDish],

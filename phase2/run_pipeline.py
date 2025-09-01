@@ -1100,8 +1100,14 @@ def run_pipeline(args, rate_config):
     print(f"    Loaded {len(control1_dishes)} control1 individuals")
     print(f"    Loaded {len(control2_dishes)} control2 individuals")
     
-    # Use the enhanced analysis function
+    # Use the enhanced analysis function for cell-level JSD
     analysis_results = analyze_populations_from_dishes(
+        mutant_dishes, control1_dishes, control2_dishes, results_dir
+    )
+    
+    # Generate gene-level JSD analysis
+    from pipeline_analysis import generate_gene_jsd_analysis
+    gene_analysis_results = generate_gene_jsd_analysis(
         mutant_dishes, control1_dishes, control2_dishes, results_dir
     )
     

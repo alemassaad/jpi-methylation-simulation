@@ -5,8 +5,8 @@
 # Simulation parameters
 simulation:
   # Methylation rate configuration (use one or the other)
-  rate: 0.005                    # Uniform methylation rate per site per year
-  # gene_rate_groups: null       # Alternative: "50:0.004,50:0.005,50:0.006,50:0.007"
+  # rate: 0.005                    # Uniform methylation rate per site per year
+  gene_rate_groups: "5:0.004,5:0.005,5:0.006,5:0.007"       # Alternative: "50:0.004,50:0.005,50:0.006,50:0.007"
   
   # Core parameters
   sites: 100                     # Number of CpG sites per cell

@@ -447,6 +447,10 @@ def run_pipeline(args, rate_config):
         print(f"Error: Could not parse simulation parameters from {args.simulation}")
         sys.exit(1)
     
+    # Validate gene rate groups if using them
+    if rate_config['type'] == 'gene_specific':
+        validate_gene_rate_groups(rate_config['gene_rate_groups'], sim_params['n_sites'], args.gene_size)
+    
     # Calculate total expected individuals
     expected_individuals = args.n_quantiles * args.cells_per_quantile
     
@@ -1374,8 +1378,7 @@ def main():
     # Parse rate configuration
     if args.gene_rate_groups:
         gene_rate_groups = parse_gene_rate_groups(args.gene_rate_groups)
-        # Validate gene rate groups (assuming default 1000 sites)
-        validate_gene_rate_groups(gene_rate_groups, 1000, args.gene_size)
+        # Note: Gene rate group validation will happen in run_pipeline after we parse sim_params
         rate_config = {
             'type': 'gene_specific',
             'gene_rate_groups': gene_rate_groups,

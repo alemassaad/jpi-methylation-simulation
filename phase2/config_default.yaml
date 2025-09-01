@@ -7,7 +7,7 @@ input:
   simulation: null               # Path to phase1 simulation file (REQUIRED - no default)
   # Rate configuration - must match the simulation (use one)
   rate: null                     # Uniform methylation rate 
-  # gene_rate_groups: null       # Alternative: gene-specific rates string
+  gene_rate_groups: null       # Alternative: gene-specific rates string
 
 # Snapshot configuration
 snapshots:

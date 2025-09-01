@@ -3,8 +3,8 @@
 
 # Standard snapshot years
 snapshots:
-  first: 50
-  second: 60
+  first: 40
+  second: 50
 
 # High-resolution individual simulation
 individuals:

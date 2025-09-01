@@ -2,6 +2,10 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+## Important: Python Command Convention
+
+**ALWAYS use `python` instead of `python` for all commands in this repository.**
+
 ## Project Overview
 
 Biologically realistic DNA methylation simulation modeling epigenetic drift through cell growth, division, and homeostasis. Uses object-oriented design with Cell and PetriDish classes to simulate how cells accumulate methylation patterns over time.
@@ -25,15 +29,20 @@ The simulation now uses a lean JSON format that reduces file sizes by ~90%:
 Both phases now support YAML configuration files to reduce command-line complexity:
 ```bash
 # Phase 1
-python3 run_simulation.py --config configs/production.yaml
+python run_simulation.py --config configs/production.yaml
 
 # Phase 2
-python3 run_pipeline.py --config configs/quick_test.yaml --simulation PATH --rate 0.005
+python run_pipeline.py --config configs/quick_test.yaml --simulation PATH --rate 0.005
 ```
 
 ### 🎯 Clarified JSD Flags
 - Renamed `calculate_jsds` → `calculate_cell_jsds` for clarity
 - New independent control over different JSD types
+
+### 🔧 Compression Consistency Fix
+- Phase 2 now correctly respects compression settings for all batches (mutant, control1, control2)
+- Automatically matches input file format (.json vs .json.gz) unless overridden with `--no-compress`
+- All output files within a run now have consistent compression
 
 ## Biological Background
 
@@ -235,13 +244,13 @@ verbose: false
 
 ```bash
 # Using config file (recommended)
-python3 run_simulation.py --config configs/production.yaml
+python run_simulation.py --config configs/production.yaml
 
 # Quick test with new defaults (faster)
-python3 run_simulation.py --rate 0.005
+python run_simulation.py --rate 0.005
 
 # Full command with all options
-python3 run_simulation.py \
+python run_simulation.py \
     --rate 0.005 \
     --years 100 \
     --growth-phase 13 \
@@ -251,27 +260,27 @@ python3 run_simulation.py \
     --no-compress      # Save as .json instead of .json.gz
 
 # Gene-specific methylation rates
-python3 run_simulation.py \
+python run_simulation.py \
     --gene-rate-groups "50:0.004,50:0.0045,50:0.005,50:0.0055" \
     --gene-size 5
 
 # Performance tuning with clarified flags
-python3 run_simulation.py --rate 0.005 --no-cell-jsds  # Skip cell JSD calculations
-python3 run_simulation.py --rate 0.005 --no-gene-jsd   # Skip gene JSD tracking
-python3 run_simulation.py --rate 0.005 --no-jsds       # Skip ALL JSDs (maximum speed)
+python run_simulation.py --rate 0.005 --no-cell-jsds  # Skip cell JSD calculations
+python run_simulation.py --rate 0.005 --no-gene-jsd   # Skip gene JSD tracking
+python run_simulation.py --rate 0.005 --no-jsds       # Skip ALL JSDs (maximum speed)
 ```
 
 ### Run Analysis Pipeline (Phase 2)
 
 ```bash
 # Using config file
-python3 run_pipeline.py \
+python run_pipeline.py \
     --config configs/quick_test.yaml \
     --simulation ../phase1/data/.../simulation.json.gz \
     --rate 0.005
 
 # Standard run
-python3 run_pipeline.py \
+python run_pipeline.py \
     --rate 0.005 \
     --simulation ../phase1/data/.../simulation.json.gz \
     --first-snapshot 50 \
@@ -279,7 +288,7 @@ python3 run_pipeline.py \
     --seed 42
 
 # With options
-python3 run_pipeline.py \
+python run_pipeline.py \
     --rate 0.005 \
     --simulation ../phase1/data/.../simulation.json.gz \
     --first-snapshot 50 \
@@ -294,26 +303,26 @@ python3 run_pipeline.py \
 ```bash
 # Phase 1 tests
 cd phase1/tests
-python3 test_small.py
-python3 test_comprehensive.py
-python3 test_edge_cases.py
-python3 test_gene_jsd.py
+python test_small.py
+python test_comprehensive.py
+python test_edge_cases.py
+python test_gene_jsd.py
 
 # Test new format
 cd phase1
-python3 test_new_format.py    # Tests lean JSON format
-python3 test_config.py         # Tests config system
+python test_new_format.py    # Tests lean JSON format
+python test_config.py         # Tests config system
 
 # Phase 2 tests  
 cd phase2/tests
-python3 test_reproducibility_robust.py
-python3 test_gene_rate_support.py
-python3 test_final_integration.py
+python test_reproducibility_robust.py
+python test_gene_rate_support.py
+python test_final_integration.py
 
 # Test phase2 config
 cd phase2
-python3 test_config_simple.py
-python3 test_config_phase2.py
+python test_config_simple.py
+python test_config_phase2.py
 ```
 
 ## Key Implementation Details
@@ -367,7 +376,7 @@ Output: simulation.json (human-readable)
 
 ### Testing Philosophy
 - Tests are standalone Python scripts, not using pytest framework
-- Each test file can be run directly: `python3 test_name.py`
+- Each test file can be run directly: `python test_name.py`
 - Tests include comprehensive output with ✓ marks for passed checks
 - Return exit code 0 for success, 1 for failure
 

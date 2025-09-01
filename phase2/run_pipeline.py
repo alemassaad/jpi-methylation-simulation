@@ -49,7 +49,8 @@ from pipeline_analysis import (
     analyze_populations_from_dishes,
     plot_gene_jsd_distribution_comparison,
     plot_top_variable_genes,
-    plot_gene_jsd_distributions
+    plot_gene_jsd_distributions,
+    plot_gene_jsd_individual_comparison
 )
 from path_utils import parse_step1_simulation_path, generate_step23_output_dir
 
@@ -1120,6 +1121,15 @@ def run_pipeline(args, rate_config):
     if 'gene_jsd_analysis' in gene_analysis_results:
         plot_gene_jsd_distributions(gene_analysis_results['gene_jsd_analysis'], results_dir, 
                                    max_genes=args.max_gene_plots)
+        
+        # Generate individual-averaged gene JSD comparison plot
+        gene_jsd_path = os.path.join(results_dir, 'gene_jsd_analysis.json')
+        if os.path.exists(gene_jsd_path):
+            plot_gene_jsd_individual_comparison(
+                gene_jsd_path=gene_jsd_path,
+                output_dir=results_dir,
+                verbose=True  # Always verbose for now
+            )
     
     # Generate additional gene JSD plots if data is available
     print(f"\nGenerating additional gene JSD plots...")

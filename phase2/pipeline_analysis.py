@@ -1247,3 +1247,168 @@ def create_gene_comparison_plot(mutant_jsds: np.ndarray,
     if os.path.dirname(output_path):
         os.makedirs(os.path.dirname(output_path), exist_ok=True)
     fig.write_image(output_path, width=700, height=800, scale=2)
+
+
+def plot_gene_jsd_individual_comparison(gene_jsd_path, output_dir, verbose=False):
+    """
+    Create scatter plot comparing individual-averaged gene JSDs across batches.
+    
+    Similar to plot_cell_jsd_comparison but uses individual_averages from gene_jsd_analysis.json
+    
+    Args:
+        gene_jsd_path: Path to gene_jsd_analysis.json
+        output_dir: Directory to save plot
+        verbose: Print progress messages
+    """
+    if verbose:
+        print(f"\n📊 Creating individual-averaged gene JSD comparison plot...")
+    
+    # Load gene JSD analysis data
+    with open(gene_jsd_path, 'r') as f:
+        data = json.load(f)
+    
+    # Extract individual averages
+    if 'individual_averages' not in data:
+        print("  ⚠️  No individual_averages found in gene JSD analysis")
+        return
+    
+    individual_avgs = data['individual_averages']
+    
+    # Create figure with plotly
+    fig = go.Figure()
+    
+    # Color mapping (same as cell plot)
+    colors = {
+        'mutant': 'blue',
+        'control1': 'green', 
+        'control2': 'red'
+    }
+    
+    # Track all values for y-axis range
+    all_values = []
+    
+    # Plot each batch with jittered points
+    for i, (batch_name, batch_values) in enumerate(individual_avgs.items()):
+        if not batch_values:
+            continue
+            
+        # Create jittered x positions
+        x_base = i
+        x_positions = np.random.normal(x_base, 0.05, len(batch_values))
+        
+        # Add scatter trace
+        fig.add_trace(go.Scatter(
+            x=x_positions,
+            y=batch_values,
+            mode='markers',
+            name=batch_name.capitalize(),
+            marker=dict(
+                color=colors.get(batch_name, 'gray'),
+                size=6,
+                opacity=0.6
+            ),
+            hovertemplate='%{y:.4f}<extra></extra>'
+        ))
+        
+        all_values.extend(batch_values)
+    
+    # Calculate statistics for each batch
+    stats_y = 1.02  # Position above plot using paper coordinates
+    
+    # Mutant stats
+    if 'mutant' in individual_avgs and individual_avgs['mutant']:
+        mutant_mean = np.mean(individual_avgs['mutant'])
+        mutant_std = np.std(individual_avgs['mutant'])
+        fig.add_annotation(
+            x=0,
+            y=stats_y,
+            text=f"Mean: {mutant_mean:.4f} ± {mutant_std:.4f}",
+            showarrow=False,
+            font=dict(size=9, color="blue"),
+            align="left",
+            xanchor="center",
+            yanchor="bottom",
+            xref="x",
+            yref="paper"
+        )
+    
+    # Control1 stats
+    if 'control1' in individual_avgs and individual_avgs['control1']:
+        control1_mean = np.mean(individual_avgs['control1'])
+        control1_std = np.std(individual_avgs['control1'])
+        fig.add_annotation(
+            x=1,
+            y=stats_y,
+            text=f"Mean: {control1_mean:.4f} ± {control1_std:.4f}",
+            showarrow=False,
+            font=dict(size=9, color="green"),
+            align="left",
+            xanchor="center",
+            yanchor="bottom",
+            xref="x",
+            yref="paper"
+        )
+    
+    # Control2 stats
+    if 'control2' in individual_avgs and individual_avgs['control2']:
+        control2_mean = np.mean(individual_avgs['control2'])
+        control2_std = np.std(individual_avgs['control2'])
+        fig.add_annotation(
+            x=2,
+            y=stats_y,
+            text=f"Mean: {control2_mean:.4f} ± {control2_std:.4f}",
+            showarrow=False,
+            font=dict(size=9, color="red"),
+            align="left",
+            xanchor="center",
+            yanchor="bottom",
+            xref="x",
+            yref="paper"
+        )
+    
+    # Calculate y-axis range
+    if all_values:
+        y_min = min(all_values)
+        y_max = max(all_values)
+        y_range = [y_min - 0.01, y_max + 0.01]
+    else:
+        y_range = [0, 1]
+    
+    # Update layout (matching cell plot style)
+    fig.update_layout(
+        title=dict(
+            text="Individual-Averaged Gene JSD Comparison",
+            font=dict(size=16),
+            x=0.5,
+            xanchor='center',
+            y=0.98,  # High position like cell plot
+            yanchor='top'
+        ),
+        xaxis=dict(
+            tickmode='array',
+            tickvals=[0, 1, 2],
+            ticktext=['Mutant', 'Control 1', 'Control 2'],
+            range=[-0.5, 2.5],
+            showgrid=False,
+            title=""
+        ),
+        yaxis=dict(
+            title='Individual Average Gene JSD',
+            showgrid=True,
+            gridcolor='lightgray',
+            range=y_range
+        ),
+        plot_bgcolor='white',
+        showlegend=False,
+        height=800,
+        width=1200,
+        margin=dict(l=80, r=40, t=180, b=60)  # Increased top margin for stats
+    )
+    
+    # Save plot
+    output_path = os.path.join(output_dir, 'gene_jsd_individual_comparison.png')
+    os.makedirs(output_dir, exist_ok=True)
+    fig.write_image(output_path, format='png', scale=1.5)
+    
+    if verbose:
+        print(f"  ✓ Saved individual-averaged gene JSD comparison to {output_path}")

@@ -81,15 +81,24 @@ python run_pipeline.py --config configs/quick_test.yaml --simulation PATH --rate
 - Calculated only for final mixed populations (Stage 7)
 - Enables analysis of gene-specific methylation patterns and rate effects
 
-### 📦 Consolidated JSON Output
-- **NEW**: `cell_jsd_analysis.json` consolidates all cell JSD data
-- **Breaking change**: Removes `statistics.json` and `jsd_distributions.json` files
-- Structure:
+### 📅 Timestamp-based Directory Names
+- Both phase1 and phase2 use YYYYMMDDHHMMSS timestamps instead of hashes
+- Example: `seed42-20250901225349` instead of `seed42-ef74`
+- Enables chronological sorting and easy identification of run times
+- 14-character timestamp format for uniqueness
+
+### 📦 JSON Output Files (Phase 2)
+- **`cell_jsd_analysis.json`**: Cell-level JSD statistics
   - `summary_statistics`: Mean, std, median, min, max per batch
   - `statistical_tests`: T-test results between batches
   - `individual_means`: Mean cell JSD per individual
-- Clearer semantic naming: `n_individuals` instead of `n`
-- No backward compatibility - clean break from old format
+- **`gene_jsd_analysis.json`**: Gene-level JSD distributions
+  - `gene_jsd_distributions`: Raw JSD values for each gene by batch
+  - `gene_metadata`: Gene count and rate group information
+  - No averaging across genes - preserves full distributions
+- **`pipeline_metadata.json`**: Pipeline parameters only (no results)
+- **`mixing_statistics.json`**: Only with --uniform-mixing flag
+- **Breaking change**: Removed old `statistics.json` and `jsd_distributions.json`
 
 ## Biological Background
 

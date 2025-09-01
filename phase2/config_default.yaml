@@ -17,15 +17,15 @@ snapshots:
 
 # Individual simulation parameters
 individuals:
-  growth_phase: 6                # Individual growth phase in years (2^6 = 64 cells)
+  growth_phase: 7                # Individual growth phase in years (2^6 = 64 cells)
   n_quantiles: 4                 # Number of quantiles for sampling (e.g., 4 = quartiles, 10 = deciles)
   cells_per_quantile: 2          # Cells sampled per quantile
 
 # Mixing configuration
 mixing:
   ratio: 80                      # Percentage of snapshot cells in final mix (0-100)
-  uniform: false                 # Use same snapshot cells for all individuals
-  normalize_size: true          # Normalize all individuals to same size before mixing
+  uniform: true                  # Use same snapshot cells for all individuals
+  normalize_size: true           # Normalize all individuals to same size before mixing
 
 # Visualization settings
 visualization:

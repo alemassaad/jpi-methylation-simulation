@@ -637,7 +637,9 @@ def run_pipeline(args, rate_config):
         
         for i, petri in enumerate(mutant_dishes):
             current_cells = len(petri.cells)
-            # Use individual_id from metadata for consistent file naming
+            # Ensure metadata exists and get individual_id for consistent file naming
+            if not hasattr(petri, 'metadata'):
+                petri.metadata = {}
             individual_id = petri.metadata.get('individual_id', i + 1)
             
             if current_cells == 1:
@@ -676,7 +678,9 @@ def run_pipeline(args, rate_config):
         
         for i, petri in enumerate(control1_dishes):
             current_cells = len(petri.cells)
-            # Use individual_id from metadata for consistent file naming
+            # Ensure metadata exists and get individual_id for consistent file naming
+            if not hasattr(petri, 'metadata'):
+                petri.metadata = {}
             individual_id = petri.metadata.get('individual_id', i + 1)
             
             if current_cells == 1:
@@ -828,6 +832,10 @@ def run_pipeline(args, rate_config):
         # Mix mutant individuals
         print(f"  Processing {len(mutant_dishes)} mutant individuals...")
         for i, petri in enumerate(mutant_dishes):
+            # Ensure metadata exists before accessing it
+            if not hasattr(petri, 'metadata'):
+                petri.metadata = {}
+            
             # Use individual_id from metadata for consistent file naming
             individual_id = petri.metadata.get('individual_id', i + 1)
             initial_size = len(petri.cells)
@@ -835,8 +843,6 @@ def run_pipeline(args, rate_config):
             print(f"    Mutant {individual_id:02d}: {initial_size} → {final_size} cells")
             
             # Update metadata
-            if not hasattr(petri, 'metadata'):
-                petri.metadata = {}
             petri.metadata['mixed'] = True
             petri.metadata['mix_mode'] = 'uniform'
             petri.metadata['mix_ratio'] = args.mix_ratio
@@ -852,6 +858,10 @@ def run_pipeline(args, rate_config):
         # Mix control1 individuals (using SAME pool)
         print(f"  Processing {len(control1_dishes)} control1 individuals...")
         for i, petri in enumerate(control1_dishes):
+            # Ensure metadata exists before accessing it
+            if not hasattr(petri, 'metadata'):
+                petri.metadata = {}
+            
             # Use individual_id from metadata for consistent file naming
             individual_id = petri.metadata.get('individual_id', i + 1)
             initial_size = len(petri.cells)
@@ -859,8 +869,6 @@ def run_pipeline(args, rate_config):
             print(f"    Control1 {individual_id:02d}: {initial_size} → {final_size} cells")
             
             # Update metadata
-            if not hasattr(petri, 'metadata'):
-                petri.metadata = {}
             petri.metadata['mixed'] = True
             petri.metadata['mix_mode'] = 'uniform'
             petri.metadata['mix_ratio'] = args.mix_ratio
@@ -892,7 +900,9 @@ def run_pipeline(args, rate_config):
             print(f"\n  ✓ Mixing mutant individuals with year {args.second_snapshot} cells...")
             
             for i, petri in enumerate(mutant_dishes):
-                # Use individual_id from metadata for consistent file naming
+                # Ensure metadata exists and get individual_id for consistent file naming
+                if not hasattr(petri, 'metadata'):
+                    petri.metadata = {}
                 individual_id = petri.metadata.get('individual_id', i + 1)
                 
                 # Check if within expected range (homeostasis causes variation)
@@ -927,7 +937,9 @@ def run_pipeline(args, rate_config):
             print(f"\n  ✓ Mixing control1 individuals with year {args.second_snapshot} cells...")
             
             for i, petri in enumerate(control1_dishes):
-                # Use individual_id from metadata for consistent file naming
+                # Ensure metadata exists and get individual_id for consistent file naming
+                if not hasattr(petri, 'metadata'):
+                    petri.metadata = {}
                 individual_id = petri.metadata.get('individual_id', i + 1)
                 
                 # Check if within expected range (homeostasis causes variation)

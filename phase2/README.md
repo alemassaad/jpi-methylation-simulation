@@ -150,13 +150,56 @@ data/
         ├── results/
         │   ├── year50_jsd_distribution_200bins.png
         │   ├── cell_jsd_comparison.png
-        │   ├── statistics.json
-        │   └── pipeline_metadata.json
+        │   ├── cell_jsd_analysis.json         # NEW: Consolidated analysis
+        │   ├── mixing_statistics.json          # Only when --uniform-mixing
+        │   ├── pipeline_metadata.json
+        │   ├── statistics.json                 # DEPRECATED: Use cell_jsd_analysis.json
+        │   └── jsd_distributions.json          # DEPRECATED: Use cell_jsd_analysis.json
         └── individual_plots/  # If --plot-individuals used
-            ├── mutant_00_jsd.png
-            ├── mutant_00_methylation.png
-            └── mutant_00_combined.png
+            ├── mutant_01_jsd.png
+            ├── mutant_01_methylation.png
+            └── mutant_01_combined.png
 ```
+
+### JSON Output Files
+
+#### cell_jsd_analysis.json (NEW - Consolidated Format)
+Contains all cell JSD statistics and individual-level data:
+```json
+{
+  "summary_statistics": {
+    "mutant": {
+      "mean": 0.234,
+      "std": 0.045,
+      "median": 0.229,
+      "min": 0.156,
+      "max": 0.341,
+      "n_individuals": 7
+    },
+    "control1": { ... },
+    "control2": { ... }
+  },
+  "statistical_tests": {
+    "mutant_vs_control1": {
+      "t_statistic": 2.34,
+      "p_value": 0.023
+    },
+    "mutant_vs_control2": { ... },
+    "control1_vs_control2": { ... }
+  },
+  "individual_means": {
+    "mutant": [0.234, 0.189, ...],    // Mean cell JSD per individual
+    "control1": [0.198, 0.211, ...],
+    "control2": [0.165, 0.171, ...]
+  }
+}
+```
+
+#### pipeline_metadata.json
+Complete pipeline configuration and runtime information.
+
+#### mixing_statistics.json
+Created only when `--uniform-mixing` is used. Contains pool size and normalization details.
 
 ### Directory Naming Convention
 - Base: `snap{first}to{second}-growth{phase}-quant{n}x{m}-mix{ratio}`

@@ -207,31 +207,33 @@ def analyze_populations_from_dishes(mutant_dishes: List[PetriDish],
     print(f"  Control1: {len(control1_jsds)} individuals")
     print(f"  Control2: {len(control2_jsds)} individuals")
     
-    # Calculate statistics
-    stats_dict = {
-        "mutant": {
-            "mean": float(np.mean(mutant_jsds)),
-            "std": float(np.std(mutant_jsds)),
-            "median": float(np.median(mutant_jsds)),
-            "min": float(np.min(mutant_jsds)),
-            "max": float(np.max(mutant_jsds)),
-            "n": len(mutant_jsds)
-        },
-        "control1": {
-            "mean": float(np.mean(control1_jsds)),
-            "std": float(np.std(control1_jsds)),
-            "median": float(np.median(control1_jsds)),
-            "min": float(np.min(control1_jsds)),
-            "max": float(np.max(control1_jsds)),
-            "n": len(control1_jsds)
-        },
-        "control2": {
-            "mean": float(np.mean(control2_jsds)),
-            "std": float(np.std(control2_jsds)),
-            "median": float(np.median(control2_jsds)),
-            "min": float(np.min(control2_jsds)),
-            "max": float(np.max(control2_jsds)),
-            "n": len(control2_jsds)
+    # Create consolidated cell JSD analysis structure
+    cell_jsd_analysis = {
+        "summary_statistics": {
+            "mutant": {
+                "mean": float(np.mean(mutant_jsds)),
+                "std": float(np.std(mutant_jsds)),
+                "median": float(np.median(mutant_jsds)),
+                "min": float(np.min(mutant_jsds)),
+                "max": float(np.max(mutant_jsds)),
+                "n_individuals": len(mutant_jsds)
+            },
+            "control1": {
+                "mean": float(np.mean(control1_jsds)),
+                "std": float(np.std(control1_jsds)),
+                "median": float(np.median(control1_jsds)),
+                "min": float(np.min(control1_jsds)),
+                "max": float(np.max(control1_jsds)),
+                "n_individuals": len(control1_jsds)
+            },
+            "control2": {
+                "mean": float(np.mean(control2_jsds)),
+                "std": float(np.std(control2_jsds)),
+                "median": float(np.median(control2_jsds)),
+                "min": float(np.min(control2_jsds)),
+                "max": float(np.max(control2_jsds)),
+                "n_individuals": len(control2_jsds)
+            }
         }
     }
     
@@ -250,7 +252,7 @@ def analyze_populations_from_dishes(mutant_dishes: List[PetriDish],
     t_stat_c1c2, p_value_c1c2 = stats.ttest_ind(control1_jsds, control2_jsds)
     print(f"    Control1 vs Control2: t={t_stat_c1c2:.3f}, p={p_value_c1c2:.6f}")
     
-    stats_dict["comparisons"] = {
+    cell_jsd_analysis["statistical_tests"] = {
         "mutant_vs_control1": {
             "t_statistic": float(t_stat_mc1),
             "p_value": float(p_value_mc1)
@@ -265,30 +267,51 @@ def analyze_populations_from_dishes(mutant_dishes: List[PetriDish],
         }
     }
     
-    # Create comparison plot for cell JSDs
-    plot_path = os.path.join(output_dir, "cell_jsd_comparison.png")
-    create_comparison_plot_from_jsds(mutant_jsds, control1_jsds, control2_jsds, plot_path)
-    
-    # Save statistics
-    stats_path = os.path.join(output_dir, "statistics.json")
-    os.makedirs(output_dir, exist_ok=True)
-    with open(stats_path, 'w') as f:
-        json.dump(stats_dict, f, indent=2)
-    print(f"\n  Saved statistics to {stats_path}")
-    
-    # Save raw distributions
-    distributions_path = os.path.join(output_dir, "jsd_distributions.json")
-    distributions = {
+    # Add individual means (renamed from distributions for clarity)
+    cell_jsd_analysis["individual_means"] = {
         "mutant": mutant_jsds.tolist(),
         "control1": control1_jsds.tolist(),
         "control2": control2_jsds.tolist()
     }
+    
+    # Create comparison plot for cell JSDs
+    plot_path = os.path.join(output_dir, "cell_jsd_comparison.png")
+    create_comparison_plot_from_jsds(mutant_jsds, control1_jsds, control2_jsds, plot_path)
+    
+    # Save consolidated cell JSD analysis
+    cell_jsd_path = os.path.join(output_dir, "cell_jsd_analysis.json")
+    os.makedirs(output_dir, exist_ok=True)
+    with open(cell_jsd_path, 'w') as f:
+        json.dump(cell_jsd_analysis, f, indent=2)
+    print(f"\n  Saved cell JSD analysis to {cell_jsd_path}")
+    
+    # DEPRECATED: Keep old files for backward compatibility (will remove in future)
+    # Save statistics (old format)
+    stats_path = os.path.join(output_dir, "statistics.json")
+    stats_dict = {
+        "mutant": cell_jsd_analysis["summary_statistics"]["mutant"].copy(),
+        "control1": cell_jsd_analysis["summary_statistics"]["control1"].copy(),
+        "control2": cell_jsd_analysis["summary_statistics"]["control2"].copy(),
+        "comparisons": cell_jsd_analysis["statistical_tests"]
+    }
+    # Change n_individuals back to n for old format
+    for batch in ["mutant", "control1", "control2"]:
+        stats_dict[batch]["n"] = stats_dict[batch].pop("n_individuals")
+    
+    with open(stats_path, 'w') as f:
+        json.dump(stats_dict, f, indent=2)
+    
+    # Save raw distributions (old format)
+    distributions_path = os.path.join(output_dir, "jsd_distributions.json")
+    distributions = cell_jsd_analysis["individual_means"]
     with open(distributions_path, 'w') as f:
         json.dump(distributions, f, indent=2)
     
     return {
-        "statistics": stats_dict,
+        "cell_jsd_analysis": cell_jsd_analysis,
         "plot_path": plot_path,
+        "cell_jsd_path": cell_jsd_path,
+        # Keep old paths for backward compatibility
         "stats_path": stats_path,
         "distributions_path": distributions_path
     }

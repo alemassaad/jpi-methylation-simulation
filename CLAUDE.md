@@ -72,6 +72,16 @@ python run_pipeline.py --config configs/quick_test.yaml --simulation PATH --rate
 - Calculated only for final mixed populations (Stage 7)
 - Enables analysis of gene-specific methylation patterns and rate effects
 
+### 📦 Consolidated JSON Output
+- **NEW**: `cell_jsd_analysis.json` consolidates all cell JSD data
+- Replaces separate `statistics.json` and `jsd_distributions.json` files
+- Structure:
+  - `summary_statistics`: Mean, std, median, min, max per batch
+  - `statistical_tests`: T-test results between batches
+  - `individual_means`: Mean cell JSD per individual
+- Old files still created for backward compatibility (marked deprecated)
+- Clearer semantic naming: `n_individuals` instead of `n`
+
 ## Biological Background
 
 ### CpG Sites

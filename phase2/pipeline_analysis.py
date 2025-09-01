@@ -233,7 +233,34 @@ def generate_gene_jsd_analysis(mutant_dishes: List[PetriDish],
     # Get number of genes
     n_genes = len(mutant_gene_jsds) if mutant_gene_jsds else 0
     
-    # Build gene JSD distributions structure
+    # Calculate individual averages across all genes
+    individual_averages = {
+        "mutant": [],
+        "control1": [],
+        "control2": []
+    }
+    
+    # Calculate average for each individual across all genes
+    for batch_name, batch_jsds, n_individuals in [
+        ("mutant", mutant_gene_jsds, len(mutant_dishes)),
+        ("control1", control1_gene_jsds, len(control1_dishes)),
+        ("control2", control2_gene_jsds, len(control2_dishes))
+    ]:
+        if batch_jsds and n_individuals > 0:
+            # For each individual
+            for ind_idx in range(n_individuals):
+                # Collect all gene JSD values for this individual
+                individual_gene_values = []
+                for gene_idx in range(n_genes):
+                    if gene_idx in batch_jsds and ind_idx < len(batch_jsds[gene_idx]):
+                        individual_gene_values.append(batch_jsds[gene_idx][ind_idx])
+                
+                # Calculate mean across all genes for this individual
+                if individual_gene_values:
+                    individual_mean = float(np.mean(individual_gene_values))
+                    individual_averages[batch_name].append(individual_mean)
+    
+    # Build gene JSD distributions structure (keep raw data)
     gene_jsd_distributions = {}
     for gene_idx in range(n_genes):
         gene_jsd_distributions[f"gene_{gene_idx}"] = {
@@ -268,8 +295,9 @@ def generate_gene_jsd_analysis(mutant_dishes: List[PetriDish],
                 start_idx += n_genes_in_group
             gene_metadata["gene_rate_groups"] = rate_groups
     
-    # Create final structure
+    # Create final structure with individual averages at the top
     gene_jsd_analysis = {
+        "individual_averages": individual_averages,  # NEW: Individual-level averages across all genes
         "gene_jsd_distributions": gene_jsd_distributions,
         "gene_metadata": gene_metadata
     }
@@ -282,6 +310,12 @@ def generate_gene_jsd_analysis(mutant_dishes: List[PetriDish],
     
     print(f"  Saved gene JSD analysis to {gene_jsd_path}")
     print(f"    Analyzed {n_genes} genes across {sum(gene_metadata['n_individuals_per_batch'].values())} individuals")
+    
+    # Print individual averages summary
+    for batch_name in ["mutant", "control1", "control2"]:
+        if individual_averages[batch_name]:
+            mean_of_averages = np.mean(individual_averages[batch_name])
+            print(f"    {batch_name.capitalize()}: {len(individual_averages[batch_name])} individuals, mean gene JSD = {mean_of_averages:.4f}")
     
     return {
         "gene_jsd_analysis": gene_jsd_analysis,

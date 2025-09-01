@@ -202,29 +202,44 @@ class Cell:
         self.methylation_distribution = distribution
     
     def to_dict(self) -> Dict[str, Any]:
-        """Convert cell state to dictionary for serialization."""
-        data = {
-            'cpg_sites': self.cpg_sites[:],
-            'methylation_proportion': self.methylation_proportion,
-            'methylation_distribution': self.methylation_distribution[:],
-            'cell_jsd': self.cell_JSD,
-            'age': self.age,
-            'gene_size': self.gene_size
+        """
+        Convert cell state to dictionary for serialization.
+        
+        New lean format: Only stores essential cell-specific data.
+        Shared parameters (rate, gene_size) are stored once at the PetriDish level.
+        """
+        return {
+            'methylated': self.cpg_sites[:],  # The methylation state (0s and 1s)
+            'cell_JSD': self.cell_JSD         # The JSD value
+            # Note: age, rate, gene_size are redundant and stored in parameters
+            # methylation_proportion and distribution can be calculated from methylated array
         }
+    
+    @classmethod
+    def from_dict(cls, data: Dict[str, Any], rate: float = None, 
+                  gene_rate_groups: List[Tuple[int, float]] = None,
+                  gene_size: int = GENE_SIZE) -> 'Cell':
+        """
+        Create a Cell from dictionary data (new lean format only).
         
-        # Save rate configuration
-        if self.rate is not None:
-            data['rate'] = self.rate
-        else:
-            data['gene_rate_groups'] = self.gene_rate_groups
+        Args:
+            data: Dictionary with 'methylated' and 'cell_JSD' keys
+            rate: Uniform methylation rate
+            gene_rate_groups: Gene-specific rates
+            gene_size: Sites per gene
+            
+        Returns:
+            Reconstructed Cell object
+        """
+        n = len(data['methylated'])
+        cell = cls(n=n, rate=rate, gene_rate_groups=gene_rate_groups, gene_size=gene_size)
+        cell.cpg_sites = data['methylated'][:]
+        cell.methylated = data['methylated'][:]  # For compatibility
+        cell.cell_JSD = data.get('cell_JSD', 0.0)
         
-        # Save site_rates for faster loading
-        if HAS_NUMPY and isinstance(self.site_rates, np.ndarray):
-            data['site_rates'] = self.site_rates.tolist()
-        else:
-            data['site_rates'] = self.site_rates
+        # Properties are automatically calculated via @property decorators
         
-        return data
+        return cell
 
 
 class PetriDish:
@@ -538,16 +553,35 @@ class PetriDish:
         import time
         save_start = time.time()
         
-        # Prepare data to save - include both cell_history and gene_jsd_history
-        save_data = {}
+        # Prepare data to save with new format
+        save_data = {
+            'parameters': {
+                'rate': self.rate,
+                'gene_rate_groups': self.gene_rate_groups,  # Keep as is (None or list)
+                'n': self.n,
+                'gene_size': self.gene_size,
+                'growth_phase': self.growth_phase,
+                'years': self.year,
+                'seed': self.seed,
+                'track_cell_history': self.track_cell_history,
+                'track_gene_jsd': self.track_gene_jsd
+            },
+            'history': {}
+        }
         
-        # If we have cell_history, save it directly (for backward compatibility)
+        # Add cell history
         if hasattr(self, 'cell_history') and self.cell_history:
-            save_data.update(self.cell_history)
+            for year_str, cells in self.cell_history.items():
+                save_data['history'][year_str] = {
+                    'cells': cells  # Already in dict format from to_dict()
+                }
         
         # Add gene_jsd_history if it exists
         if hasattr(self, 'gene_jsd_history') and self.gene_jsd_history:
-            save_data['gene_jsd_history'] = self.gene_jsd_history
+            for year_str, gene_jsds in self.gene_jsd_history.items():
+                if year_str not in save_data['history']:
+                    save_data['history'][year_str] = {}
+                save_data['history'][year_str]['gene_jsd'] = gene_jsds
         
         # Save with or without compression
         if compress:

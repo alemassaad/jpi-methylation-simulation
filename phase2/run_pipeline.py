@@ -1242,7 +1242,7 @@ def run_pipeline(args, rate_config):
             "bins": args.bins,
             "plot_individuals": args.plot_individuals
         },
-        "results_summary": stats
+        "results_summary": summary_stats
     }
     
     metadata_path = os.path.join(results_dir, "pipeline_metadata.json")

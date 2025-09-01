@@ -139,7 +139,7 @@ seed: 42
 ```
 data/
 └── rate_0.00500-grow13-sites1000-years100/  # Or gene_rates_50x0.004_50x0.005.../
-    └── snap50to60-growth7-quant10x3-mix80[u][n]-seed42-XXXX/
+    └── snap50to60-growth7-quant10x3-mix80[u][n]-seed42-YYYYMMDDHHMMSS/
         ├── snapshots/
         │   ├── year50_snapshot.json.gz
         │   └── year60_snapshot.json.gz
@@ -206,6 +206,7 @@ Created only when `--uniform-mixing` is used. Contains pool size and normalizati
   - `u`: Uniform mixing
   - `n`: Size normalization  
   - `un`: Both features
+- Timestamp: `YYYYMMDDHHMMSS` format for chronological sorting and uniqueness
 
 ## Features
 
@@ -242,7 +243,7 @@ Created only when `--uniform-mixing` is used. Contains pool size and normalizati
 ### Full Reproducibility
 - Comprehensive random seeding
 - Deterministic file operations
-- MD5 hashing for unique directories
+- Timestamp-based unique directories (YYYYMMDDHHMMSS)
 
 ## Analysis Tools
 

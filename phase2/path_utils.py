@@ -5,7 +5,7 @@ Utilities for parsing and generating hierarchical paths for phase1 and phase2.
 
 import os
 import re
-import hashlib
+from datetime import datetime
 from typing import Dict, Optional
 
 
@@ -128,29 +128,10 @@ def generate_step23_output_dir(args, sim_params: Dict) -> str:
                   f"mix{args.mix_ratio}{mix_suffix}-"
                   f"seed{args.seed}")
     
-    # Add 4-char hash for uniqueness
-    # Include all parameters in hash to ensure uniqueness
-    rate_hash_part = args.gene_rate_groups if hasattr(args, 'gene_rate_groups') and args.gene_rate_groups else f"{args.rate:.5f}"
-    hash_input = (f"{rate_hash_part}-{sim_params['growth_phase']}-"
-                  f"{sim_params['n_sites']}-{sim_params['sim_years']}-"
-                  f"{args.first_snapshot}-{args.second_snapshot}-"
-                  f"{args.individual_growth_phase}-{args.n_quantiles}-"
-                  f"{args.cells_per_quantile}-{args.mix_ratio}-{args.seed}")
-    hash_str = hashlib.md5(hash_input.encode()).hexdigest()[:4]
-    level2 = f"{params_str}-{hash_str}"
+    # Add timestamp for uniqueness (YYYYMMDDHHMMSS format)
+    timestamp = datetime.now().strftime("%Y%m%d%H%M%S")
+    level2 = f"{params_str}-{timestamp}"
     
     return os.path.join(args.output_dir, level1, level2)
 
 
-def compute_hash(params_str: str, length: int = 4) -> str:
-    """
-    Compute a hash of the given parameters string.
-    
-    Args:
-        params_str: String containing all parameters
-        length: Number of hex characters to return (default 4)
-        
-    Returns:
-        Hash string of specified length
-    """
-    return hashlib.md5(params_str.encode()).hexdigest()[:length]

@@ -1089,74 +1089,74 @@ def run_pipeline(args, rate_config):
         
         print(f"  Created and saved {len(control2_dishes)} control2 individuals")
     
-    # ========================================================================
-    # Generate Individual Growth Trajectories
-    # ========================================================================
-    print(f"\n{'='*60}")
-    print("Generating Individual Growth Trajectories")
-    print(f"{'='*60}")
-    
-    # Create output directory for individual trajectories
-    individual_trajectories_dir = os.path.join(results_dir, 'individual_trajectories')
-    os.makedirs(individual_trajectories_dir, exist_ok=True)
-    
-    # Plot mutant individuals
-    print("\n  Creating plots for mutant individuals...")
-    mutant_plot_count = 0
-    for i, filename in enumerate(sorted(os.listdir(mutant_dir)), 1):
-        if filename.endswith(('.json', '.json.gz')):
-            filepath = os.path.join(mutant_dir, filename)
-            try:
-                # Load with history
-                petri = load_petri_dish(filepath, include_cell_history=True)
+# ========================================================================
+# Generate Individual Growth Trajectories
+# ========================================================================
+print(f"\n{'='*60}")
+print("Generating Individual Growth Trajectories")
+print(f"{'='*60}")
+
+# Create output directory for individual trajectories
+individual_trajectories_dir = os.path.join(results_dir, 'individual_trajectories')
+os.makedirs(individual_trajectories_dir, exist_ok=True)
+
+# Plot mutant individuals
+print("\n  Creating plots for mutant individuals...")
+mutant_plot_count = 0
+for i, filename in enumerate(sorted(os.listdir(mutant_dir)), 1):
+    if filename.endswith(('.json', '.json.gz')):
+        filepath = os.path.join(mutant_dir, filename)
+        try:
+            # Load with history
+            petri = load_petri_dish(filepath, include_cell_history=True)
+            
+            # Check if history exists
+            if hasattr(petri, 'cell_history') and petri.cell_history:
+                plotter = PetriDishPlotter(petri)
                 
-                # Check if history exists
-                if hasattr(petri, 'cell_history') and petri.cell_history:
-                    plotter = PetriDishPlotter(petri)
-                    
-                    # Generate plots
-                    jsd_path = os.path.join(individual_trajectories_dir, f"mutant_{i:02d}_jsd.png")
-                    meth_path = os.path.join(individual_trajectories_dir, f"mutant_{i:02d}_methylation.png")
-                    
-                    plotter.plot_jsd(f"Mutant Individual {i:02d}", jsd_path)
-                    plotter.plot_methylation(f"Mutant Individual {i:02d}", meth_path)
-                    
-                    mutant_plot_count += 1
-                    print(f"    ✓ Plotted mutant_{i:02d} trajectories")
-            except Exception as e:
-                print(f"    ⚠️  Could not plot mutant_{i:02d}: {str(e)}")
-    
-    # Plot control1 individuals
-    print("\n  Creating plots for control1 individuals...")
-    control1_plot_count = 0
-    for i, filename in enumerate(sorted(os.listdir(control1_dir)), 1):
-        if filename.endswith(('.json', '.json.gz')):
-            filepath = os.path.join(control1_dir, filename)
-            try:
-                # Load with history
-                petri = load_petri_dish(filepath, include_cell_history=True)
+                # Generate plots
+                jsd_path = os.path.join(individual_trajectories_dir, f"mutant_{i:02d}_jsd.png")
+                meth_path = os.path.join(individual_trajectories_dir, f"mutant_{i:02d}_methylation.png")
                 
-                # Check if history exists
-                if hasattr(petri, 'cell_history') and petri.cell_history:
-                    plotter = PetriDishPlotter(petri)
-                    
-                    # Generate plots
-                    jsd_path = os.path.join(individual_trajectories_dir, f"control1_{i:02d}_jsd.png")
-                    meth_path = os.path.join(individual_trajectories_dir, f"control1_{i:02d}_methylation.png")
-                    
-                    plotter.plot_jsd(f"Control1 Individual {i:02d}", jsd_path)
-                    plotter.plot_methylation(f"Control1 Individual {i:02d}", meth_path)
-                    
-                    control1_plot_count += 1
-                    print(f"    ✓ Plotted control1_{i:02d} trajectories")
-            except Exception as e:
-                print(f"    ⚠️  Could not plot control1_{i:02d}: {str(e)}")
-    
-    print(f"\n  Skipping control2 (pure snapshots, no growth trajectories)")
-    print(f"  ✓ Generated {(mutant_plot_count + control1_plot_count) * 2} trajectory plots in {individual_trajectories_dir}")
-    
-    # ========================================================================
-    # STAGE 8: Analysis
+                plotter.plot_jsd(f"Mutant Individual {i:02d}", jsd_path)
+                plotter.plot_methylation(f"Mutant Individual {i:02d}", meth_path)
+                
+                mutant_plot_count += 1
+                print(f"    ✓ Plotted mutant_{i:02d} trajectories")
+        except Exception as e:
+            print(f"    ⚠️  Could not plot mutant_{i:02d}: {str(e)}")
+
+# Plot control1 individuals
+print("\n  Creating plots for control1 individuals...")
+control1_plot_count = 0
+for i, filename in enumerate(sorted(os.listdir(control1_dir)), 1):
+    if filename.endswith(('.json', '.json.gz')):
+        filepath = os.path.join(control1_dir, filename)
+        try:
+            # Load with history
+            petri = load_petri_dish(filepath, include_cell_history=True)
+            
+            # Check if history exists
+            if hasattr(petri, 'cell_history') and petri.cell_history:
+                plotter = PetriDishPlotter(petri)
+                
+                # Generate plots
+                jsd_path = os.path.join(individual_trajectories_dir, f"control1_{i:02d}_jsd.png")
+                meth_path = os.path.join(individual_trajectories_dir, f"control1_{i:02d}_methylation.png")
+                
+                plotter.plot_jsd(f"Control1 Individual {i:02d}", jsd_path)
+                plotter.plot_methylation(f"Control1 Individual {i:02d}", meth_path)
+                
+                control1_plot_count += 1
+                print(f"    ✓ Plotted control1_{i:02d} trajectories")
+        except Exception as e:
+            print(f"    ⚠️  Could not plot control1_{i:02d}: {str(e)}")
+
+print(f"\n  Skipping control2 (pure snapshots, no growth trajectories)")
+print(f"  ✓ Generated {(mutant_plot_count + control1_plot_count) * 2} trajectory plots in {individual_trajectories_dir}")
+
+# ========================================================================
+# STAGE 8: Analysis
     # ========================================================================
     print(f"\n{'='*60}")
     print("STAGE 8: Analysis and Visualization")
@@ -1212,7 +1212,7 @@ def run_pipeline(args, rate_config):
         gene_dist_path = os.path.join(results_dir, "gene_jsd_distribution.png")
         plot_gene_jsd_distribution_comparison(
             snapshot1_cells, snapshot2_cells, 
-            first_snapshot, second_snapshot, gene_dist_path
+            args.first_snapshot, args.second_snapshot, gene_dist_path
         )
         
     except Exception as e:
@@ -1235,8 +1235,8 @@ def run_pipeline(args, rate_config):
         print(f"\nGenerating phase1-style gene JSD plots from simulation data...")
         
         # Load the original simulation data
-        print(f"  Loading original simulation: {simulation_file}")
-        with gzip.open(simulation_file, 'rt') as f:
+        print(f"  Loading original simulation: {args.simulation}")
+        with gzip.open(args.simulation, 'rt') as f:
             sim_data = json.load(f)
         
         # Check if gene_jsd_history exists in simulation
@@ -1319,9 +1319,9 @@ def run_pipeline(args, rate_config):
             if gene_rate_groups:
                 # Convert gene_rate_groups format
                 rate_groups = [(g[0], g[1]) for g in gene_rate_groups]
-                original_petri = PetriDish(gene_rate_groups=rate_groups, track_cell_history=True)
+                original_petri = PetriDish(gene_rate_groups=rate_groups)
             else:
-                original_petri = PetriDish(rate=rate, track_cell_history=True)
+                original_petri = PetriDish(rate=rate)
             
             # Build cell history from simulation data
             original_petri.cell_history = {}

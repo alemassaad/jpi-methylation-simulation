@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Plot JSD vs time from phase1 simulation history using Plotly.
+Plot Cell JSD vs time from phase1 simulation history using Plotly.
 Shows mean with 5-95 percentile bands.
 Adapted for the hierarchical directory structure and PetriDish simulations.
 Now uses PetriDishPlotter for consistency.
@@ -123,7 +123,7 @@ def detect_growth_phase(stats):
     return 13
 
 def create_jsd_plot(stats, filename):
-    """Create JSD-only plot with growth phase indicator and cell count."""
+    """Create Cell JSD-only plot with growth phase indicator and cell count."""
     # Create figure with secondary y-axis
     fig = make_subplots(specs=[[{"secondary_y": True}]])
     
@@ -201,7 +201,7 @@ def create_jsd_plot(stats, filename):
     # Update layout
     fig.update_layout(
         title=dict(
-            text=f"JSD Score vs Time<br><sub>{filename}</sub>",
+            text=f"Cell JSD Score vs Time<br><sub>{filename}</sub>",
             font=dict(size=16)
         ),
         xaxis_title="Age (years)",
@@ -222,7 +222,7 @@ def create_jsd_plot(stats, filename):
     
     # Set axis titles and formatting
     fig.update_xaxes(showgrid=True, gridcolor='rgba(0,0,0,0.1)')
-    fig.update_yaxes(title_text="JSD Score", secondary_y=False, showgrid=True, gridcolor='rgba(0,0,0,0.1)')
+    fig.update_yaxes(title_text="Cell JSD Score", secondary_y=False, showgrid=True, gridcolor='rgba(0,0,0,0.1)')
     fig.update_yaxes(title_text="Cell Count", secondary_y=True, showgrid=False)
     
     # Add annotation with final statistics
@@ -395,10 +395,10 @@ def create_methylation_plot(stats, filename):
     return fig
 
 def create_combined_plot(stats, filename):
-    """Create combined JSD and methylation plot."""
+    """Create combined Cell JSD and methylation plot."""
     fig = make_subplots(
         rows=2, cols=1,
-        subplot_titles=('JSD Score vs Time', 
+        subplot_titles=('Cell JSD Score vs Time', 
                       'Methylation Proportion vs Time'),
         vertical_spacing=0.12,
         row_heights=[0.5, 0.5],
@@ -570,7 +570,7 @@ def create_combined_plot(stats, filename):
     # Update axes
     fig.update_xaxes(title_text="", row=1, col=1, showgrid=True, gridcolor='rgba(0,0,0,0.1)')
     fig.update_xaxes(title_text="Age (years)", row=2, col=1, showgrid=True, gridcolor='rgba(0,0,0,0.1)')
-    fig.update_yaxes(title_text="JSD Score", row=1, col=1, secondary_y=False, showgrid=True, gridcolor='rgba(0,0,0,0.1)')
+    fig.update_yaxes(title_text="Cell JSD Score", row=1, col=1, secondary_y=False, showgrid=True, gridcolor='rgba(0,0,0,0.1)')
     fig.update_yaxes(title_text="Cell Count", row=1, col=1, secondary_y=True, showgrid=False)
     fig.update_yaxes(title_text="Methylation (%)", row=2, col=1, secondary_y=False, showgrid=True, gridcolor='rgba(0,0,0,0.1)')
     fig.update_yaxes(title_text="Cell Count", row=2, col=1, secondary_y=True, showgrid=False)
@@ -583,9 +583,9 @@ def create_combined_plot(stats, filename):
     annotation_text = (
         f"<b>Final Statistics (Year {final_year}):</b><br>"
         f"Population: {final_pop} cells<br>"
-        f"JSD Mean: {stats['cell_jsd']['mean'][final_idx]:.4f}<br>"
-        f"JSD 25-75%: [{stats['cell_jsd']['p25'][final_idx]:.4f}, {stats['cell_jsd']['p75'][final_idx]:.4f}]<br>"
-        f"JSD 5-95%: [{stats['cell_jsd']['p5'][final_idx]:.4f}, {stats['cell_jsd']['p95'][final_idx]:.4f}]<br>"
+        f"Cell JSD Mean: {stats['cell_jsd']['mean'][final_idx]:.4f}<br>"
+        f"Cell JSD 25-75%: [{stats['cell_jsd']['p25'][final_idx]:.4f}, {stats['cell_jsd']['p75'][final_idx]:.4f}]<br>"
+        f"Cell JSD 5-95%: [{stats['cell_jsd']['p5'][final_idx]:.4f}, {stats['cell_jsd']['p95'][final_idx]:.4f}]<br>"
         f"Methylation Mean: {stats['methylation']['mean'][final_idx]:.2f}%<br>"
         f"Methylation 25-75%: [{stats['methylation']['p25'][final_idx]:.2f}%, "
         f"{stats['methylation']['p75'][final_idx]:.2f}%]<br>"

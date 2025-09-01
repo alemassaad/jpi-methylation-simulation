@@ -25,7 +25,7 @@ from pipeline_utils import load_petri_dish, load_all_petri_dishes, get_jsd_array
 def plot_jsd_distribution_from_cells(cells: List[Cell], bins: int, output_path: str, 
                                     rate: Optional[float] = None) -> None:
     """
-    Create histogram of JSD distribution from Cell objects.
+    Create histogram of cell JSD distribution from Cell objects.
     
     Args:
         cells: List of Cell objects
@@ -33,7 +33,7 @@ def plot_jsd_distribution_from_cells(cells: List[Cell], bins: int, output_path: 
         output_path: Path to save plot
         rate: Methylation rate (optional, for display)
     """
-    print(f"\nPlotting JSD distribution...")
+    print(f"\nPlotting Cell JSD distribution...")
     
     # Extract JSD values directly from Cell objects
     jsd_values = np.array([cell.cell_JSD for cell in cells])
@@ -67,12 +67,12 @@ def plot_jsd_distribution_from_cells(cells: List[Cell], bins: int, output_path: 
         x=x_step,
         y=y_step,
         mode='lines',
-        name='JSD Distribution',
+        name='Cell JSD Distribution',
         line=dict(color='#1f77b4', width=2),
         fill='tozeroy',
         fillcolor='rgba(31, 119, 180, 0.3)',
         showlegend=False,
-        hovertemplate='JSD: %{x:.4f}<br>Count: %{y}<extra></extra>'
+        hovertemplate='Cell JSD: %{x:.4f}<br>Count: %{y}<extra></extra>'
     ))
     
     # Add mean line
@@ -121,11 +121,11 @@ def plot_jsd_distribution_from_cells(cells: List[Cell], bins: int, output_path: 
     
     fig.update_layout(
         title=dict(
-            text=f"JSD Distribution at Year {year}<br>"
+            text=f"Cell JSD Distribution at Year {year}<br>"
                  f"<sub>{len(cells)} cells{rate_text}</sub>",
             font=dict(size=16)
         ),
-        xaxis_title="JSD Score",
+        xaxis_title="Cell JSD Score",
         yaxis_title="Count",
         template="plotly_white",
         width=1200,
@@ -475,7 +475,7 @@ def create_comparison_plot_from_jsds(mutant_jsds: np.ndarray,
     # Clean layout with proper spacing
     fig.update_layout(
         title=dict(
-            text="Mean JSD Distribution Comparison",
+            text="Mean Cell JSD per Individual",
             font=dict(size=16),
             x=0.5,
             xanchor='center'
@@ -489,7 +489,7 @@ def create_comparison_plot_from_jsds(mutant_jsds: np.ndarray,
             title=""
         ),
         yaxis=dict(
-            title='Mean JSD per Individual',
+            title='Mean Cell JSD per Individual',
             showgrid=True,
             gridcolor='lightgray',
             range=[annotation_y - 0.02, y_max + 0.01]
@@ -567,7 +567,7 @@ def plot_cell_level_distributions(mutant_dishes: List[PetriDish],
                  "<sub>All cells from all individuals</sub>",
             font=dict(size=16)
         ),
-        xaxis_title="JSD Score",
+        xaxis_title="Cell JSD Score",
         yaxis_title="Count",
         barmode='overlay',
         template="plotly_white",
@@ -588,3 +588,490 @@ def plot_cell_level_distributions(mutant_dishes: List[PetriDish],
         os.makedirs(os.path.dirname(output_path), exist_ok=True)
     fig.write_image(output_path, width=1200, height=600, scale=2)
     print(f"    Saved plot to {output_path}")
+
+
+def plot_gene_jsd_distribution_comparison(snapshot1_cells, snapshot2_cells, 
+                                          year1, year2, output_path):
+    """
+    Overlapping histograms comparing gene JSD distributions at two time points.
+    
+    Args:
+        snapshot1_cells: List of Cell objects from first snapshot
+        snapshot2_cells: List of Cell objects from second snapshot
+        year1: Year of first snapshot
+        year2: Year of second snapshot
+        output_path: Path to save the plot
+    """
+    # Import plotly here to avoid dependency issues
+    try:
+        import plotly.graph_objects as go
+    except ImportError:
+        raise ImportError("Plotly is required for plotting. Install with: pip install plotly kaleido")
+    
+    print(f"\n  Creating gene JSD distribution comparison plot...")
+    
+    # Calculate gene JSD for each snapshot
+    # Create temporary PetriDish objects to calculate gene JSD
+    from cell import PetriDish
+    
+    petri1 = PetriDish()
+    petri1.cells = snapshot1_cells
+    gene_jsds1 = petri1.calculate_gene_jsd()
+    
+    petri2 = PetriDish()
+    petri2.cells = snapshot2_cells
+    gene_jsds2 = petri2.calculate_gene_jsd()
+    
+    print(f"    Year {year1}: {len(gene_jsds1)} genes")
+    print(f"    Year {year2}: {len(gene_jsds2)} genes")
+    
+    # Calculate statistics
+    mean1 = np.mean(gene_jsds1)
+    mean2 = np.mean(gene_jsds2)
+    median1 = np.median(gene_jsds1)
+    median2 = np.median(gene_jsds2)
+    max1 = np.max(gene_jsds1)
+    max2 = np.max(gene_jsds2)
+    
+    # Create figure
+    fig = go.Figure()
+    
+    # Add histogram for year 1
+    fig.add_trace(go.Histogram(
+        x=gene_jsds1,
+        name=f'Year {year1}',
+        opacity=0.5,
+        marker_color='#1f77b4',
+        nbinsx=50,
+        histnorm='',
+        hovertemplate=f'Year {year1}<br>Gene JSD: %{{x:.4f}}<br>Count: %{{y}}<extra></extra>'
+    ))
+    
+    # Add histogram for year 2
+    fig.add_trace(go.Histogram(
+        x=gene_jsds2,
+        name=f'Year {year2}',
+        opacity=0.5,
+        marker_color='#ff7f0e',
+        nbinsx=50,
+        histnorm='',
+        hovertemplate=f'Year {year2}<br>Gene JSD: %{{x:.4f}}<br>Count: %{{y}}<extra></extra>'
+    ))
+    
+    # Add statistics annotation
+    stats_text = (f"<b>Year {year1} Stats</b><br>"
+                  f"Mean: {mean1:.3f}<br>"
+                  f"Median: {median1:.3f}<br>"
+                  f"Max: {max1:.3f}<br><br>"
+                  f"<b>Year {year2} Stats</b><br>"
+                  f"Mean: {mean2:.3f}<br>"
+                  f"Median: {median2:.3f}<br>"
+                  f"Max: {max2:.3f}")
+    
+    fig.add_annotation(
+        text=stats_text,
+        xref="paper", yref="paper",
+        x=0.98,
+        y=0.97,
+        showarrow=False,
+        font=dict(size=11, family="Arial"),
+        align="right",
+        xanchor="right",
+        yanchor="top",
+        bgcolor="rgba(255, 255, 255, 0.9)",
+        bordercolor="#333333",
+        borderwidth=1
+    )
+    
+    # Update layout
+    fig.update_layout(
+        title=dict(
+            text=f"Gene JSD Distribution: Year {year1} vs Year {year2}",
+            font=dict(size=16)
+        ),
+        xaxis_title="Gene JSD Score",
+        yaxis_title="Number of Genes",
+        barmode='overlay',
+        template="plotly_white",
+        width=1200,
+        height=600,
+        showlegend=True,
+        legend=dict(
+            x=0.7,
+            y=0.3,
+            bgcolor="rgba(255, 255, 255, 0.9)",
+            bordercolor="#333333",
+            borderwidth=1
+        )
+    )
+    
+    # Update axes with grid
+    fig.update_xaxes(showgrid=True, gridcolor='rgba(0,0,0,0.1)')
+    fig.update_yaxes(showgrid=True, gridcolor='rgba(0,0,0,0.1)')
+    
+    # Save
+    if os.path.dirname(output_path):
+        os.makedirs(os.path.dirname(output_path), exist_ok=True)
+    fig.write_image(output_path, width=1200, height=600, scale=2)
+    print(f"    Saved gene JSD distribution comparison to {output_path}")
+
+
+def plot_gene_vs_cell_jsd_comparison(mutant_dishes, control1_dishes, control2_dishes,
+                                     output_path):
+    """
+    Scatter plot comparing mean gene JSD vs mean cell JSD.
+    
+    Args:
+        mutant_dishes: List of mutant PetriDish objects
+        control1_dishes: List of control1 PetriDish objects
+        control2_dishes: List of control2 PetriDish objects
+        output_path: Path to save the plot
+    """
+    # Import plotly here to avoid dependency issues
+    try:
+        import plotly.graph_objects as go
+        from scipy import stats
+    except ImportError:
+        raise ImportError("Plotly and scipy are required for plotting. Install with: pip install plotly scipy kaleido")
+    
+    print(f"\n  Creating gene vs cell JSD comparison plot...")
+    
+    def calculate_individual_jsds(dishes):
+        """Calculate mean cell JSD and mean gene JSD for each individual."""
+        cell_jsds = []
+        gene_jsds = []
+        
+        for petri in dishes:
+            # Mean cell JSD
+            individual_cell_jsds = [cell.cell_JSD for cell in petri.cells]
+            mean_cell_jsd = np.mean(individual_cell_jsds) if individual_cell_jsds else 0.0
+            cell_jsds.append(mean_cell_jsd)
+            
+            # Mean gene JSD
+            individual_gene_jsds = petri.calculate_gene_jsd()
+            mean_gene_jsd = np.mean(individual_gene_jsds) if individual_gene_jsds else 0.0
+            gene_jsds.append(mean_gene_jsd)
+        
+        return np.array(cell_jsds), np.array(gene_jsds)
+    
+    # Calculate JSD values for each group
+    mutant_cell_jsds, mutant_gene_jsds = calculate_individual_jsds(mutant_dishes)
+    control1_cell_jsds, control1_gene_jsds = calculate_individual_jsds(control1_dishes)
+    control2_cell_jsds, control2_gene_jsds = calculate_individual_jsds(control2_dishes)
+    
+    print(f"    Mutant: {len(mutant_cell_jsds)} individuals")
+    print(f"    Control1: {len(control1_cell_jsds)} individuals")
+    print(f"    Control2: {len(control2_cell_jsds)} individuals")
+    
+    # Calculate correlations for each group
+    def safe_correlation(x, y):
+        """Calculate correlation, handling edge cases."""
+        try:
+            if len(x) > 1 and len(y) > 1 and np.std(x) > 0 and np.std(y) > 0:
+                r, p = stats.pearsonr(x, y)
+                return r, p
+            else:
+                return np.nan, np.nan
+        except:
+            return np.nan, np.nan
+    
+    mutant_r, mutant_p = safe_correlation(mutant_cell_jsds, mutant_gene_jsds)
+    control1_r, control1_p = safe_correlation(control1_cell_jsds, control1_gene_jsds)
+    control2_r, control2_p = safe_correlation(control2_cell_jsds, control2_gene_jsds)
+    
+    # Overall correlation
+    all_cell_jsds = np.concatenate([mutant_cell_jsds, control1_cell_jsds, control2_cell_jsds])
+    all_gene_jsds = np.concatenate([mutant_gene_jsds, control1_gene_jsds, control2_gene_jsds])
+    overall_r, overall_p = safe_correlation(all_cell_jsds, all_gene_jsds)
+    
+    # Create figure
+    fig = go.Figure()
+    
+    # Add mutant points (blue circles)
+    fig.add_trace(go.Scatter(
+        x=mutant_cell_jsds,
+        y=mutant_gene_jsds,
+        mode='markers',
+        name='Mutant',
+        marker=dict(
+            color='#1f77b4',
+            size=8,
+            symbol='circle',
+            opacity=0.7,
+            line=dict(width=1, color='white')
+        ),
+        hovertemplate='Mutant<br>Cell JSD: %{x:.4f}<br>Gene JSD: %{y:.4f}<extra></extra>'
+    ))
+    
+    # Add control1 points (orange triangles)
+    fig.add_trace(go.Scatter(
+        x=control1_cell_jsds,
+        y=control1_gene_jsds,
+        mode='markers',
+        name='Control1',
+        marker=dict(
+            color='#ff7f0e',
+            size=8,
+            symbol='triangle-up',
+            opacity=0.7,
+            line=dict(width=1, color='white')
+        ),
+        hovertemplate='Control1<br>Cell JSD: %{x:.4f}<br>Gene JSD: %{y:.4f}<extra></extra>'
+    ))
+    
+    # Add control2 points (green squares)
+    fig.add_trace(go.Scatter(
+        x=control2_cell_jsds,
+        y=control2_gene_jsds,
+        mode='markers',
+        name='Control2',
+        marker=dict(
+            color='#2ca02c',
+            size=8,
+            symbol='square',
+            opacity=0.7,
+            line=dict(width=1, color='white')
+        ),
+        hovertemplate='Control2<br>Cell JSD: %{x:.4f}<br>Gene JSD: %{y:.4f}<extra></extra>'
+    ))
+    
+    # Add diagonal reference line (y=x)
+    x_min = min(all_cell_jsds) if len(all_cell_jsds) > 0 else 0
+    x_max = max(all_cell_jsds) if len(all_cell_jsds) > 0 else 1
+    y_min = min(all_gene_jsds) if len(all_gene_jsds) > 0 else 0
+    y_max = max(all_gene_jsds) if len(all_gene_jsds) > 0 else 1
+    
+    # Diagonal line range
+    diag_min = min(x_min, y_min)
+    diag_max = max(x_max, y_max)
+    
+    fig.add_trace(go.Scatter(
+        x=[diag_min, diag_max],
+        y=[diag_min, diag_max],
+        mode='lines',
+        name='y = x',
+        line=dict(color='lightgray', width=1, dash='dash'),
+        hoverinfo='skip',
+        showlegend=False
+    ))
+    
+    # Add statistics box
+    stats_text = "<b>Correlations:</b><br>"
+    if not np.isnan(mutant_r):
+        stats_text += f"Mutant: r={mutant_r:.3f}<br>"
+    else:
+        stats_text += "Mutant: r=N/A<br>"
+        
+    if not np.isnan(control1_r):
+        stats_text += f"Control1: r={control1_r:.3f}<br>"
+    else:
+        stats_text += "Control1: r=N/A<br>"
+        
+    if not np.isnan(control2_r):
+        stats_text += f"Control2: r={control2_r:.3f}<br>"
+    else:
+        stats_text += "Control2: r=N/A<br>"
+        
+    if not np.isnan(overall_r):
+        stats_text += f"Overall: r={overall_r:.3f}"
+    else:
+        stats_text += "Overall: r=N/A"
+    
+    fig.add_annotation(
+        text=stats_text,
+        xref="paper", yref="paper",
+        x=0.98,
+        y=0.97,
+        showarrow=False,
+        font=dict(size=11, family="Arial"),
+        align="right",
+        xanchor="right",
+        yanchor="top",
+        bgcolor="rgba(255, 255, 255, 0.9)",
+        bordercolor="#333333",
+        borderwidth=1
+    )
+    
+    # Update layout
+    fig.update_layout(
+        title=dict(
+            text="Gene JSD vs Cell JSD Comparison",
+            font=dict(size=16)
+        ),
+        xaxis_title="Mean Cell JSD per Individual",
+        yaxis_title="Mean Gene JSD per Individual",
+        template="plotly_white",
+        width=1200,
+        height=600,
+        showlegend=True,
+        legend=dict(
+            x=0.01,
+            y=0.01,
+            bgcolor="rgba(255, 255, 255, 0.9)",
+            bordercolor="#333333",
+            borderwidth=1
+        )
+    )
+    
+    # Update axes with grid
+    fig.update_xaxes(showgrid=True, gridcolor='rgba(0,0,0,0.1)')
+    fig.update_yaxes(showgrid=True, gridcolor='rgba(0,0,0,0.1)')
+    
+    # Save
+    if os.path.dirname(output_path):
+        os.makedirs(os.path.dirname(output_path), exist_ok=True)
+    fig.write_image(output_path, width=1200, height=600, scale=2)
+    print(f"    Saved gene vs cell JSD comparison to {output_path}")
+
+
+def plot_top_variable_genes(petri_dishes, n_top=20, output_path=None):
+    """
+    Bar chart showing the most heterogeneous genes.
+    
+    Args:
+        petri_dishes: List of PetriDish objects to analyze
+        n_top: Number of top genes to show (default: 20)
+        output_path: Path to save the plot (optional)
+    """
+    # Import plotly here to avoid dependency issues
+    try:
+        import plotly.graph_objects as go
+    except ImportError:
+        raise ImportError("Plotly is required for plotting. Install with: pip install plotly kaleido")
+    
+    print(f"\n  Creating top {n_top} variable genes plot...")
+    
+    if not petri_dishes:
+        raise ValueError("No PetriDish objects provided")
+    
+    # Calculate gene JSD for all dishes and average across individuals
+    all_gene_jsds = []
+    for petri in petri_dishes:
+        gene_jsds = petri.calculate_gene_jsd()
+        all_gene_jsds.append(gene_jsds)
+    
+    # Convert to numpy array and calculate mean across individuals
+    all_gene_jsds = np.array(all_gene_jsds)  # Shape: (n_individuals, n_genes)
+    mean_gene_jsds = np.mean(all_gene_jsds, axis=0)  # Mean across individuals
+    
+    n_genes = len(mean_gene_jsds)
+    print(f"    Analyzing {n_genes} genes across {len(petri_dishes)} individuals")
+    
+    # Get top variable genes
+    top_indices = np.argsort(mean_gene_jsds)[-n_top:][::-1]  # Top n_top, highest first
+    top_jsds = mean_gene_jsds[top_indices]
+    top_gene_names = [f"Gene {i}" for i in top_indices]
+    
+    # Check if we have gene rate groups to add rate information
+    rate_info = []
+    if (petri_dishes and petri_dishes[0].cells and 
+        hasattr(petri_dishes[0].cells[0], 'gene_rate_groups') and 
+        petri_dishes[0].cells[0].gene_rate_groups):
+        
+        gene_rate_groups = petri_dishes[0].cells[0].gene_rate_groups
+        gene_to_group = {}
+        gene_start_idx = 0
+        
+        for group_idx, (n_genes_in_group, rate) in enumerate(gene_rate_groups):
+            for gene_idx in range(gene_start_idx, gene_start_idx + n_genes_in_group):
+                gene_to_group[gene_idx] = (group_idx + 1, rate * 100)  # Convert to percentage
+            gene_start_idx += n_genes_in_group
+        
+        # Add rate info to gene names
+        for i, gene_idx in enumerate(top_indices):
+            if gene_idx in gene_to_group:
+                group_num, rate_pct = gene_to_group[gene_idx]
+                top_gene_names[i] = f"Gene {gene_idx} (Group {group_num}: {rate_pct:.1f}%)"
+                rate_info.append(f"Group {group_num}")
+            else:
+                rate_info.append("Unknown")
+    else:
+        rate_info = ["N/A"] * n_top
+    
+    # Create color gradient based on JSD values (light to dark blue)
+    # Normalize JSD values to 0-1 range for color mapping
+    if len(top_jsds) > 0:
+        jsd_min = np.min(top_jsds)
+        jsd_max = np.max(top_jsds)
+        jsd_normalized = (top_jsds - jsd_min) / (jsd_max - jsd_min) if jsd_max > jsd_min else np.ones_like(top_jsds)
+    else:
+        jsd_normalized = np.array([])
+    
+    # Generate colors (light blue to dark blue)
+    colors = []
+    for norm_val in jsd_normalized:
+        # Interpolate between light blue and dark blue
+        light_blue = [173, 216, 230]  # Light blue RGB
+        dark_blue = [25, 25, 112]     # Dark blue RGB
+        color_rgb = [
+            int(light_blue[i] + (dark_blue[i] - light_blue[i]) * norm_val)
+            for i in range(3)
+        ]
+        colors.append(f'rgb({color_rgb[0]}, {color_rgb[1]}, {color_rgb[2]})')
+    
+    # Create figure
+    fig = go.Figure()
+    
+    # Add horizontal bar chart
+    fig.add_trace(go.Bar(
+        x=top_jsds,
+        y=top_gene_names,
+        orientation='h',
+        marker=dict(
+            color=colors,
+            line=dict(color='white', width=0.5)
+        ),
+        hovertemplate='%{y}<br>Gene JSD: %{x:.4f}<extra></extra>'
+    ))
+    
+    # Add statistics annotation
+    stats_text = (f"<b>Top {n_top} Variable Genes</b><br>"
+                  f"Total Genes: {n_genes}<br>"
+                  f"Individuals: {len(petri_dishes)}<br>"
+                  f"Highest JSD: {np.max(top_jsds):.4f}<br>"
+                  f"Mean of Top {n_top}: {np.mean(top_jsds):.4f}")
+    
+    fig.add_annotation(
+        text=stats_text,
+        xref="paper", yref="paper",
+        x=0.98,
+        y=0.97,
+        showarrow=False,
+        font=dict(size=11, family="Arial"),
+        align="right",
+        xanchor="right",
+        yanchor="top",
+        bgcolor="rgba(255, 255, 255, 0.9)",
+        bordercolor="#333333",
+        borderwidth=1
+    )
+    
+    # Update layout
+    fig.update_layout(
+        title=dict(
+            text=f"Top {n_top} Most Heterogeneous Genes",
+            font=dict(size=16)
+        ),
+        xaxis_title="Gene JSD Score",
+        yaxis_title="",
+        template="plotly_white",
+        width=1200,
+        height=max(600, 25 * n_top),  # Adjust height based on number of genes
+        showlegend=False,
+        margin=dict(l=250, r=40, t=60, b=60)  # Extra left margin for gene names
+    )
+    
+    # Update axes with grid
+    fig.update_xaxes(showgrid=True, gridcolor='rgba(0,0,0,0.1)')
+    fig.update_yaxes(showgrid=False)
+    
+    # Save
+    if output_path:
+        if os.path.dirname(output_path):
+            os.makedirs(os.path.dirname(output_path), exist_ok=True)
+        fig.write_image(output_path, width=1200, height=max(600, 25 * n_top), scale=2)
+        print(f"    Saved top variable genes plot to {output_path}")
+    else:
+        fig.show()
+    
+    return fig

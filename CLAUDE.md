@@ -6,6 +6,12 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 Biologically realistic DNA methylation simulation modeling epigenetic drift through cell growth, division, and homeostasis. Uses object-oriented design with Cell and PetriDish classes to simulate how cells accumulate methylation patterns over time.
 
+### Repository Status
+- 8 untracked test files in phase2/tests/ directory (new tests not yet committed)
+- Main branch: main
+- Git repository: Yes
+- Active development: Gene JSD plotting implementation (see GENE_JSD_IMPLEMENTATION_PLAN.md)
+
 ## Biological Background
 
 ### CpG Sites
@@ -38,8 +44,24 @@ Population-level measure of methylation heterogeneity for each gene:
 - Compares distribution to baseline (all unmethylated)
 - Stored as list of JSDs, one per gene
 - Tracks evolution of gene-specific methylation patterns
+- Different from cell_JSD: gene_JSD measures population heterogeneity per gene, cell_JSD measures individual cell divergence
+- Implementation in progress: See GENE_JSD_IMPLEMENTATION_PLAN.md for roadmap
 
 ## Architecture
+
+### Import Structure
+```python
+# Phase 1 imports
+from cell import Cell, PetriDish
+
+# Phase 2 imports (must add phase1 to path first)
+import sys
+sys.path.append(os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'phase1'))
+from cell import PetriDish, Cell
+from pipeline_utils import (...)
+from pipeline_analysis import (...)
+from path_utils import (...)
+```
 
 ### Core Classes (phase1/cell.py)
 ```python
@@ -64,8 +86,12 @@ Key methods:
 - **phase1/**: Simulation engine (single cell → population growth → homeostasis)
   - Growth phase (years 0-growth_phase): Deterministic 2^year cells
   - Steady state (years growth_phase+1-T): Stochastic ~2^growth_phase cells
+  - Key files: `cell.py` (core classes), `run_simulation.py` (CLI), `plot_history.py` (visualization)
 - **phase2/**: Analysis pipeline (quantile sampling → growth → mixing → statistics)
   - 8-stage pipeline from snapshot extraction to statistical analysis
+  - Key files: `run_pipeline.py` (main), `pipeline_utils.py` (helpers), `pipeline_analysis.py` (analysis)
+  - `plot_individuals.py` - Standalone script to generate plots for existing runs
+  - `path_utils.py` - Path generation and parsing utilities
 
 ### Directory Structure
 ```
@@ -91,18 +117,31 @@ phase2/data/rate_0.00500-grow13-sites1000-years100/snap50to60-growth7-quant10x3-
 
 ## Commands
 
+### Linting and Type Checking
+```bash
+# No automated linting or type checking is configured
+# Manual code quality checklist:
+# - Follow PEP 8 conventions (snake_case for functions/variables)
+# - Use descriptive names (e.g., cell_JSD not JSD)
+# - Add type hints for complex functions (Optional[Dict], List[float])
+# - Ensure all tests pass before committing
+```
+
 ### Run Simulation
 ```bash
 cd phase1
 # Uniform methylation rate (all genes methylate at same rate)
-python run_simulation.py --rate 0.005 --years 100 --growth-phase 13 --seed 42
+python3 run_simulation.py --rate 0.005 --years 100 --growth-phase 13 --seed 42
 
 # Gene-specific methylation rates (different gene groups methylate at different rates)
-python run_simulation.py --gene-rate-groups "50:0.004,50:0.0045,50:0.005,50:0.0055" \
+python3 run_simulation.py --gene-rate-groups "50:0.004,50:0.0045,50:0.005,50:0.0055" \
     --years 100 --growth-phase 13 --seed 42
 
-# With gene JSD tracking:
-python run_simulation.py --rate 0.005 --years 100 --track-gene-jsd --seed 42
+# Gene JSD tracking enabled by default:
+python3 run_simulation.py --rate 0.005 --years 100 --growth-phase 13 --seed 42
+
+# Disable gene JSD tracking for performance:
+python3 run_simulation.py --rate 0.005 --years 100 --no-gene-jsd --seed 42
 
 # Quick test: --years 20 --growth-phase 4
 # Performance mode: --no-jsds (disables all JSD calculations)
@@ -134,7 +173,7 @@ data/rate_0.00500/grow13-sites1000-years100-seed42-a3f7/
 **Uniform Rate (from Phase 1 --rate):**
 ```bash
 cd phase2
-python run_pipeline.py --rate 0.005 \
+python3 run_pipeline.py --rate 0.005 \
     --simulation ../phase1/data/rate_0.00500/grow13-*/simulation.json.gz \
     --first-snapshot 50 --second-snapshot 60 --seed 42
 ```
@@ -142,14 +181,14 @@ python run_pipeline.py --rate 0.005 \
 **Gene-Specific Rates (NEW - from Phase 1 --gene-rate-groups):**
 ```bash
 cd phase2
-python run_pipeline.py --gene-rate-groups "50:0.004,50:0.0045,50:0.005,50:0.0055" \
+python3 run_pipeline.py --gene-rate-groups "50:0.004,50:0.0045,50:0.005,50:0.0055" \
     --simulation ../phase1/data/gene_rates_*/simulation.json.gz \
     --first-snapshot 50 --second-snapshot 60 --seed 42
 ```
 
 **With Uniform Mixing (FIXED - no more warnings):**
 ```bash
-python run_pipeline.py --rate 0.005 \
+python3 run_pipeline.py --rate 0.005 \
     --simulation ../phase1/data/.../simulation.json.gz \
     --first-snapshot 50 --second-snapshot 60 \
     --uniform-mixing --seed 42
@@ -157,7 +196,7 @@ python run_pipeline.py --rate 0.005 \
 
 **With Individual Growth Plots:**
 ```bash
-python run_pipeline.py --rate 0.005 \
+python3 run_pipeline.py --rate 0.005 \
     --simulation ../phase1/data/.../simulation.json.gz \
     --first-snapshot 50 --second-snapshot 60 \
     --plot-individuals --seed 42
@@ -165,7 +204,7 @@ python run_pipeline.py --rate 0.005 \
 
 **Generate plots for existing run:**
 ```bash
-python plot_individuals.py data/.../pipeline_output_dir/
+python3 plot_individuals.py data/.../pipeline_output_dir/
 ```
 
 **Quick test parameters:** `--n-quantiles 4 --cells-per-quantile 1 --individual-growth-phase 2`
@@ -173,62 +212,87 @@ python plot_individuals.py data/.../pipeline_output_dir/
 
 Expected pipeline output:
 ```
-=== PHASE 2 PIPELINE STARTING ===
-Rate: 0.005
-Seed: 42
+============================================================
+TIMELINE BREAKDOWN
+============================================================
+📊 Individual Simulation Timeline:
+   Year 50: Sample individual cells
+   Years 50→57: Exponential growth (1 → 128 cells)
+   Years 57→60: Homeostasis (~128 cells)
+   Year 60: Extract for mixing
 
-Stage 1: Extracting year 50 snapshot...
-  Found 8192 cells
+📈 Growth Summary:
+   Total aging time: 10 years
+   Exponential phase: 7 years (70%)
+   Homeostasis phase: 3 years (30%)
+   Target population: 128 cells (2^7)
 
-Stage 2: Plotting cell_JSD distribution...
-  Mean cell_JSD: 0.0456
-  Median cell_JSD: 0.0448
-  SD: 0.0089
+================================================================================
+PHASE 2 PIPELINE
+================================================================================
+Rate: 0.005 (or gene_rates_50x0.00400_50x0.00450_... for gene-specific)
+Simulation: ../phase1/data/...
+Output: data/...
+Quantiles: 10 (deciles)
+Cells per quantile: 3
+Total individuals: 30 per group
 
-Stage 3: Creating individuals from quantiles...
-  Mutant: 30 individuals (3 from each decile)
-  Control1: 30 individuals (uniform sampling)
+============================================================
+STAGE 1: Extract Year 50 Snapshot
+============================================================
+  Found 8192 cells (or loading from cache)
 
-Stage 4: Growing individuals for 10 years...
-  Growing from year 50 to year 60
-  Individual growth phase: 7 years (target: 128 cells)
-  
-Stage 5: Extracting year 60 snapshot...
+============================================================
+STAGE 2: Plot JSD Distribution
+============================================================
+  Plotting Cell JSD distribution...
+  Mean: 0.0456, Median: 0.0448, SD: 0.0089
 
-Stage 6: Mixing populations (80% snapshot, 20% grown)...
-  Target size per individual: ~400 cells
-  
-Stage 7: Creating Control2 (pure snapshot)...
-
-Stage 8: Statistical analysis...
-  T-test Mutant vs Control1: p=0.0234
-  T-test Mutant vs Control2: p=0.0012
-  T-test Control1 vs Control2: p=0.4567
+[Stages 3-8 continue with similar formatting...]
 
 Pipeline complete. Results in:
 data/rate_0.00500-grow13-sites1000-years100/snap50to60-growth7-quant10x3-mix80-seed42-b8c9/
 ```
 
+Note: Pipeline output is logged to `pipeline_output.log` in phase2 directory
+
 ### Run Tests
 ```bash
 # Phase 1 tests (all are standalone scripts)
 cd phase1/tests
-python test_small.py           # Quick validation
-python test_comprehensive.py   # Full features
-python test_edge_cases.py      # Edge cases
+python3 test_small.py           # Quick validation (10 years, 16 cells)
+python3 test_comprehensive.py   # Full features
+python3 test_edge_cases.py      # Edge cases
+python3 test_gene_jsd.py        # Gene JSD tracking functionality
 
 # Phase 2 tests  
 cd phase2/tests
-python test_reproducibility_robust.py   # Reproducibility
-python test_dynamic_mix_year.py        # Dynamic year calculations
-python test_history_tracking.py        # History tracking and plotting
-python test_normalization_comprehensive.py  # Size normalization
+# Core functionality tests
+python3 test_reproducibility_robust.py   # Reproducibility
+python3 test_dynamic_mix_year.py        # Dynamic year calculations
+python3 test_history_tracking.py        # History tracking and plotting
+python3 test_normalization_comprehensive.py  # Size normalization
+
+# Gene-specific rate tests
+python3 test_gene_rate_basic.py         # Gene-specific rate support
+python3 test_gene_rate_support.py       # Gene rate pipeline integration
+python3 test_petri_gene_rates.py        # PetriDish gene rate functions
+
+# Integration and pipeline tests
+python3 test_final_integration.py       # Full pipeline integration test
+python3 test_pipeline_start.py          # Pipeline initialization
+python3 test_helper_functions.py        # Utility function tests
+python3 test_plot_generation.py         # Plot generation tests
+python3 test_real_path.py               # Path utility tests
+
+# Run all uniform mixing tests
+python3 run_all_uniform_tests.py        # Complete uniform mixing test suite
 ```
 
 ### Compare Pipeline Runs
 ```bash
 cd phase2/tools
-python compare_two_runs.py --dir1 path1 --dir2 path2
+python3 compare_two_runs.py --dir1 path1 --dir2 path2
 ```
 
 ## Key Implementation Details
@@ -238,6 +302,13 @@ python compare_two_runs.py --dir1 path1 --dir2 path2
 - **Inheritance**: Daughter cells inherit parent's methylation pattern exactly
 - **Population dynamics**: Growth phase → steady state via division and culling
 - **Gene-level distribution**: Tracks methylation per gene (5 sites/gene by default)
+
+### Development Roadmap
+Active development is tracked in `GENE_JSD_IMPLEMENTATION_PLAN.md`:
+- **Part 1**: Fix missing cell JSD labels in plots
+- **Part 2**: Implement gene JSD visualizations (heatmaps, distributions, correlations)
+- **Part 3**: Add gene JSD statistics and analysis tools
+- Follows existing phase2 design patterns for consistency
 
 ### Variable Methylation Rates
 The simulation supports two methylation modes:
@@ -358,7 +429,7 @@ When using `--uniform-mixing` flag, uses a **3-step normalization approach** (fi
 - **Cell history**: Renamed from `history` to `cell_history` for clarity
 - **Gene JSD history**: New `gene_jsd_history` tracks population-level gene JSDs
 - **--plot-individuals flag**: Enables growth trajectory tracking for phase2 individuals
-- **--track-gene-jsd flag**: Enables gene JSD tracking in phase1
+- **Gene JSD tracking**: Enabled by default in phase1 (use --no-gene-jsd to disable)
 - **PetriDishPlotter class**: Unified plotting for both phases (cell_JSD, methylation, combined)
 - **History format**: Year-indexed dictionary with cell states at each time point
 - **Automatic plotting**: Generates plots at pipeline completion when flag is used
@@ -377,6 +448,13 @@ DEFAULT_CELLS_PER_QUANTILE = 3  # 30 total individuals
 ```
 
 ## Development Guidelines
+
+### Testing Philosophy
+- Tests are standalone Python scripts, not using pytest framework
+- Each test file can be run directly: `python3 test_name.py`
+- Tests include comprehensive output with ✓ marks for passed checks
+- Return exit code 0 for success, 1 for failure
+- Group related tests in single files with a `run_all_tests()` function
 
 ### Important Parameter Names (phase2)
 - Use `--first-snapshot` and `--second-snapshot` (NOT --snapshot-year or --growth-years)
@@ -516,8 +594,8 @@ for cell in petri.cells:
 ## Dependencies
 ```bash
 pip install -r requirements.txt
-# Core: Python 3.7+ standard library
+# Core: Python 3.7+ standard library (no external dependencies for basic simulation)
 # Plotting: plotly>=5.0.0,<6.0.0, kaleido==0.2.1
-# Analysis: scipy, numpy (usually pre-installed)
-# Note: scipy and numpy typically come with scientific Python distributions
+# Analysis: scipy, numpy (imported dynamically if available)
+# Note: scipy and numpy are optional but recommended for full functionality
 ```

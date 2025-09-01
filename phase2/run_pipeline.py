@@ -40,7 +40,10 @@ from pipeline_utils import (
 )
 from pipeline_analysis import (
     plot_jsd_distribution_from_cells,
-    analyze_populations_from_dishes
+    analyze_populations_from_dishes,
+    plot_gene_jsd_distribution_comparison,
+    plot_gene_vs_cell_jsd_comparison,
+    plot_top_variable_genes
 )
 from path_utils import parse_step1_simulation_path, generate_step23_output_dir
 
@@ -768,9 +771,9 @@ def run_pipeline(args, rate_config):
             
             control2_dishes.append(petri)
             
-            # Save
+            # Save (with history if plotting individuals)
             filepath = os.path.join(control2_dir, f"individual_{i:02d}.json.gz")
-            save_petri_dish(petri, filepath)
+            save_petri_dish(petri, filepath, include_cell_history=args.plot_individuals)
         
         print(f"  Created and saved {len(control2_dishes)} control2 individuals")
     
@@ -795,6 +798,100 @@ def run_pipeline(args, rate_config):
     analysis_results = analyze_populations_from_dishes(
         mutant_dishes, control1_dishes, control2_dishes, results_dir
     )
+    
+    # Generate additional gene JSD plots if data is available
+    print(f"\nGenerating additional gene JSD plots...")
+    
+    # Check if we have snapshots for gene JSD distribution comparison
+    try:
+        # Load snapshots for gene JSD comparison
+        snapshot1_path = os.path.join(snapshots_dir, f"year{first_snapshot}_snapshot.json.gz")
+        snapshot2_path = os.path.join(snapshots_dir, f"year{second_snapshot}_snapshot.json.gz")
+        snapshot1_cells = load_snapshot_cells(snapshot1_path)
+        snapshot2_cells = load_snapshot_cells(snapshot2_path)
+        
+        # Gene JSD distribution comparison (year vs year)
+        gene_dist_path = os.path.join(results_dir, "gene_jsd_distribution.png")
+        plot_gene_jsd_distribution_comparison(
+            snapshot1_cells, snapshot2_cells, 
+            first_snapshot, second_snapshot, gene_dist_path
+        )
+        
+    except Exception as e:
+        print(f"  Skipping gene JSD distribution comparison: {e}")
+    
+    # Gene vs Cell JSD scatter plot
+    try:
+        gene_vs_cell_path = os.path.join(results_dir, "gene_vs_cell_jsd.png")
+        plot_gene_vs_cell_jsd_comparison(
+            mutant_dishes, control1_dishes, control2_dishes, gene_vs_cell_path
+        )
+    except Exception as e:
+        print(f"  Skipping gene vs cell JSD comparison: {e}")
+    
+    # Top variable genes plot
+    try:
+        # Combine all dishes for gene variability analysis
+        all_dishes = mutant_dishes + control1_dishes + control2_dishes
+        top_genes_path = os.path.join(results_dir, "top_variable_genes.png")
+        plot_top_variable_genes(all_dishes, n_top=20, output_path=top_genes_path)
+    except Exception as e:
+        print(f"  Skipping top variable genes plot: {e}")
+    
+    # Generate phase1-style gene JSD plots using original simulation data
+    try:
+        print(f"\nGenerating phase1-style gene JSD plots from simulation data...")
+        
+        # Load the original simulation data
+        print(f"  Loading original simulation: {simulation_file}")
+        with gzip.open(simulation_file, 'rt') as f:
+            sim_data = json.load(f)
+        
+        # Check if gene_jsd_history exists in simulation
+        if 'gene_jsd_history' in sim_data:
+            # Create a temporary PetriDish with gene_jsd_history for plotting
+            temp_petri = PetriDish()
+            temp_petri.gene_jsd_history = {int(year): values for year, values in sim_data['gene_jsd_history'].items()}
+            
+            # Add some cells for gene rate group detection (if available)
+            if sim_data.get('history') and len(sim_data['history']) > 0:
+                # Get cells from the last year for gene rate group info
+                last_year_data = list(sim_data['history'].values())[-1]
+                if 'cells' in last_year_data and len(last_year_data['cells']) > 0:
+                    # Convert first cell to get gene rate group info
+                    from pipeline_utils import dict_to_cell
+                    sample_cell = dict_to_cell(last_year_data['cells'][0])
+                    temp_petri.cells = [sample_cell]  # Just need one for gene rate group detection
+            
+            # Create plotter and generate phase1-style plots
+            from cell import PetriDishPlotter
+            plotter = PetriDishPlotter(temp_petri)
+            
+            # Gene JSD Heatmap
+            heatmap_path = os.path.join(results_dir, "simulation_gene_jsd_heatmap.png")
+            plotter.plot_gene_jsd_heatmap(
+                title="Gene JSD Evolution Heatmap (from Phase1 simulation)",
+                output_path=heatmap_path
+            )
+            
+            # Gene Rate Group Comparison (only if gene rate groups exist)
+            if (temp_petri.cells and hasattr(temp_petri.cells[0], 'gene_rate_groups') 
+                and temp_petri.cells[0].gene_rate_groups):
+                rate_comparison_path = os.path.join(results_dir, "simulation_gene_rate_comparison.png")
+                plotter.plot_gene_jsd_by_rate_group(
+                    title="Gene JSD by Rate Group (from Phase1 simulation)",
+                    output_path=rate_comparison_path
+                )
+            else:
+                print(f"    No gene rate groups found - skipping rate comparison plot")
+                
+        else:
+            print(f"    No gene_jsd_history found in simulation")
+            print(f"    This simulation was likely run with --no-gene-jsd or --no-jsds flags")
+            print(f"    Gene JSD tracking is now enabled by default in new simulations")
+            
+    except Exception as e:
+        print(f"  Skipping phase1-style gene JSD plots: {e}")
     
     # Get statistics for summary
     stats = analysis_results['statistics']

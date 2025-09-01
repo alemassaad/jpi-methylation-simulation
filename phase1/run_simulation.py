@@ -48,8 +48,8 @@ def parse_arguments():
                         help='Run simulation without saving results')
     
     # Performance and tracking options
-    parser.add_argument('--track-gene-jsd', action='store_true',
-                        help='Track gene JSD history during simulation')
+    parser.add_argument('--no-gene-jsd', action='store_true',
+                        help='Disable gene JSD tracking (enabled by default)')
     parser.add_argument('--no-jsds', action='store_true',
                         help='Disable all JSD calculations for maximum performance')
     
@@ -170,10 +170,12 @@ def main():
             calculate_jsds=not args.no_jsds
         )
     
-    # Enable gene JSD tracking if requested
-    if args.track_gene_jsd:
+    # Enable history tracking with gene JSD by default (unless disabled)
+    if not hasattr(args, 'no_gene_jsd') or not args.no_gene_jsd:
         petri_dish.enable_history_tracking(start_year=0, track_gene_jsd=True)
-        print("Gene JSD tracking enabled")
+        print("Gene JSD tracking enabled (default behavior)")
+    else:
+        print("Gene JSD tracking disabled by --no-gene-jsd flag")
     
     # Run simulation
     petri_dish.run_simulation(t_max=t_max)

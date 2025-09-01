@@ -114,20 +114,16 @@ def plot_all_individuals(pipeline_dir: str, plot_combined: bool = True) -> None:
             if plot_individual(filepath, plots_dir, "control1", i):
                 success_count += 1
     
-    # Process control2 individuals (usually no history, but check anyway)
+    # Skip control2 individuals (they're pure snapshots with no meaningful growth trajectory)
     if os.path.exists(control2_dir):
-        print("\n  Processing control2 individuals...")
-        control2_files = sorted(glob.glob(os.path.join(control2_dir, "individual_*.json.gz")))
-        for i, filepath in enumerate(control2_files):
-            total_count += 1
-            if plot_individual(filepath, plots_dir, "control2", i):
-                success_count += 1
+        print("\n  Skipping control2 individuals (pure snapshots - no growth trajectory to plot)")
     
     # Summary
     print(f"\n  Summary:")
-    print(f"    Successfully plotted: {success_count}/{total_count} individuals")
+    print(f"    Successfully plotted: {success_count}/{total_count} individuals (mutant + control1)")
     if success_count < total_count:
         print(f"    Note: {total_count - success_count} individuals had no history data")
+    print(f"    Control2 individuals skipped (pure snapshots)")
     print(f"    Plots saved to: {plots_dir}")
 
 

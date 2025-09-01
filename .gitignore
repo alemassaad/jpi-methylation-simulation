@@ -42,3 +42,4 @@ data/
 # Temporary plots during testing
 step*/plots/*.html
 step*/test_plots/
+phase2/pipeline_output.log

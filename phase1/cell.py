@@ -442,7 +442,11 @@ class PetriDish:
             print(f"  Final count: {len(self.cells)} cells (random ~{self.target_population})")
             
         # Store current state after all operations
-        self.cell_history[str(self.year)] = [cell.to_dict() for cell in self.cells]
+        if self.track_cell_history:
+            self._record_history(self.year)
+        else:
+            # Always store in cell_history for backward compatibility
+            self.cell_history[str(self.year)] = [cell.to_dict() for cell in self.cells]
         
         # Report statistics
         jsd_values = [cell.cell_JSD for cell in self.cells]
@@ -457,7 +461,7 @@ class PetriDish:
             t_max: Maximum simulation time in years
         """
         print("="*60)
-        print("STEP1-PRIME SIMULATION")
+        print("PHASE 1 SIMULATION")
         print("="*60)
         print(f"Parameters:")
         if self.rate is not None:
@@ -531,9 +535,20 @@ class PetriDish:
         import time
         save_start = time.time()
         
+        # Prepare data to save - include both cell_history and gene_jsd_history
+        save_data = {}
+        
+        # If we have cell_history, save it directly (for backward compatibility)
+        if hasattr(self, 'cell_history') and self.cell_history:
+            save_data.update(self.cell_history)
+        
+        # Add gene_jsd_history if it exists
+        if hasattr(self, 'gene_jsd_history') and self.gene_jsd_history:
+            save_data['gene_jsd_history'] = self.gene_jsd_history
+        
         # Use gzip compression and native JSON serialization
         with gzip.open(filepath, 'wt', encoding='utf-8', compresslevel=1) as f:
-            json.dump(self.cell_history, f, separators=(',', ':'))
+            json.dump(save_data, f, separators=(',', ':'))
         
         save_time = time.time() - save_start
         file_size_mb = os.path.getsize(filepath) / (1024 * 1024)
@@ -842,7 +857,7 @@ class PetriDishPlotter:
     def plot_jsd(self, title: str = None, output_path: str = None,
                  width: int = 1200, height: int = 500):
         """
-        Create JSD plot with secondary y-axis for cell count.
+        Create Cell JSD plot with secondary y-axis for cell count.
         
         Args:
             title: Optional title for the plot
@@ -916,9 +931,9 @@ class PetriDishPlotter:
                 x=years,
                 y=self.stats['cell_jsd']['mean'],
                 mode='lines',
-                name='Mean JSD',
+                name='Mean Cell JSD',
                 line=dict(color='rgb(99, 110, 250)', width=2.5),
-                hovertemplate='Year: %{x}<br>Mean JSD: %{y:.4f}<br>Population: %{customdata}<extra></extra>',
+                hovertemplate='Year: %{x}<br>Mean Cell JSD: %{y:.4f}<br>Population: %{customdata}<extra></extra>',
                 customdata=self.stats['population_size']
             ),
             secondary_y=False
@@ -939,7 +954,7 @@ class PetriDishPlotter:
         
         # Update layout
         if title is None:
-            title = f"JSD Score vs Time"
+            title = f"Cell JSD Score vs Time"
         
         fig.update_layout(
             title=dict(text=title, font=dict(size=16)),
@@ -959,7 +974,7 @@ class PetriDishPlotter:
         
         # Set axis titles
         fig.update_xaxes(showgrid=True, gridcolor='rgba(0,0,0,0.1)')
-        fig.update_yaxes(title_text="JSD Score", secondary_y=False, showgrid=True, gridcolor='rgba(0,0,0,0.1)')
+        fig.update_yaxes(title_text="Cell JSD Score", secondary_y=False, showgrid=True, gridcolor='rgba(0,0,0,0.1)')
         fig.update_yaxes(title_text="Cell Count", secondary_y=True, showgrid=False)
         
         # Add annotation
@@ -970,9 +985,9 @@ class PetriDishPlotter:
         annotation_text = (
             f"<b>Final Statistics (Year {final_year}):</b><br>"
             f"Population: {final_pop} cells<br>"
-            f"JSD Mean: {self.stats['cell_jsd']['mean'][final_idx]:.4f}<br>"
-            f"JSD 25-75%: [{self.stats['cell_jsd']['p25'][final_idx]:.4f}, {self.stats['cell_jsd']['p75'][final_idx]:.4f}]<br>"
-            f"JSD 5-95%: [{self.stats['cell_jsd']['p5'][final_idx]:.4f}, {self.stats['cell_jsd']['p95'][final_idx]:.4f}]"
+            f"Cell JSD Mean: {self.stats['cell_jsd']['mean'][final_idx]:.4f}<br>"
+            f"Cell JSD 25-75%: [{self.stats['cell_jsd']['p25'][final_idx]:.4f}, {self.stats['cell_jsd']['p75'][final_idx]:.4f}]<br>"
+            f"Cell JSD 5-95%: [{self.stats['cell_jsd']['p5'][final_idx]:.4f}, {self.stats['cell_jsd']['p95'][final_idx]:.4f}]"
         )
         
         if growth_phase > 0:
@@ -1160,7 +1175,7 @@ class PetriDishPlotter:
         # Create subplots with secondary y-axes
         fig = make_subplots(
             rows=2, cols=1,
-            subplot_titles=('JSD Score vs Time', 'Methylation Proportion vs Time'),
+            subplot_titles=('Cell JSD Score vs Time', 'Methylation Proportion vs Time'),
             vertical_spacing=0.12,
             row_heights=[0.5, 0.5],
             specs=[[{"secondary_y": True}], [{"secondary_y": True}]]
@@ -1224,9 +1239,9 @@ class PetriDishPlotter:
                 x=years,
                 y=self.stats['cell_jsd']['mean'],
                 mode='lines',
-                name='Mean JSD',
+                name='Mean Cell JSD',
                 line=dict(color='rgb(99, 110, 250)', width=2.5),
-                hovertemplate='Year: %{x}<br>Mean JSD: %{y:.4f}<extra></extra>'
+                hovertemplate='Year: %{x}<br>Mean Cell JSD: %{y:.4f}<extra></extra>'
             ),
             row=1, col=1, secondary_y=False
         )
@@ -1324,7 +1339,7 @@ class PetriDishPlotter:
         # Update axes
         fig.update_xaxes(title_text="", row=1, col=1, showgrid=True, gridcolor='rgba(0,0,0,0.1)')
         fig.update_xaxes(title_text="Age (years)", row=2, col=1, showgrid=True, gridcolor='rgba(0,0,0,0.1)')
-        fig.update_yaxes(title_text="JSD Score", row=1, col=1, secondary_y=False, showgrid=True, gridcolor='rgba(0,0,0,0.1)')
+        fig.update_yaxes(title_text="Cell JSD Score", row=1, col=1, secondary_y=False, showgrid=True, gridcolor='rgba(0,0,0,0.1)')
         fig.update_yaxes(title_text="Cell Count", row=1, col=1, secondary_y=True, showgrid=False)
         fig.update_yaxes(title_text="Methylation (%)", row=2, col=1, secondary_y=False, showgrid=True, gridcolor='rgba(0,0,0,0.1)')
         fig.update_yaxes(title_text="Cell Count", row=2, col=1, secondary_y=True, showgrid=False)
@@ -1337,9 +1352,9 @@ class PetriDishPlotter:
         annotation_text = (
             f"<b>Final Statistics (Year {final_year}):</b><br>"
             f"Population: {final_pop} cells<br>"
-            f"JSD Mean: {self.stats['cell_jsd']['mean'][final_idx]:.4f}<br>"
-            f"JSD 25-75%: [{self.stats['cell_jsd']['p25'][final_idx]:.4f}, {self.stats['cell_jsd']['p75'][final_idx]:.4f}]<br>"
-            f"JSD 5-95%: [{self.stats['cell_jsd']['p5'][final_idx]:.4f}, {self.stats['cell_jsd']['p95'][final_idx]:.4f}]<br>"
+            f"Cell JSD Mean: {self.stats['cell_jsd']['mean'][final_idx]:.4f}<br>"
+            f"Cell JSD 25-75%: [{self.stats['cell_jsd']['p25'][final_idx]:.4f}, {self.stats['cell_jsd']['p75'][final_idx]:.4f}]<br>"
+            f"Cell JSD 5-95%: [{self.stats['cell_jsd']['p5'][final_idx]:.4f}, {self.stats['cell_jsd']['p95'][final_idx]:.4f}]<br>"
             f"Methylation Mean: {self.stats['methylation']['mean'][final_idx]:.2f}%<br>"
             f"Methylation 25-75%: [{self.stats['methylation']['p25'][final_idx]:.2f}%, "
             f"{self.stats['methylation']['p75'][final_idx]:.2f}%]<br>"
@@ -1386,4 +1401,494 @@ class PetriDishPlotter:
         self.plot_methylation(title, f"{base_path}_methylation.png")
         self.plot_combined(title, f"{base_path}_combined.png")
         
+        # If gene JSD history exists, plot basic gene JSD (keep the existing simple plot)
+        if hasattr(self.petri, 'gene_jsd_history') and self.petri.gene_jsd_history:
+            self.plot_gene_jsd(title, f"{base_path}_gene_jsd.png")
+            # Note: Advanced gene JSD plots (heatmap, rate comparison) are now generated in phase2
+        
         return self
+    
+    def plot_gene_jsd(self, title: str = None, output_path: str = None,
+                      width: int = 1200, height: int = 600):
+        """
+        Create Gene JSD plot showing per-gene JSD evolution over time.
+        
+        Args:
+            title: Optional title for the plot
+            output_path: Optional path to save the plot
+            width: Plot width in pixels
+            height: Plot height in pixels
+        """
+        try:
+            import plotly.graph_objects as go
+            from plotly.subplots import make_subplots
+        except ImportError:
+            print("Warning: Plotly not installed. Skipping gene JSD plot.")
+            return
+        
+        # Check if gene JSD history exists
+        if not hasattr(self.petri, 'gene_jsd_history') or not self.petri.gene_jsd_history:
+            print("No gene JSD history available. Enable with track_gene_jsd=True")
+            return
+        
+        # Extract data
+        years = sorted([int(y) for y in self.petri.gene_jsd_history.keys()])
+        n_genes = len(next(iter(self.petri.gene_jsd_history.values())))
+        
+        # Create figure with secondary y-axis for cell count
+        fig = make_subplots(specs=[[{"secondary_y": True}]])
+        
+        # Calculate statistics for each year
+        mean_gene_jsds = []
+        median_gene_jsds = []
+        p25_gene_jsds = []
+        p75_gene_jsds = []
+        p5_gene_jsds = []
+        p95_gene_jsds = []
+        
+        for year in years:
+            gene_jsds = self.petri.gene_jsd_history[str(year)]
+            mean_gene_jsds.append(np.mean(gene_jsds))
+            median_gene_jsds.append(np.median(gene_jsds))
+            p25_gene_jsds.append(np.percentile(gene_jsds, 25))
+            p75_gene_jsds.append(np.percentile(gene_jsds, 75))
+            p5_gene_jsds.append(np.percentile(gene_jsds, 5))
+            p95_gene_jsds.append(np.percentile(gene_jsds, 95))
+        
+        # Add percentile bands
+        fig.add_trace(
+            go.Scatter(
+                x=years + years[::-1],
+                y=p95_gene_jsds + p5_gene_jsds[::-1],
+                fill='toself',
+                fillcolor='rgba(31, 119, 180, 0.1)',
+                line=dict(width=0),
+                name='5-95 percentile',
+                showlegend=True,
+                hoverinfo='skip'
+            ),
+            secondary_y=False
+        )
+        
+        fig.add_trace(
+            go.Scatter(
+                x=years + years[::-1],
+                y=p75_gene_jsds + p25_gene_jsds[::-1],
+                fill='toself',
+                fillcolor='rgba(31, 119, 180, 0.25)',
+                line=dict(width=0),
+                name='25-75 percentile',
+                showlegend=True,
+                hoverinfo='skip'
+            ),
+            secondary_y=False
+        )
+        
+        # Add mean line
+        fig.add_trace(
+            go.Scatter(
+                x=years,
+                y=mean_gene_jsds,
+                mode='lines',
+                name='Mean',
+                line=dict(color='#1f77b4', width=2),
+                hovertemplate='Year: %{x}<br>Mean Gene JSD: %{y:.4f}<extra></extra>'
+            ),
+            secondary_y=False
+        )
+        
+        # Add median line
+        fig.add_trace(
+            go.Scatter(
+                x=years,
+                y=median_gene_jsds,
+                mode='lines',
+                name='Median',
+                line=dict(color='#ff7f0e', width=2, dash='dash'),
+                hovertemplate='Year: %{x}<br>Median Gene JSD: %{y:.4f}<extra></extra>'
+            ),
+            secondary_y=False
+        )
+        
+        # Add cell count on secondary axis
+        if self.stats and 'population_size' in self.stats:
+            fig.add_trace(
+                go.Scatter(
+                    x=self.stats['years'],
+                    y=self.stats['population_size'],
+                    mode='lines',
+                    name='Cell Count',
+                    line=dict(color='gray', width=1, dash='dot'),
+                    hovertemplate='Year: %{x}<br>Cells: %{y}<extra></extra>'
+                ),
+                secondary_y=True
+            )
+        
+        # Add growth phase indicator
+        growth_phase = self.detect_growth_phase()
+        if growth_phase > 0 and years and growth_phase < years[-1]:
+            fig.add_vline(
+                x=growth_phase,
+                line_dash="dash",
+                line_color="gray",
+                line_width=1,
+                annotation_text="End of growth phase",
+                annotation_position="top"
+            )
+        
+        # Update layout
+        if title is None:
+            title = f"Gene JSD Score vs Time (Population-level, {n_genes} genes)"
+        
+        fig.update_layout(
+            title=dict(text=title, font=dict(size=16)),
+            xaxis_title="Age (years)",
+            template='plotly_white',
+            width=width,
+            height=height,
+            showlegend=True,
+            legend=dict(
+                yanchor="top",
+                y=0.99,
+                xanchor="left",
+                x=0.01,
+                bgcolor="rgba(255, 255, 255, 0.8)",
+                bordercolor="rgba(0, 0, 0, 0.2)",
+                borderwidth=1
+            )
+        )
+        
+        # Set axis titles
+        fig.update_xaxes(showgrid=True, gridcolor='rgba(0,0,0,0.1)')
+        fig.update_yaxes(title_text="Gene JSD Score", secondary_y=False, showgrid=True, gridcolor='rgba(0,0,0,0.1)')
+        fig.update_yaxes(title_text="Cell Count", secondary_y=True, showgrid=False)
+        
+        # Add final statistics annotation
+        if years:
+            final_year = years[-1]
+            final_mean = mean_gene_jsds[-1]
+            final_median = median_gene_jsds[-1]
+            
+            annotation_text = (
+                f"<b>Final Gene JSD Statistics (Year {final_year}):</b><br>"
+                f"Mean: {final_mean:.4f}<br>"
+                f"Median: {final_median:.4f}<br>"
+                f"25-75%: [{p25_gene_jsds[-1]:.4f}, {p75_gene_jsds[-1]:.4f}]<br>"
+                f"5-95%: [{p5_gene_jsds[-1]:.4f}, {p95_gene_jsds[-1]:.4f}]<br>"
+                f"Genes tracked: {n_genes}"
+            )
+            
+            fig.add_annotation(
+                text=annotation_text,
+                xref="paper", yref="paper",
+                x=0.98, y=0.02,
+                showarrow=False,
+                font=dict(size=10, family="monospace"),
+                align="right",
+                xanchor="right",
+                yanchor="bottom",
+                bgcolor="rgba(255, 255, 255, 0.9)",
+                bordercolor="rgba(0, 0, 0, 0.2)",
+                borderwidth=1
+            )
+        
+        # Save if path provided
+        if output_path:
+            os.makedirs(os.path.dirname(output_path) or '.', exist_ok=True)
+            fig.write_image(output_path, width=width, height=height, scale=2)
+            print(f"Gene JSD plot saved to {output_path}")
+        else:
+            fig.show()
+        
+        return fig
+
+    def plot_gene_jsd_heatmap(self, title: str = None, output_path: str = None,
+                              width: int = 1200, height: int = 800):
+        """
+        Create heatmap showing each gene's JSD evolution over time.
+        
+        Args:
+            title: Optional title for the plot
+            output_path: Optional path to save the plot
+            width: Plot width in pixels
+            height: Plot height in pixels
+            
+        Returns:
+            Plotly figure object
+        """
+        # Import plotly here to avoid dependency issues
+        try:
+            import plotly.graph_objects as go
+        except ImportError:
+            raise ImportError("Plotly is required for plotting. Install with: pip install plotly kaleido")
+        
+        if not hasattr(self.petri, 'gene_jsd_history') or not self.petri.gene_jsd_history:
+            raise ValueError("No gene JSD history found. Enable gene JSD tracking with --track-gene-jsd flag.")
+        
+        # Extract data from gene_jsd_history
+        years = sorted(self.petri.gene_jsd_history.keys())
+        n_genes = len(self.petri.gene_jsd_history[years[0]])
+        
+        # Create 2D array: rows = genes, columns = years
+        heatmap_data = []
+        for gene_idx in range(n_genes):
+            gene_row = []
+            for year in years:
+                gene_jsd_value = self.petri.gene_jsd_history[year][gene_idx]
+                gene_row.append(gene_jsd_value)
+            heatmap_data.append(gene_row)
+        
+        # Create heatmap
+        fig = go.Figure(data=go.Heatmap(
+            z=heatmap_data,
+            x=years,
+            y=list(range(n_genes)),
+            colorscale='Blues',
+            colorbar=dict(title="Gene JSD Score"),
+            hovertemplate='Year: %{x}<br>Gene: %{y}<br>JSD: %{z:.4f}<extra></extra>'
+        ))
+        
+        # Add horizontal lines every 50 genes if using gene-rate-groups
+        if hasattr(self.petri.cells[0], 'gene_rate_groups') and self.petri.cells[0].gene_rate_groups:
+            gene_group_boundaries = []
+            cumulative = 0
+            for n_genes_in_group, _ in self.petri.cells[0].gene_rate_groups:
+                cumulative += n_genes_in_group
+                if cumulative < n_genes:  # Don't add line after last group
+                    gene_group_boundaries.append(cumulative - 0.5)
+            
+            # Add horizontal lines
+            for boundary in gene_group_boundaries:
+                fig.add_hline(
+                    y=boundary,
+                    line_dash="solid",
+                    line_color="white",
+                    line_width=2,
+                    opacity=0.8
+                )
+        
+        # Calculate max JSD for annotation
+        max_jsd = max(max(row) for row in heatmap_data)
+        
+        # Add annotation box
+        stats_text = (f"<b>Heatmap Info</b><br>"
+                     f"Genes: {n_genes}<br>"
+                     f"Years: {len(years)}<br>"
+                     f"Max JSD: {max_jsd:.3f}")
+        
+        fig.add_annotation(
+            text=stats_text,
+            xref="paper", yref="paper",
+            x=0.98,
+            y=0.97,
+            showarrow=False,
+            font=dict(size=11, family="Arial"),
+            align="right",
+            xanchor="right",
+            yanchor="top",
+            bgcolor="rgba(255, 255, 255, 0.9)",
+            bordercolor="#333333",
+            borderwidth=1
+        )
+        
+        # Update layout
+        if title is None:
+            title = "Gene JSD Evolution Heatmap"
+        
+        fig.update_layout(
+            title=dict(text=title, font=dict(size=16)),
+            xaxis_title="Age (years)",
+            yaxis_title="Gene Index",
+            width=width,
+            height=height,
+            template='plotly_white',
+            showlegend=False
+        )
+        
+        # Update axes with grid
+        fig.update_xaxes(showgrid=True, gridcolor='rgba(0,0,0,0.1)')
+        fig.update_yaxes(showgrid=True, gridcolor='rgba(0,0,0,0.1)')
+        
+        # Save if path provided
+        if output_path:
+            os.makedirs(os.path.dirname(output_path) or '.', exist_ok=True)
+            fig.write_image(output_path, width=width, height=height, scale=2)
+            print(f"Gene JSD heatmap saved to {output_path}")
+        else:
+            fig.show()
+        
+        return fig
+
+    def plot_gene_jsd_by_rate_group(self, title: str = None, output_path: str = None,
+                                    width: int = 1200, height: int = 600):
+        """
+        Line plot showing mean JSD for each gene rate group over time.
+        
+        Args:
+            title: Optional title for the plot
+            output_path: Optional path to save the plot
+            width: Plot width in pixels
+            height: Plot height in pixels
+            
+        Returns:
+            Plotly figure object
+        """
+        # Import plotly here to avoid dependency issues
+        try:
+            import plotly.graph_objects as go
+        except ImportError:
+            raise ImportError("Plotly is required for plotting. Install with: pip install plotly kaleido")
+        
+        if not hasattr(self.petri, 'gene_jsd_history') or not self.petri.gene_jsd_history:
+            raise ValueError("No gene JSD history found. Enable gene JSD tracking with --track-gene-jsd flag.")
+        
+        # Check if we have gene rate groups
+        if not hasattr(self.petri.cells[0], 'gene_rate_groups') or not self.petri.cells[0].gene_rate_groups:
+            raise ValueError("No gene rate groups found. This plot requires --gene-rate-groups parameter.")
+        
+        # Extract gene rate groups information
+        gene_rate_groups = self.petri.cells[0].gene_rate_groups
+        
+        # Extract data from gene_jsd_history
+        years = sorted(self.petri.gene_jsd_history.keys())
+        
+        # Calculate mean JSD for each rate group at each time point
+        fig = go.Figure()
+        
+        # Define colors for each group (blue to red gradient)
+        n_groups = len(gene_rate_groups)
+        if n_groups == 4:
+            colors = ['#0066cc', '#3399ff', '#ff6600', '#cc0000']
+        else:
+            # Generate color gradient
+            import colorsys
+            colors = []
+            for i in range(n_groups):
+                hue = 240 - (240 * i / max(1, n_groups - 1)) / 360  # Blue to red
+                rgb = colorsys.hsv_to_rgb(hue, 0.8, 0.9)
+                colors.append(f'rgb({int(rgb[0]*255)}, {int(rgb[1]*255)}, {int(rgb[2]*255)})')
+        
+        # Calculate statistics for each group over time
+        group_stats = []
+        gene_start_idx = 0
+        
+        for group_idx, (n_genes, rate) in enumerate(gene_rate_groups):
+            gene_end_idx = gene_start_idx + n_genes
+            group_means = []
+            group_p25 = []
+            group_p75 = []
+            
+            for year in years:
+                gene_jsds_for_group = self.petri.gene_jsd_history[year][gene_start_idx:gene_end_idx]
+                group_means.append(np.mean(gene_jsds_for_group))
+                group_p25.append(np.percentile(gene_jsds_for_group, 25))
+                group_p75.append(np.percentile(gene_jsds_for_group, 75))
+            
+            group_stats.append({
+                'mean': group_means,
+                'p25': group_p25,
+                'p75': group_p75,
+                'rate': rate,
+                'n_genes': n_genes
+            })
+            gene_start_idx = gene_end_idx
+        
+        # Add confidence bands (25-75 percentile) for each group
+        for group_idx, stats in enumerate(group_stats):
+            # Add confidence band
+            fig.add_trace(
+                go.Scatter(
+                    x=years + years[::-1],
+                    y=stats['p75'] + stats['p25'][::-1],
+                    fill='toself',
+                    fillcolor=colors[group_idx].replace('rgb', 'rgba').replace(')', ', 0.2)'),
+                    line=dict(color='rgba(255,255,255,0)'),
+                    name=f'Group {group_idx+1} (25-75%)',
+                    showlegend=False,
+                    hoverinfo='skip'
+                )
+            )
+        
+        # Add mean lines for each group
+        for group_idx, stats in enumerate(group_stats):
+            rate_pct = stats['rate'] * 100
+            fig.add_trace(
+                go.Scatter(
+                    x=years,
+                    y=stats['mean'],
+                    mode='lines',
+                    name=f'Group {group_idx+1}: {rate_pct:.1f}% rate',
+                    line=dict(color=colors[group_idx], width=2),
+                    hovertemplate=f'Year: %{{x}}<br>Mean Gene JSD: %{{y:.4f}}<br>Group {group_idx+1} ({stats["n_genes"]} genes @ {rate_pct:.1f}%)<extra></extra>'
+                )
+            )
+        
+        # Add growth phase indicator if available
+        growth_phase = self.detect_growth_phase()
+        if growth_phase > 0 and years and growth_phase < years[-1]:
+            fig.add_vline(
+                x=growth_phase,
+                line_dash="dash",
+                line_color="gray",
+                line_width=1,
+                annotation_text="End of growth phase",
+                annotation_position="top"
+            )
+        
+        # Add annotation box with group information
+        group_info_lines = ["<b>Gene Groups:</b>"]
+        for i, (n_genes, rate) in enumerate(gene_rate_groups):
+            rate_pct = rate * 100
+            group_info_lines.append(f"Group {i+1}: {n_genes} genes @ {rate_pct:.1f}%")
+        
+        group_info_text = "<br>".join(group_info_lines)
+        
+        fig.add_annotation(
+            text=group_info_text,
+            xref="paper", yref="paper",
+            x=0.98,
+            y=0.97,
+            showarrow=False,
+            font=dict(size=11, family="Arial"),
+            align="right",
+            xanchor="right",
+            yanchor="top",
+            bgcolor="rgba(255, 255, 255, 0.9)",
+            bordercolor="#333333",
+            borderwidth=1
+        )
+        
+        # Update layout
+        if title is None:
+            title = "Gene JSD by Methylation Rate Group"
+        
+        fig.update_layout(
+            title=dict(text=title, font=dict(size=16)),
+            xaxis_title="Age (years)",
+            yaxis_title="Mean Gene JSD Score",
+            width=width,
+            height=height,
+            template='plotly_white',
+            showlegend=True,
+            legend=dict(
+                yanchor="top", y=0.99, xanchor="left", x=0.01,
+                bgcolor="rgba(255, 255, 255, 0.8)",
+                bordercolor="rgba(0, 0, 0, 0.2)",
+                borderwidth=1
+            ),
+            hovermode='x unified'
+        )
+        
+        # Update axes with grid
+        fig.update_xaxes(showgrid=True, gridcolor='rgba(0,0,0,0.1)')
+        fig.update_yaxes(showgrid=True, gridcolor='rgba(0,0,0,0.1)')
+        
+        # Save if path provided
+        if output_path:
+            os.makedirs(os.path.dirname(output_path) or '.', exist_ok=True)
+            fig.write_image(output_path, width=width, height=height, scale=2)
+            print(f"Gene rate group comparison saved to {output_path}")
+        else:
+            fig.show()
+        
+        return fig

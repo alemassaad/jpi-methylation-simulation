@@ -523,7 +523,7 @@ class PetriDish:
         Returns:
             Path to saved file
         """
-        import hashlib
+        from datetime import datetime
         
         # Generate hierarchical path
         # Level 1: Rate with 5 decimal places or gene rate groups
@@ -540,10 +540,9 @@ class PetriDish:
         seed_str = f"seed{self.seed}" if self.seed is not None else "noseed"
         params_str = f"grow{self.growth_phase}-sites{self.n}-years{self.year}-{seed_str}"
         
-        # Add 4-char hash for uniqueness
-        hash_input = f"{rate_str}-{self.growth_phase}-{self.n}-{self.year}-{seed_str}"
-        hash_str = hashlib.md5(hash_input.encode()).hexdigest()[:4]
-        level2 = f"{params_str}-{hash_str}"
+        # Add timestamp for uniqueness (YYYYMMDDHHMMSS format)
+        timestamp = datetime.now().strftime("%Y%m%d%H%M%S")
+        level2 = f"{params_str}-{timestamp}"
         
         # Create full directory path
         dir_path = os.path.join(directory, level1, level2)

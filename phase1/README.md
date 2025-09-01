@@ -139,12 +139,14 @@ python3 run_simulation.py --rate 0.005 --no-jsds
 ```
 data/
 └── rate_0.00500/                           # Or gene_rates_50x0.004_50x0.006.../
-    └── grow13-sites1000-years100-seed42-XXXX/
+    └── grow13-sites1000-years100-seed42-YYYYMMDDHHMMSS/  # Timestamp for uniqueness
         ├── simulation.json.gz               # Compressed (default for production)
         ├── simulation.json                  # Uncompressed (if --no-compress)
         ├── jsd_history.png                  # Cell JSD trajectory
         └── methylation_history.png          # Methylation accumulation
 ```
+
+The directory name includes a timestamp (YYYYMMDDHHMMSS format) for chronological sorting and uniqueness.
 
 ## Biological Model
 

@@ -149,7 +149,7 @@ data/
         │   └── control2/   # Pure snapshot individuals
         ├── results/
         │   ├── year50_jsd_distribution_200bins.png
-        │   ├── jsd_comparison.png
+        │   ├── cell_jsd_comparison.png
         │   ├── statistics.json
         │   └── pipeline_metadata.json
         └── individual_plots/  # If --plot-individuals used

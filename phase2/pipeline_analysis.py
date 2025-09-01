@@ -265,8 +265,8 @@ def analyze_populations_from_dishes(mutant_dishes: List[PetriDish],
         }
     }
     
-    # Create comparison plot
-    plot_path = os.path.join(output_dir, "jsd_comparison.png")
+    # Create comparison plot for cell JSDs
+    plot_path = os.path.join(output_dir, "cell_jsd_comparison.png")
     create_comparison_plot_from_jsds(mutant_jsds, control1_jsds, control2_jsds, plot_path)
     
     # Save statistics

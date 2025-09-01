@@ -20,7 +20,13 @@ import json
 import gzip
 import numpy as np
 import math
-from typing import List, Dict, Optional, Tuple
+from typing import List, Dict, Optional, Tuple, Any
+
+# Try to import YAML support
+try:
+    import yaml
+except ImportError:
+    yaml = None
 
 # Add parent directory to path
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -46,6 +52,223 @@ from pipeline_analysis import (
     plot_top_variable_genes
 )
 from path_utils import parse_step1_simulation_path, generate_step23_output_dir
+
+
+def load_config(config_path: Optional[str] = None) -> Dict[str, Any]:
+    """
+    Load configuration from YAML file(s).
+    
+    Args:
+        config_path: Path to user config file (optional)
+    
+    Returns:
+        Merged configuration dictionary
+    """
+    config = {}
+    
+    if yaml is None:
+        return config
+    
+    # Load default config if it exists
+    default_path = os.path.join(os.path.dirname(__file__), "config_default.yaml")
+    if os.path.exists(default_path):
+        try:
+            with open(default_path, 'r') as f:
+                default_config = yaml.safe_load(f) or {}
+                config.update(default_config)
+        except Exception as e:
+            print(f"Warning: Could not load default config: {e}")
+    
+    # Load user config if provided
+    if config_path and os.path.exists(config_path):
+        try:
+            with open(config_path, 'r') as f:
+                user_config = yaml.safe_load(f) or {}
+                # Deep merge user config into default config
+                deep_merge(config, user_config)
+        except Exception as e:
+            print(f"Error loading config file {config_path}: {e}")
+            sys.exit(1)
+    
+    return config
+
+
+def deep_merge(base: dict, update: dict) -> None:
+    """
+    Deep merge update dictionary into base dictionary.
+    
+    Args:
+        base: Base dictionary to update
+        update: Dictionary with updates
+    """
+    for key, value in update.items():
+        if key in base and isinstance(base[key], dict) and isinstance(value, dict):
+            deep_merge(base[key], value)
+        else:
+            base[key] = value
+
+
+def merge_config_and_args(config: Dict[str, Any], args: argparse.Namespace) -> argparse.Namespace:
+    """
+    Merge config file values with command-line arguments.
+    CLI arguments take precedence over config file values.
+    
+    Args:
+        config: Configuration dictionary from YAML
+        args: Command-line arguments
+    
+    Returns:
+        Updated args namespace
+    """
+    # Map config structure to args
+    # Priority: CLI args > config file > defaults
+    
+    # Input configuration
+    if 'input' in config:
+        if not args.simulation and config['input'].get('simulation'):
+            args.simulation = config['input']['simulation']
+        if not args.rate and not args.gene_rate_groups:
+            if config['input'].get('rate'):
+                args.rate = config['input']['rate']
+            elif config['input'].get('gene_rate_groups'):
+                args.gene_rate_groups = config['input']['gene_rate_groups']
+        if hasattr(args, 'gene_size') and args.gene_size == 5:  # default value
+            args.gene_size = config['input'].get('gene_size', 5)
+    
+    # Snapshots configuration
+    if 'snapshots' in config:
+        if args.first_snapshot == 50:  # default value
+            args.first_snapshot = config['snapshots'].get('first', 50)
+        if args.second_snapshot == 60:  # default value
+            args.second_snapshot = config['snapshots'].get('second', 60)
+        if hasattr(args, 'force_reload') and not args.force_reload:
+            args.force_reload = config['snapshots'].get('force_reload', False)
+    
+    # Individuals configuration
+    if 'individuals' in config:
+        if args.individual_growth_phase == 7:  # default value
+            args.individual_growth_phase = config['individuals'].get('growth_phase', 7)
+        if args.n_quantiles == 10:  # default value
+            args.n_quantiles = config['individuals'].get('n_quantiles', 10)
+        if args.cells_per_quantile == 3:  # default value
+            args.cells_per_quantile = config['individuals'].get('cells_per_quantile', 3)
+    
+    # Mixing configuration
+    if 'mixing' in config:
+        if args.mix_ratio == 80:  # default value
+            args.mix_ratio = config['mixing'].get('ratio', 80)
+        if not args.uniform_mixing:
+            args.uniform_mixing = config['mixing'].get('uniform', False)
+        if not args.normalize_size:
+            args.normalize_size = config['mixing'].get('normalize_size', False)
+    
+    # Visualization configuration
+    if 'visualization' in config:
+        if args.bins == 200:  # default value
+            args.bins = config['visualization'].get('bins', 200)
+        if not args.plot_individuals:
+            args.plot_individuals = config['visualization'].get('plot_individuals', False)
+    
+    # Output configuration
+    if 'output' in config:
+        if hasattr(args, 'output_dir'):
+            args.output_dir = config['output'].get('directory', args.output_dir)
+        if hasattr(args, 'no_compress') and not args.no_compress:
+            # Config uses 'compress: true/false', CLI uses '--no-compress'
+            compress = config['output'].get('compress', True)
+            args.no_compress = not compress
+    
+    # Other settings
+    if args.seed == 42:  # default value
+        args.seed = config.get('seed', 42)
+    
+    if 'verbose' in config and not hasattr(args, 'verbose'):
+        args.verbose = config.get('verbose', False)
+    
+    return args
+
+
+def validate_pipeline_config(args: argparse.Namespace) -> None:
+    """
+    Validate the final merged configuration.
+    
+    Args:
+        args: Merged configuration
+    
+    Raises:
+        ValueError: If configuration is invalid
+    """
+    # Required fields
+    if not args.simulation:
+        raise ValueError("--simulation is required (or set in config file)")
+    
+    if not args.rate and not args.gene_rate_groups:
+        raise ValueError("Either --rate or --gene-rate-groups is required")
+    
+    if args.rate and args.gene_rate_groups:
+        raise ValueError("Cannot specify both --rate and --gene-rate-groups")
+    
+    # Value ranges
+    if args.mix_ratio < 0 or args.mix_ratio > 100:
+        raise ValueError(f"--mix-ratio must be between 0 and 100, got {args.mix_ratio}")
+    
+    if args.n_quantiles < 1:
+        raise ValueError(f"--n-quantiles must be >= 1, got {args.n_quantiles}")
+    
+    if args.cells_per_quantile < 1:
+        raise ValueError(f"--cells-per-quantile must be >= 1, got {args.cells_per_quantile}")
+    
+    if args.bins < 10:
+        raise ValueError(f"--bins must be >= 10, got {args.bins}")
+    
+    # Timeline validation is done elsewhere
+    if args.second_snapshot <= args.first_snapshot:
+        raise ValueError(f"--second-snapshot ({args.second_snapshot}) must be > --first-snapshot ({args.first_snapshot})")
+
+
+def parse_gene_rate_groups(gene_rate_str: str) -> List[Tuple[int, float]]:
+    """
+    Parse gene rate groups string into list of tuples.
+    
+    Args:
+        gene_rate_str: String like "50:0.004,50:0.0045,50:0.005,50:0.0055"
+    
+    Returns:
+        List of (n_genes, rate) tuples
+    """
+    groups = []
+    for group in gene_rate_str.split(','):
+        n_genes, rate = group.strip().split(':')
+        groups.append((int(n_genes), float(rate)))
+    return groups
+
+
+def validate_gene_rate_groups(groups: List[Tuple[int, float]], n_sites: int, gene_size: int) -> None:
+    """
+    Validate gene rate groups configuration.
+    
+    Args:
+        groups: List of (n_genes, rate) tuples
+        n_sites: Total number of CpG sites
+        gene_size: Sites per gene
+    
+    Raises:
+        ValueError: If configuration is invalid
+    """
+    total_genes = sum(n for n, _ in groups)
+    expected_genes = n_sites // gene_size
+    
+    if total_genes != expected_genes:
+        raise ValueError(
+            f"Gene rate groups total {total_genes} genes, but need {expected_genes} "
+            f"({n_sites} sites / {gene_size} sites per gene)"
+        )
+    
+    for n_genes, rate in groups:
+        if n_genes <= 0:
+            raise ValueError(f"Number of genes must be positive, got {n_genes}")
+        if rate < 0 or rate > 1:
+            raise ValueError(f"Rate must be between 0 and 1, got {rate}")
 
 
 def calculate_timeline_metrics(first_snapshot: int, second_snapshot: int, individual_growth_phase: int) -> dict:
@@ -964,39 +1187,6 @@ def run_pipeline(args, rate_config):
     return stats
 
 
-def parse_gene_rate_groups(groups_str: str) -> List[Tuple[int, float]]:
-    """
-    Parse gene rate groups string into list of tuples.
-    Example: "50:0.004,50:0.005" -> [(50, 0.004), (50, 0.005)]
-    """
-    groups = []
-    for group in groups_str.split(','):
-        n, rate = group.split(':')
-        groups.append((int(n), float(rate)))
-    return groups
-
-
-def validate_gene_rate_groups(groups: List[Tuple[int, float]], 
-                             n_sites: int, gene_size: int):
-    """
-    Validate gene rate groups match expected configuration.
-    """
-    total_genes = sum(n for n, _ in groups)
-    expected_genes = n_sites // gene_size
-    
-    if total_genes != expected_genes:
-        raise ValueError(
-            f"Gene rate groups specify {total_genes} genes, "
-            f"but simulation expects {expected_genes} genes "
-            f"({n_sites} sites / {gene_size} sites per gene)"
-        )
-    
-    # Validate rates are reasonable
-    for n, rate in groups:
-        if rate < 0 or rate > 1:
-            raise ValueError(f"Invalid rate {rate}: must be between 0 and 1")
-
-
 def create_petri_with_rate_config(rate_config: dict, growth_phase: int, n: int = 1000) -> PetriDish:
     """Create PetriDish with proper rate configuration.
     
@@ -1022,9 +1212,13 @@ def main():
         formatter_class=argparse.ArgumentDefaultsHelpFormatter
     )
     
-    # Required arguments
+    # Config file argument
+    parser.add_argument("--config", type=str,
+                       help="Path to YAML configuration file")
+    
+    # Required arguments (can be set via config)
     # Rate configuration - mutually exclusive group
-    rate_group = parser.add_mutually_exclusive_group(required=True)
+    rate_group = parser.add_mutually_exclusive_group(required=False)
     rate_group.add_argument("--rate", type=float,
                            help="Uniform methylation rate (must match simulation)")
     rate_group.add_argument("--gene-rate-groups", type=str,
@@ -1032,7 +1226,7 @@ def main():
     parser.add_argument("--gene-size", type=int, default=5,
                        help="Sites per gene (only used with --gene-rate-groups, default: 5)")
     
-    parser.add_argument("--simulation", type=str, required=True,
+    parser.add_argument("--simulation", type=str,
                        help="Path to phase1 simulation file")
     
     # Quantile sampling parameters
@@ -1079,6 +1273,15 @@ def main():
     
     args = parser.parse_args()
     
+    # Load config file if provided
+    config = load_config(args.config)
+    
+    # Merge config with CLI arguments
+    args = merge_config_and_args(config, args)
+    
+    # Validate final configuration
+    validate_pipeline_config(args)
+    
     # Parse rate configuration
     if args.gene_rate_groups:
         gene_rate_groups = parse_gene_rate_groups(args.gene_rate_groups)
@@ -1095,37 +1298,10 @@ def main():
             'rate': args.rate
         }
     
-    # Validate arguments
+    # Check simulation file exists (done after config validation)
     if not os.path.exists(args.simulation):
         print(f"Error: Simulation file not found: {args.simulation}")
         sys.exit(1)
-    
-    if not (0 <= args.mix_ratio <= 100):
-        print(f"Error: mix-ratio must be between 0 and 100, got {args.mix_ratio}")
-        sys.exit(1)
-    
-    if args.n_quantiles < 1:
-        print(f"Error: n-quantiles must be at least 1, got {args.n_quantiles}")
-        sys.exit(1)
-    
-    if args.cells_per_quantile < 1:
-        print(f"Error: cells-per-quantile must be at least 1, got {args.cells_per_quantile}")
-        sys.exit(1)
-    
-    # Validate snapshot years
-    if args.first_snapshot < 0:
-        print(f"Error: first-snapshot must be non-negative, got {args.first_snapshot}")
-        sys.exit(1)
-    
-    if args.second_snapshot < 0:
-        print(f"Error: second-snapshot must be non-negative, got {args.second_snapshot}")
-        sys.exit(1)
-    
-    # Validation is now handled by the new validation functions in run_pipeline()
-    
-    # Warn about obviously problematic values
-    if args.second_snapshot > 200:
-        print(f"Warning: Second snapshot year {args.second_snapshot} seems very high. Make sure your simulation runs that long.")
     
     # Run pipeline
     run_pipeline(args, rate_config)

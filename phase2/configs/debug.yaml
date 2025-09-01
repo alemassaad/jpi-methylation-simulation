@@ -1,0 +1,26 @@
+# Debug configuration - verbose output, uncompressed files, extra plots
+# Usage: python3 run_pipeline.py --config configs/debug.yaml --simulation PATH --rate 0.005
+
+snapshots:
+  first: 20
+  second: 30
+  force_reload: true     # Always reload, don't use cache
+
+individuals:
+  growth_phase: 4        # 16 cells
+  n_quantiles: 5         # Quintiles
+  cells_per_quantile: 2  # 10 individuals
+
+mixing:
+  ratio: 70
+
+visualization:
+  bins: 100              # Fewer bins for clearer view
+  plot_individuals: true # Generate all plots
+
+output:
+  directory: "data/debug"
+  compress: false        # Easy to inspect
+
+verbose: true            # Maximum output
+seed: 777

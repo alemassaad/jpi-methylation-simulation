@@ -48,7 +48,6 @@ from pipeline_analysis import (
     plot_jsd_distribution_from_cells,
     analyze_populations_from_dishes,
     plot_gene_jsd_distribution_comparison,
-    plot_gene_vs_cell_jsd_comparison,
     plot_top_variable_genes
 )
 from path_utils import parse_step1_simulation_path, generate_step23_output_dir
@@ -1058,14 +1057,8 @@ def run_pipeline(args, rate_config):
     except Exception as e:
         print(f"  Skipping gene JSD distribution comparison: {e}")
     
-    # Gene vs Cell JSD scatter plot
-    try:
-        gene_vs_cell_path = os.path.join(results_dir, "gene_vs_cell_jsd.png")
-        plot_gene_vs_cell_jsd_comparison(
-            mutant_dishes, control1_dishes, control2_dishes, gene_vs_cell_path
-        )
-    except Exception as e:
-        print(f"  Skipping gene vs cell JSD comparison: {e}")
+    # Gene vs Cell JSD scatter plot - removed per user request
+    # (This plot was not providing useful insights)
     
     # Top variable genes plot
     try:

@@ -661,6 +661,230 @@ def create_comparison_plot_from_jsds(mutant_jsds: np.ndarray,
     print(f"    Saved plot to {output_path}")
 
 
+def create_gene_individual_comparison_plot(mutant_jsds: np.ndarray, 
+                                          control1_jsds: np.ndarray, 
+                                          control2_jsds: np.ndarray, 
+                                          output_path: str) -> None:
+    """
+    Create a clean scatter plot comparing individual-averaged gene JSDs.
+    EXACT COPY of create_comparison_plot_from_jsds but for gene-level individual averages.
+    
+    Args:
+        mutant_jsds: Array of individual-averaged gene JSD values for mutant group
+        control1_jsds: Array of individual-averaged gene JSD values for control1 group
+        control2_jsds: Array of individual-averaged gene JSD values for control2 group
+        output_path: Path to save the plot
+    """
+    # Set random seed for consistent jitter
+    np.random.seed(42)
+    
+    # Create figure
+    fig = go.Figure()
+    
+    # Add mutant points with jitter
+    x_mutant = np.ones(len(mutant_jsds)) * 0 + np.random.normal(0, 0.02, len(mutant_jsds))
+    fig.add_trace(go.Scatter(
+        x=x_mutant,
+        y=mutant_jsds,
+        mode='markers',
+        name='Mutant',
+        marker=dict(color='#1f77b4', size=10, opacity=0.6)
+    ))
+    
+    # Add control1 points with jitter
+    x_control1 = np.ones(len(control1_jsds)) * 1 + np.random.normal(0, 0.02, len(control1_jsds))
+    fig.add_trace(go.Scatter(
+        x=x_control1,
+        y=control1_jsds,
+        mode='markers',
+        name='Control1',
+        marker=dict(color='#ff7f0e', size=10, opacity=0.6)
+    ))
+    
+    # Add control2 points with jitter
+    x_control2 = np.ones(len(control2_jsds)) * 2 + np.random.normal(0, 0.02, len(control2_jsds))
+    fig.add_trace(go.Scatter(
+        x=x_control2,
+        y=control2_jsds,
+        mode='markers',
+        name='Control2',
+        marker=dict(color='#2ca02c', size=10, opacity=0.6)
+    ))
+    
+    # Calculate means and quantiles for horizontal lines
+    mutant_mean = np.mean(mutant_jsds)
+    control1_mean = np.mean(control1_jsds)
+    control2_mean = np.mean(control2_jsds)
+    
+    # Calculate quantiles
+    mutant_q5, mutant_q25, mutant_q75, mutant_q95 = np.percentile(mutant_jsds, [5, 25, 75, 95])
+    control1_q5, control1_q25, control1_q75, control1_q95 = np.percentile(control1_jsds, [5, 25, 75, 95])
+    control2_q5, control2_q25, control2_q75, control2_q95 = np.percentile(control2_jsds, [5, 25, 75, 95])
+    
+    # Add quantile lines for mutant
+    # 5-95 range (very light, dotted)
+    fig.add_shape(type="line", x0=-0.15, x1=0.15, y0=mutant_q5, y1=mutant_q5,
+                  line=dict(color="#1f77b4", width=1, dash="dot"), opacity=0.3)
+    fig.add_shape(type="line", x0=-0.15, x1=0.15, y0=mutant_q95, y1=mutant_q95,
+                  line=dict(color="#1f77b4", width=1, dash="dot"), opacity=0.3)
+    
+    # 25-75 range (slightly darker, dashed)
+    fig.add_shape(type="line", x0=-0.15, x1=0.15, y0=mutant_q25, y1=mutant_q25,
+                  line=dict(color="#1f77b4", width=1.5, dash="dash"), opacity=0.5)
+    fig.add_shape(type="line", x0=-0.15, x1=0.15, y0=mutant_q75, y1=mutant_q75,
+                  line=dict(color="#1f77b4", width=1.5, dash="dash"), opacity=0.5)
+    
+    # Add quantile lines for control1
+    # 5-95 range (very light, dotted)
+    fig.add_shape(type="line", x0=0.85, x1=1.15, y0=control1_q5, y1=control1_q5,
+                  line=dict(color="#ff7f0e", width=1, dash="dot"), opacity=0.3)
+    fig.add_shape(type="line", x0=0.85, x1=1.15, y0=control1_q95, y1=control1_q95,
+                  line=dict(color="#ff7f0e", width=1, dash="dot"), opacity=0.3)
+    
+    # 25-75 range (slightly darker, dashed)
+    fig.add_shape(type="line", x0=0.85, x1=1.15, y0=control1_q25, y1=control1_q25,
+                  line=dict(color="#ff7f0e", width=1.5, dash="dash"), opacity=0.5)
+    fig.add_shape(type="line", x0=0.85, x1=1.15, y0=control1_q75, y1=control1_q75,
+                  line=dict(color="#ff7f0e", width=1.5, dash="dash"), opacity=0.5)
+    
+    # Add quantile lines for control2
+    # 5-95 range (very light, dotted)
+    fig.add_shape(type="line", x0=1.85, x1=2.15, y0=control2_q5, y1=control2_q5,
+                  line=dict(color="#2ca02c", width=1, dash="dot"), opacity=0.3)
+    fig.add_shape(type="line", x0=1.85, x1=2.15, y0=control2_q95, y1=control2_q95,
+                  line=dict(color="#2ca02c", width=1, dash="dot"), opacity=0.3)
+    
+    # 25-75 range (slightly darker, dashed)
+    fig.add_shape(type="line", x0=1.85, x1=2.15, y0=control2_q25, y1=control2_q25,
+                  line=dict(color="#2ca02c", width=1.5, dash="dash"), opacity=0.5)
+    fig.add_shape(type="line", x0=1.85, x1=2.15, y0=control2_q75, y1=control2_q75,
+                  line=dict(color="#2ca02c", width=1.5, dash="dash"), opacity=0.5)
+    
+    # Add mean lines (solid, prominent) - these go last to be on top
+    fig.add_shape(type="line", x0=-0.2, x1=0.2, y0=mutant_mean, y1=mutant_mean,
+                  line=dict(color="#1f77b4", width=3))
+    fig.add_shape(type="line", x0=0.8, x1=1.2, y0=control1_mean, y1=control1_mean,
+                  line=dict(color="#ff7f0e", width=3))
+    fig.add_shape(type="line", x0=1.8, x1=2.2, y0=control2_mean, y1=control2_mean,
+                  line=dict(color="#2ca02c", width=3))
+    
+    # Calculate comprehensive statistics for annotations
+    # Mutant stats
+    mutant_median = np.median(mutant_jsds)
+    mutant_std = np.std(mutant_jsds)
+    mutant_cv = mutant_std / mutant_mean if mutant_mean != 0 else 0
+    mutant_mad = np.median(np.abs(mutant_jsds - mutant_median))
+    
+    # Control1 stats
+    control1_median = np.median(control1_jsds)
+    control1_std = np.std(control1_jsds)
+    control1_cv = control1_std / control1_mean if control1_mean != 0 else 0
+    control1_mad = np.median(np.abs(control1_jsds - control1_median))
+    
+    # Control2 stats
+    control2_median = np.median(control2_jsds)
+    control2_std = np.std(control2_jsds)
+    control2_cv = control2_std / control2_mean if control2_mean != 0 else 0
+    control2_mad = np.median(np.abs(control2_jsds - control2_median))
+    
+    # Calculate y range for plot
+    all_jsds = np.concatenate([mutant_jsds, control1_jsds, control2_jsds])
+    y_min = np.min(all_jsds)
+    y_max = np.max(all_jsds)
+    
+    # Add comprehensive statistics text ABOVE the plot using paper coordinates
+    # Position them in three columns at the top
+    fig.add_annotation(
+        xref="paper", yref="paper",
+        x=0.2, y=1.02,  # Left column for Mutant
+        text=(f"<b>Mutant</b><br>"
+              f"Mean: {mutant_mean:.4f}<br>"
+              f"Median: {mutant_median:.4f}<br>"
+              f"SD: {mutant_std:.4f}<br>"
+              f"CV: {mutant_cv:.3f}<br>"
+              f"MAD: {mutant_mad:.4f}<br>"
+              f"5%: {mutant_q5:.4f}<br>"
+              f"95%: {mutant_q95:.4f}"),
+        showarrow=False,
+        font=dict(size=9, color="#1f77b4"),
+        align="left",
+        xanchor="center",
+        yanchor="bottom"
+    )
+    
+    fig.add_annotation(
+        xref="paper", yref="paper",
+        x=0.5, y=1.02,  # Middle column for Control1
+        text=(f"<b>Control1</b><br>"
+              f"Mean: {control1_mean:.4f}<br>"
+              f"Median: {control1_median:.4f}<br>"
+              f"SD: {control1_std:.4f}<br>"
+              f"CV: {control1_cv:.3f}<br>"
+              f"MAD: {control1_mad:.4f}<br>"
+              f"5%: {control1_q5:.4f}<br>"
+              f"95%: {control1_q95:.4f}"),
+        showarrow=False,
+        font=dict(size=9, color="#ff7f0e"),
+        align="left",
+        xanchor="center",
+        yanchor="bottom"
+    )
+    
+    fig.add_annotation(
+        xref="paper", yref="paper",
+        x=0.8, y=1.02,  # Right column for Control2
+        text=(f"<b>Control2</b><br>"
+              f"Mean: {control2_mean:.4f}<br>"
+              f"Median: {control2_median:.4f}<br>"
+              f"SD: {control2_std:.4f}<br>"
+              f"CV: {control2_cv:.3f}<br>"
+              f"MAD: {control2_mad:.4f}<br>"
+              f"5%: {control2_q5:.4f}<br>"
+              f"95%: {control2_q95:.4f}"),
+        showarrow=False,
+        font=dict(size=9, color="#2ca02c"),
+        align="left",
+        xanchor="center",
+        yanchor="bottom"
+    )
+    
+    # Clean layout with proper spacing
+    fig.update_layout(
+        title=dict(
+            text="Individual-Averaged Gene JSD Comparison",  # Changed title
+            font=dict(size=16),
+            x=0.5,
+            xanchor='center',
+            y=0.98,  # Move title up (default is ~0.9)
+            yanchor='top'
+        ),
+        xaxis=dict(
+            tickmode='array',
+            tickvals=[0, 1, 2],
+            ticktext=['Mutant', 'Control1', 'Control2'],
+            range=[-0.5, 2.5],
+            showgrid=False,
+            title=""
+        ),
+        yaxis=dict(
+            title='Individual Average Gene JSD',  # Changed y-axis label
+            showgrid=True,
+            gridcolor='lightgray',
+            range=[y_min - 0.01, y_max + 0.01]  # Simple range without annotation adjustment
+        ),
+        plot_bgcolor='white',
+        showlegend=False,
+        height=800,  # Keep height for good proportions
+        width=700,
+        margin=dict(l=80, r=40, t=180, b=60)  # Increased TOP margin for stats above
+    )
+    
+    # Save PNG only (no HTML)
+    if os.path.dirname(output_path):
+        os.makedirs(os.path.dirname(output_path), exist_ok=True)
+    fig.write_image(output_path, width=700, height=800, scale=2)
+
+
 def plot_gene_jsd_distribution_comparison(snapshot1_cells, snapshot2_cells, 
                                           year1, year2, output_path):
     """
@@ -1252,8 +1476,7 @@ def create_gene_comparison_plot(mutant_jsds: np.ndarray,
 def plot_gene_jsd_individual_comparison(gene_jsd_path, output_dir, verbose=False):
     """
     Create scatter plot comparing individual-averaged gene JSDs across batches.
-    
-    Similar to plot_cell_jsd_comparison but uses individual_averages from gene_jsd_analysis.json
+    Uses EXACT same design as cell-level JSD comparison.
     
     Args:
         gene_jsd_path: Path to gene_jsd_analysis.json
@@ -1274,141 +1497,18 @@ def plot_gene_jsd_individual_comparison(gene_jsd_path, output_dir, verbose=False
     
     individual_avgs = data['individual_averages']
     
-    # Create figure with plotly
-    fig = go.Figure()
+    # Convert to numpy arrays for the plotting function
+    mutant_jsds = np.array(individual_avgs.get('mutant', []))
+    control1_jsds = np.array(individual_avgs.get('control1', []))
+    control2_jsds = np.array(individual_avgs.get('control2', []))
     
-    # Color mapping (same as cell plot)
-    colors = {
-        'mutant': 'blue',
-        'control1': 'green', 
-        'control2': 'red'
-    }
-    
-    # Track all values for y-axis range
-    all_values = []
-    
-    # Plot each batch with jittered points
-    for i, (batch_name, batch_values) in enumerate(individual_avgs.items()):
-        if not batch_values:
-            continue
-            
-        # Create jittered x positions
-        x_base = i
-        x_positions = np.random.normal(x_base, 0.05, len(batch_values))
-        
-        # Add scatter trace
-        fig.add_trace(go.Scatter(
-            x=x_positions,
-            y=batch_values,
-            mode='markers',
-            name=batch_name.capitalize(),
-            marker=dict(
-                color=colors.get(batch_name, 'gray'),
-                size=6,
-                opacity=0.6
-            ),
-            hovertemplate='%{y:.4f}<extra></extra>'
-        ))
-        
-        all_values.extend(batch_values)
-    
-    # Calculate statistics for each batch
-    stats_y = 1.02  # Position above plot using paper coordinates
-    
-    # Mutant stats
-    if 'mutant' in individual_avgs and individual_avgs['mutant']:
-        mutant_mean = np.mean(individual_avgs['mutant'])
-        mutant_std = np.std(individual_avgs['mutant'])
-        fig.add_annotation(
-            x=0,
-            y=stats_y,
-            text=f"Mean: {mutant_mean:.4f} ± {mutant_std:.4f}",
-            showarrow=False,
-            font=dict(size=9, color="blue"),
-            align="left",
-            xanchor="center",
-            yanchor="bottom",
-            xref="x",
-            yref="paper"
-        )
-    
-    # Control1 stats
-    if 'control1' in individual_avgs and individual_avgs['control1']:
-        control1_mean = np.mean(individual_avgs['control1'])
-        control1_std = np.std(individual_avgs['control1'])
-        fig.add_annotation(
-            x=1,
-            y=stats_y,
-            text=f"Mean: {control1_mean:.4f} ± {control1_std:.4f}",
-            showarrow=False,
-            font=dict(size=9, color="green"),
-            align="left",
-            xanchor="center",
-            yanchor="bottom",
-            xref="x",
-            yref="paper"
-        )
-    
-    # Control2 stats
-    if 'control2' in individual_avgs and individual_avgs['control2']:
-        control2_mean = np.mean(individual_avgs['control2'])
-        control2_std = np.std(individual_avgs['control2'])
-        fig.add_annotation(
-            x=2,
-            y=stats_y,
-            text=f"Mean: {control2_mean:.4f} ± {control2_std:.4f}",
-            showarrow=False,
-            font=dict(size=9, color="red"),
-            align="left",
-            xanchor="center",
-            yanchor="bottom",
-            xref="x",
-            yref="paper"
-        )
-    
-    # Calculate y-axis range
-    if all_values:
-        y_min = min(all_values)
-        y_max = max(all_values)
-        y_range = [y_min - 0.01, y_max + 0.01]
-    else:
-        y_range = [0, 1]
-    
-    # Update layout (matching gene plot style exactly)
-    fig.update_layout(
-        title=dict(
-            text="Individual-Averaged Gene JSD Comparison",
-            font=dict(size=16),
-            x=0.5,
-            xanchor='center',
-            y=0.98,  # High position like gene plots
-            yanchor='top'
-        ),
-        xaxis=dict(
-            tickmode='array',
-            tickvals=[0, 1, 2],
-            ticktext=['Mutant', 'Control 1', 'Control 2'],
-            range=[-0.5, 2.5],
-            showgrid=False,
-            title=""
-        ),
-        yaxis=dict(
-            title='Individual Average Gene JSD',
-            showgrid=True,
-            gridcolor='lightgray',
-            range=y_range
-        ),
-        plot_bgcolor='white',
-        showlegend=False,
-        height=800,
-        width=700,  # Match gene plot width
-        margin=dict(l=80, r=40, t=180, b=60)  # Increased top margin for stats
-    )
-    
-    # Save plot (exactly like gene plots)
+    # Create output path
     output_path = os.path.join(output_dir, 'gene_jsd_individual_comparison.png')
-    os.makedirs(output_dir, exist_ok=True)
-    fig.write_image(output_path, width=700, height=800, scale=2)  # Exact same as gene plots
+    
+    # Use the shared plotting function with exact same design as cell-level
+    create_gene_individual_comparison_plot(
+        mutant_jsds, control1_jsds, control2_jsds, output_path
+    )
     
     if verbose:
         print(f"  ✓ Saved individual-averaged gene JSD comparison to {output_path}")

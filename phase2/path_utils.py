@@ -20,8 +20,8 @@ def parse_step1_simulation_path(filepath: str) -> Optional[Dict]:
     Returns:
         Dictionary with rate, growth_phase, n_sites, sim_years, sim_seed
     """
-    # Try new hierarchical format first
-    if 'simulation.json.gz' in filepath:
+    # Try new hierarchical format first (both compressed and uncompressed)
+    if 'simulation.json' in filepath:
         # Extract from directory structure
         # Pattern for uniform rate: .../rate_X.XXXXX/growG-sitesN-yearsT-seedS-HASH/simulation.json.gz
         pattern = r"rate_([\d.]+)/grow(\d+)-sites(\d+)-years(\d+)-(seed\d+|noseed)-"

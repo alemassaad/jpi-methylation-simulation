@@ -418,6 +418,16 @@ def run_pipeline(args, rate_config):
     # SETUP
     # ========================================================================
     
+    # Detect compression format from input file
+    use_compression = args.simulation.endswith('.gz')
+    if not hasattr(args, 'no_compress'):
+        args.no_compress = False
+    if not args.no_compress and use_compression:
+        print(f"Input file is compressed, outputs will also be compressed")
+    elif args.no_compress or not use_compression:
+        print(f"Outputs will be saved uncompressed")
+        args.no_compress = True  # Ensure consistency
+    
     # Parse simulation parameters from input file
     sim_params = parse_step1_simulation_path(args.simulation)
     if not sim_params:
@@ -1298,9 +1308,26 @@ def main():
             'rate': args.rate
         }
     
-    # Check simulation file exists (done after config validation)
+    # Handle glob patterns in simulation file path
+    import glob
+    if '*' in args.simulation:
+        matching_files = glob.glob(args.simulation)
+        if not matching_files:
+            print(f"Error: No files matching pattern: {args.simulation}")
+            sys.exit(1)
+        # Sort to prefer .json.gz over .json if both exist
+        matching_files.sort(key=lambda x: (0 if x.endswith('.json.gz') else 1))
+        args.simulation = matching_files[0]
+        if len(matching_files) > 1:
+            print(f"Multiple files found, using: {args.simulation}")
+    
+    # Check simulation file exists and has valid extension
     if not os.path.exists(args.simulation):
         print(f"Error: Simulation file not found: {args.simulation}")
+        sys.exit(1)
+    
+    if not (args.simulation.endswith('.json') or args.simulation.endswith('.json.gz')):
+        print(f"Error: Simulation file must be .json or .json.gz, got: {args.simulation}")
         sys.exit(1)
     
     # Run pipeline

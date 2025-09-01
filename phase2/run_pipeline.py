@@ -40,12 +40,12 @@ from pipeline_utils import (
     mix_petri_with_snapshot, create_pure_snapshot_petri,
     create_control2_with_uniform_base,
     grow_petri_for_years, get_petri_statistics, check_petri_files_state,
-    get_jsd_array, calculate_population_statistics, print_mixing_statistics,
+    get_cell_jsd_array, calculate_population_statistics, print_mixing_statistics,
     create_uniform_mixing_pool, mix_petri_uniform, normalize_populations,
     normalize_individuals_for_uniform_mixing
 )
 from pipeline_analysis import (
-    plot_jsd_distribution_from_cells,
+    plot_cell_jsd_distribution,
     analyze_populations_from_dishes,
     plot_gene_jsd_distribution_comparison,
     plot_top_variable_genes
@@ -511,7 +511,7 @@ def run_pipeline(args, rate_config):
     plot_path = os.path.join(results_dir, f"year{args.first_snapshot}_jsd_distribution_{args.bins}bins.png")
     # Use args.rate if available, otherwise None (for gene-specific rates)
     plot_rate = args.rate if hasattr(args, 'rate') and args.rate is not None else None
-    plot_jsd_distribution_from_cells(first_snapshot_cells, args.bins, plot_path, 
+    plot_cell_jsd_distribution(first_snapshot_cells, args.bins, plot_path, 
                                     rate=plot_rate, year=args.first_snapshot)
     
     # ========================================================================
@@ -706,7 +706,7 @@ def run_pipeline(args, rate_config):
     second_plot_path = os.path.join(results_dir, f"year{args.second_snapshot}_jsd_distribution_{args.bins}bins.png")
     # Use args.rate if available, otherwise None (for gene-specific rates)
     plot_rate = args.rate if hasattr(args, 'rate') and args.rate is not None else None
-    plot_jsd_distribution_from_cells(second_snapshot_cells, args.bins, second_plot_path, 
+    plot_cell_jsd_distribution(second_snapshot_cells, args.bins, second_plot_path, 
                                     rate=plot_rate, year=args.second_snapshot)
     
     # ========================================================================

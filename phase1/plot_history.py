@@ -177,9 +177,9 @@ def create_jsd_plot(stats, filename):
             x=years,
             y=stats['cell_jsd']['mean'],
             mode='lines',
-            name='Mean JSD',
+            name='Mean Cell JSD',
             line=dict(color='rgb(99, 110, 250)', width=2.5),
-            hovertemplate='Year: %{x}<br>Mean JSD: %{y:.4f}<br>Population: %{customdata}<extra></extra>',
+            hovertemplate='Year: %{x}<br>Mean Cell JSD: %{y:.4f}<br>Population: %{customdata}<extra></extra>',
             customdata=stats['population_size']
         ),
         secondary_y=False
@@ -233,7 +233,7 @@ def create_jsd_plot(stats, filename):
     annotation_text = (
         f"<b>Final Statistics (Year {final_year}):</b><br>"
         f"Population: {final_pop} cells<br>"
-        f"Mean JSD: {stats['cell_jsd']['mean'][final_idx]:.4f}<br>"
+        f"Mean Cell JSD: {stats['cell_jsd']['mean'][final_idx]:.4f}<br>"
         f"25-75%: [{stats['cell_jsd']['p25'][final_idx]:.4f}, {stats['cell_jsd']['p75'][final_idx]:.4f}]<br>"
         f"5-95%: [{stats['cell_jsd']['p5'][final_idx]:.4f}, {stats['cell_jsd']['p95'][final_idx]:.4f}]"
     )
@@ -465,9 +465,9 @@ def create_combined_plot(stats, filename):
             x=years,
             y=stats['cell_jsd']['mean'],
             mode='lines',
-            name='Mean JSD',
+            name='Mean Cell JSD',
             line=dict(color='rgb(99, 110, 250)', width=2.5),
-            hovertemplate='Year: %{x}<br>Mean JSD: %{y:.4f}<extra></extra>'
+            hovertemplate='Year: %{x}<br>Mean Cell JSD: %{y:.4f}<extra></extra>'
         ),
         row=1, col=1, secondary_y=False
     )

@@ -81,8 +81,8 @@ def get_individual_signatures(base_dir: str, group: str) -> Dict:
             
             signatures[name] = {
                 'n_cells': len(cells),
-                'mean_jsd': np.mean(jsds),
-                'std_jsd': np.std(jsds),
+                'mean_cell_jsd': np.mean(jsds),
+                'std_cell_jsd': np.std(jsds),
                 'hash': hashlib.md5(str(sorted(jsds)[:10]).encode()).hexdigest()[:8]
             }
         except:
@@ -148,7 +148,7 @@ def test_identical_runs():
                 if name in sig2 and sig1[name] and sig2[name]:
                     if sig1[name]['hash'] != sig2[name]['hash']:
                         all_close = False
-                        diff = abs(sig1[name]['mean_jsd'] - sig2[name]['mean_jsd'])
+                        diff = abs(sig1[name]['mean_cell_jsd'] - sig2[name]['mean_cell_jsd'])
                         print(f"    {group}/{name}: diff={diff:.9f}")
             
             if all_close:

@@ -23,10 +23,10 @@ def get_jsd_signature(filepath):
     
     return {
         'n_cells': len(cells),
-        'mean_jsd': np.mean(jsds),
-        'std_jsd': np.std(jsds),
-        'min_jsd': min(jsds),
-        'max_jsd': max(jsds),
+        'mean_cell_jsd': np.mean(jsds),
+        'std_cell_jsd': np.std(jsds),
+        'min_cell_jsd': min(jsds),
+        'max_cell_jsd': max(jsds),
         'hash': hashlib.md5(str(jsds).encode()).hexdigest()[:8]
     }
 
@@ -44,20 +44,20 @@ def main():
         
         print(f"\nStep23 signature:")
         print(f"  Cells: {step23_sig['n_cells']}")
-        print(f"  Mean JSD: {step23_sig['mean_jsd']:.6f}")
-        print(f"  Std JSD: {step23_sig['std_jsd']:.6f}")
+        print(f"  Mean Cell JSD: {step23_sig['mean_cell_jsd']:.6f}")
+        print(f"  Std Cell JSD: {step23_sig['std_cell_jsd']:.6f}")
         print(f"  Hash: {step23_sig['hash']}")
         
         print(f"\nStep23-prime signature:")
         print(f"  Cells: {prime_sig['n_cells']}")
-        print(f"  Mean JSD: {prime_sig['mean_jsd']:.6f}")
-        print(f"  Std JSD: {prime_sig['std_jsd']:.6f}")
+        print(f"  Mean Cell JSD: {prime_sig['mean_cell_jsd']:.6f}")
+        print(f"  Std Cell JSD: {prime_sig['std_cell_jsd']:.6f}")
         print(f"  Hash: {prime_sig['hash']}")
         
         if step23_sig['hash'] == prime_sig['hash']:
             print("\n✅ IDENTICAL! The JSDs match exactly (same random sequence)")
         else:
-            diff = abs(step23_sig['mean_jsd'] - prime_sig['mean_jsd'])
+            diff = abs(step23_sig['mean_cell_jsd'] - prime_sig['mean_cell_jsd'])
             print(f"\n⚠️  Different random sequences (mean diff: {diff:.6f})")
             
             if diff < 0.001:

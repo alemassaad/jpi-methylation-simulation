@@ -237,17 +237,17 @@ def save_petri_dish(petri: PetriDish, filepath: str, metadata: Optional[Dict] = 
     """
     os.makedirs(os.path.dirname(filepath), exist_ok=True)
     
-    # Calculate statistics
-    jsd_values = [cell.cell_JSD for cell in petri.cells]
+    # Calculate cell JSD statistics
+    cell_jsd_values = [cell.cell_JSD for cell in petri.cells]
     
     data = {
         "metadata": {
             "num_cells": len(petri.cells),
-            "mean_jsd": float(np.mean(jsd_values)) if jsd_values else 0.0,
-            "std_jsd": float(np.std(jsd_values)) if jsd_values else 0.0,
-            "min_jsd": float(np.min(jsd_values)) if jsd_values else 0.0,
-            "max_jsd": float(np.max(jsd_values)) if jsd_values else 0.0,
-            "median_jsd": float(np.median(jsd_values)) if jsd_values else 0.0,
+            "mean_cell_jsd": float(np.mean(cell_jsd_values)) if cell_jsd_values else 0.0,
+            "std_cell_jsd": float(np.std(cell_jsd_values)) if cell_jsd_values else 0.0,
+            "min_cell_jsd": float(np.min(cell_jsd_values)) if cell_jsd_values else 0.0,
+            "max_cell_jsd": float(np.max(cell_jsd_values)) if cell_jsd_values else 0.0,
+            "median_cell_jsd": float(np.median(cell_jsd_values)) if cell_jsd_values else 0.0,
             "year": petri.year,
             "growth_phase": petri.growth_phase,
             "rate": petri.rate,
@@ -746,27 +746,27 @@ def get_petri_statistics(petri: PetriDish) -> Dict[str, float]:
     Calculate statistics for a PetriDish.
     
     Returns:
-        dict: Statistics including mean/std/min/max JSD
+        dict: Statistics including mean/std/min/max cell JSD
     """
     if not petri.cells:
         return {
             'n_cells': 0,
-            'mean_jsd': 0.0,
-            'std_jsd': 0.0,
-            'min_jsd': 0.0,
-            'max_jsd': 0.0,
-            'median_jsd': 0.0
+            'mean_cell_jsd': 0.0,
+            'std_cell_jsd': 0.0,
+            'min_cell_jsd': 0.0,
+            'max_cell_jsd': 0.0,
+            'median_cell_jsd': 0.0
         }
     
-    jsd_values = [cell.cell_JSD for cell in petri.cells]
+    cell_jsd_values = [cell.cell_JSD for cell in petri.cells]
     
     return {
         'n_cells': len(petri.cells),
-        'mean_jsd': float(np.mean(jsd_values)),
-        'std_jsd': float(np.std(jsd_values)),
-        'min_jsd': float(np.min(jsd_values)),
-        'max_jsd': float(np.max(jsd_values)),
-        'median_jsd': float(np.median(jsd_values))
+        'mean_cell_jsd': float(np.mean(cell_jsd_values)),
+        'std_cell_jsd': float(np.std(cell_jsd_values)),
+        'min_cell_jsd': float(np.min(cell_jsd_values)),
+        'max_cell_jsd': float(np.max(cell_jsd_values)),
+        'median_cell_jsd': float(np.median(cell_jsd_values))
     }
 
 
@@ -821,15 +821,15 @@ def check_petri_files_state(directory: str, expected_cells: int = 1024) -> Dict:
     return result
 
 
-def get_jsd_array(petri: PetriDish) -> np.ndarray:
+def get_cell_jsd_array(petri: PetriDish) -> np.ndarray:
     """
-    Extract JSD values as numpy array.
+    Extract cell JSD values as numpy array.
     
     Args:
         petri: PetriDish object
     
     Returns:
-        numpy array of JSD values
+        numpy array of cell JSD values
     """
     return np.array([cell.cell_JSD for cell in petri.cells])
 

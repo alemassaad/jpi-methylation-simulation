@@ -26,8 +26,8 @@ def get_individual_signature(filepath):
         
         return {
             'n_cells': len(cells),
-            'mean_jsd': np.mean(jsds),
-            'std_jsd': np.std(jsds),
+            'mean_cell_jsd': np.mean(jsds),
+            'std_cell_jsd': np.std(jsds),
             'hash': jsd_hash
         }
     except:
@@ -81,12 +81,12 @@ def test_reproducibility():
                 symbol = "✅" if match else "❌"
                 
                 print(f"  Individual {i:02d}: {symbol}")
-                print(f"    Run 1: {sig1['n_cells']} cells, mean={sig1['mean_jsd']:.6f}, hash={sig1['hash']}")
-                print(f"    Run 2: {sig2['n_cells']} cells, mean={sig2['mean_jsd']:.6f}, hash={sig2['hash']}")
+                print(f"    Run 1: {sig1['n_cells']} cells, mean={sig1['mean_cell_jsd']:.6f}, hash={sig1['hash']}")
+                print(f"    Run 2: {sig2['n_cells']} cells, mean={sig2['mean_cell_jsd']:.6f}, hash={sig2['hash']}")
                 
                 if not match:
                     all_match = False
-                    diff = abs(sig1['mean_jsd'] - sig2['mean_jsd'])
+                    diff = abs(sig1['mean_cell_jsd'] - sig2['mean_cell_jsd'])
                     print(f"    Difference: {diff:.9f}")
             else:
                 print(f"  Individual {i:02d}: ❌ File not found")

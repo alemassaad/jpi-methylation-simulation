@@ -44,6 +44,13 @@ python run_pipeline.py --config configs/quick_test.yaml --simulation PATH --rate
 - Automatically matches input file format (.json vs .json.gz) unless overridden with `--no-compress`
 - All output files within a run now have consistent compression
 
+### 📊 JSD Naming Convention Clarification
+- All cell-level JSD metrics now prefixed with `cell_` for clarity
+- Metadata keys: `mean_cell_jsd`, `std_cell_jsd`, `min_cell_jsd`, `max_cell_jsd`, `median_cell_jsd`
+- Functions: `get_cell_jsd_array()`, `plot_cell_jsd_distribution()`
+- Gene-level JSD already clearly named with `gene_` prefix
+- **Breaking change**: Old JSON files will have old keys (`mean_jsd` etc.)
+
 ## Biological Background
 
 ### CpG Sites
@@ -60,7 +67,7 @@ The gradual accumulation of methylation changes over time:
 - Population-level patterns emerge from single-cell dynamics
 - Modeled as a Poisson-like process with fixed rate
 
-### Jensen-Shannon Divergence (cell_JSD)
+### Cell-level Jensen-Shannon Divergence (cell_JSD)
 A symmetric measure of difference between probability distributions:
 - Stored as `cell_JSD` attribute on Cell objects
 - Quantifies how far a cell's methylation pattern has diverged from baseline
@@ -68,7 +75,7 @@ A symmetric measure of difference between probability distributions:
 - Range: 0 (identical) to 1 (maximally different)
 - Used to track epigenetic age and cellular heterogeneity
 
-### Gene-level JSD (gene_JSD)
+### Gene-level Jensen-Shannon Divergence (gene_JSD)
 Population-level measure of methylation heterogeneity for each gene:
 - Calculated per gene across all cells in PetriDish
 - Counts methylation levels (0-5 sites) across population

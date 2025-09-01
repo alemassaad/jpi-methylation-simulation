@@ -19,11 +19,11 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 sys.path.append(os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'phase1'))
 
 from cell import Cell, PetriDish
-from pipeline_utils import load_petri_dish, load_all_petri_dishes, get_jsd_array
+from pipeline_utils import load_petri_dish, load_all_petri_dishes, get_cell_jsd_array
 
 
-def plot_jsd_distribution_from_cells(cells: List[Cell], bins: int, output_path: str, 
-                                    rate: Optional[float] = None, year: Optional[int] = None) -> None:
+def plot_cell_jsd_distribution(cells: List[Cell], bins: int, output_path: str, 
+                              rate: Optional[float] = None, year: Optional[int] = None) -> None:
     """
     Create histogram of cell JSD distribution from Cell objects.
     
@@ -36,25 +36,25 @@ def plot_jsd_distribution_from_cells(cells: List[Cell], bins: int, output_path: 
     """
     print(f"\nPlotting Cell JSD distribution...")
     
-    # Extract JSD values directly from Cell objects
-    jsd_values = np.array([cell.cell_JSD for cell in cells])
+    # Extract cell JSD values directly from Cell objects
+    cell_jsd_values = np.array([cell.cell_JSD for cell in cells])
     
     # Calculate statistics
-    mean_jsd = np.mean(jsd_values)
-    std_jsd = np.std(jsd_values)
-    median_jsd = np.median(jsd_values)
+    mean_jsd = np.mean(cell_jsd_values)
+    std_jsd = np.std(cell_jsd_values)
+    median_jsd = np.median(cell_jsd_values)
     cv_jsd = std_jsd / mean_jsd if mean_jsd > 0 else 0  # Coefficient of variation
-    mad_jsd = np.median(np.abs(jsd_values - median_jsd))  # Median Absolute Deviation
-    p5_jsd = np.percentile(jsd_values, 5)
-    p25_jsd = np.percentile(jsd_values, 25)
-    p75_jsd = np.percentile(jsd_values, 75)
-    p95_jsd = np.percentile(jsd_values, 95)
+    mad_jsd = np.median(np.abs(cell_jsd_values - median_jsd))  # Median Absolute Deviation
+    p5_jsd = np.percentile(cell_jsd_values, 5)
+    p25_jsd = np.percentile(cell_jsd_values, 25)
+    p75_jsd = np.percentile(cell_jsd_values, 75)
+    p95_jsd = np.percentile(cell_jsd_values, 95)
     
     # Create figure
     fig = go.Figure()
     
     # Calculate histogram data for step plot
-    counts, bin_edges = np.histogram(jsd_values, bins=bins)
+    counts, bin_edges = np.histogram(cell_jsd_values, bins=bins)
     
     # Create step plot data (like the original)
     x_step = []
@@ -161,23 +161,23 @@ def plot_jsd_distribution_from_cells(cells: List[Cell], bins: int, output_path: 
     print(f"  Saved plot to {output_path}")
 
 
-def get_mean_jsds_from_petri_dishes(dishes: List[PetriDish]) -> np.ndarray:
+def get_mean_cell_jsds_from_petri_dishes(dishes: List[PetriDish]) -> np.ndarray:
     """
-    Extract mean JSD values from a list of PetriDish objects.
+    Extract mean cell JSD values from a list of PetriDish objects.
     
     Args:
         dishes: List of PetriDish objects
     
     Returns:
-        Array of mean JSD values (one per dish)
+        Array of mean cell JSD values (one per dish)
     """
-    mean_jsds = []
+    mean_cell_jsds = []
     for petri in dishes:
-        jsd_values = [cell.cell_JSD for cell in petri.cells]
-        mean_jsd = np.mean(jsd_values) if jsd_values else 0.0
-        mean_jsds.append(mean_jsd)
+        cell_jsd_values = [cell.cell_JSD for cell in petri.cells]
+        mean_cell_jsd = np.mean(cell_jsd_values) if cell_jsd_values else 0.0
+        mean_cell_jsds.append(mean_cell_jsd)
     
-    return np.array(mean_jsds)
+    return np.array(mean_cell_jsds)
 
 
 def analyze_populations_from_dishes(mutant_dishes: List[PetriDish], 
@@ -198,10 +198,10 @@ def analyze_populations_from_dishes(mutant_dishes: List[PetriDish],
     """
     print(f"\nAnalyzing populations from PetriDish objects...")
     
-    # Get mean JSD values for each group
-    mutant_jsds = get_mean_jsds_from_petri_dishes(mutant_dishes)
-    control1_jsds = get_mean_jsds_from_petri_dishes(control1_dishes)
-    control2_jsds = get_mean_jsds_from_petri_dishes(control2_dishes)
+    # Get mean cell JSD values for each group
+    mutant_jsds = get_mean_cell_jsds_from_petri_dishes(mutant_dishes)
+    control1_jsds = get_mean_cell_jsds_from_petri_dishes(control1_dishes)
+    control2_jsds = get_mean_cell_jsds_from_petri_dishes(control2_dishes)
     
     print(f"  Mutant: {len(mutant_jsds)} individuals")
     print(f"  Control1: {len(control1_jsds)} individuals")

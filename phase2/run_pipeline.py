@@ -1218,7 +1218,7 @@ def run_pipeline(args, rate_config):
     for comparison, values in statistical_tests.items():
         print(f"  {comparison}: p={values['p_value']:.6f}")
     
-    # Save pipeline metadata
+    # Save pipeline metadata (parameters only, no results)
     metadata = {
         "pipeline_version": "phase2",
         "timestamp": time.strftime("%Y-%m-%d %H:%M:%S"),
@@ -1241,8 +1241,7 @@ def run_pipeline(args, rate_config):
             "seed": args.seed,
             "bins": args.bins,
             "plot_individuals": args.plot_individuals
-        },
-        "results_summary": summary_stats
+        }
     }
     
     metadata_path = os.path.join(results_dir, "pipeline_metadata.json")

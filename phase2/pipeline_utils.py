@@ -241,10 +241,11 @@ def save_petri_dish(petri: PetriDish, filepath: str, metadata: Optional[Dict] = 
     
     # Calculate cell JSD statistics
     cell_jsd_values = [cell.cell_JSD for cell in petri.cells]
+    actual_num_cells = len(petri.cells)  # Store actual count before any metadata merging
     
     data = {
         "metadata": {
-            "num_cells": len(petri.cells),
+            "num_cells": actual_num_cells,  # Use actual count
             "mean_cell_jsd": float(np.mean(cell_jsd_values)) if cell_jsd_values else 0.0,
             "std_cell_jsd": float(np.std(cell_jsd_values)) if cell_jsd_values else 0.0,
             "min_cell_jsd": float(np.min(cell_jsd_values)) if cell_jsd_values else 0.0,
@@ -273,9 +274,14 @@ def save_petri_dish(petri: PetriDish, filepath: str, metadata: Optional[Dict] = 
     if metadata:
         data["metadata"].update(metadata)
     
-    # Add petri metadata if it exists
+    # Add petri metadata if it exists (but preserve correct num_cells)
     if hasattr(petri, 'metadata'):
-        data["metadata"].update(petri.metadata)
+        # Remove num_cells from petri.metadata to avoid overwriting the correct count
+        petri_meta_copy = petri.metadata.copy()
+        petri_meta_copy.pop('num_cells', None)  # Remove if present
+        data["metadata"].update(petri_meta_copy)
+        # Ensure num_cells is still correct after merge
+        data["metadata"]["num_cells"] = actual_num_cells
     
     # Add gene-level metrics if requested
     if include_gene_metrics and len(petri.cells) > 1:

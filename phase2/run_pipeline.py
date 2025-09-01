@@ -72,7 +72,7 @@ def load_config(config_path: Optional[str] = None) -> Dict[str, Any]:
         return config
     
     # Load default config if it exists
-    default_path = os.path.join(os.path.dirname(__file__), "config_default.yaml")
+    default_path = os.path.join(os.path.dirname(__file__), "configs", "config_default.yaml")
     if os.path.exists(default_path):
         try:
             with open(default_path, 'r') as f:

@@ -48,7 +48,8 @@ from pipeline_analysis import (
     plot_cell_jsd_distribution,
     analyze_populations_from_dishes,
     plot_gene_jsd_distribution_comparison,
-    plot_top_variable_genes
+    plot_top_variable_genes,
+    plot_gene_jsd_distributions
 )
 from path_utils import parse_step1_simulation_path, generate_step23_output_dir
 
@@ -1111,6 +1112,11 @@ def run_pipeline(args, rate_config):
         mutant_dishes, control1_dishes, control2_dishes, results_dir
     )
     
+    # Generate gene-level JSD distribution plots
+    if 'gene_jsd_analysis' in gene_analysis_results:
+        plot_gene_jsd_distributions(gene_analysis_results['gene_jsd_analysis'], results_dir, 
+                                   max_genes=args.max_gene_plots)
+    
     # Generate additional gene JSD plots if data is available
     print(f"\nGenerating additional gene JSD plots...")
     
@@ -1331,6 +1337,8 @@ def main():
                        help="Number of bins for JSD histograms")
     parser.add_argument("--plot-individuals", action='store_true',
                        help="Generate growth trajectory plots for each individual")
+    parser.add_argument("--max-gene-plots", type=int, default=None,
+                       help="Maximum number of gene JSD plots to generate (default: all)")
     parser.add_argument("--no-compress", action='store_true',
                        help="Save output as uncompressed JSON instead of .json.gz (larger files but easier to inspect)")
     

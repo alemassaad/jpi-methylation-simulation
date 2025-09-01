@@ -359,9 +359,10 @@ def main():
     
     # Enable history tracking with gene JSD based on config
     if track_gene_jsd:
-        petri_dish.enable_history_tracking(start_year=0, track_gene_jsd=True)
+        petri_dish.enable_history_tracking(track_gene_jsd=True)
         print("Gene JSD tracking enabled")
     else:
+        petri_dish.enable_history_tracking(track_gene_jsd=False)
         print("Gene JSD tracking disabled")
     
     # Run simulation

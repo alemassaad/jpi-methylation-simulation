@@ -2,15 +2,31 @@
 
 A refactored analysis pipeline using object-oriented design with `PetriDish` and `Cell` classes from phase1.
 
+## 🚨 Breaking Changes (Latest)
+
+- **New Lean JSON Format Required**: Phase 1 simulations must use the new lean format (~90% smaller)
+- **No Backward Compatibility**: Old JSON format is not supported
+- **Config File Support**: YAML configuration files now preferred over complex CLI commands
+- **Updated Defaults**: Optimized for testing (100 sites, 50 years, growth phase 6)
+
 ## Quick Start
 
 ```bash
-# Standard analysis
+# Using config file (recommended)
+python run_pipeline.py --config configs/standard.yaml
+
+# Standard analysis with CLI
 python run_pipeline.py \
     --rate 0.005 \
     --simulation ../phase1/data/rate_0.00500/grow13-*/simulation.json.gz \
     --first-snapshot 50 --second-snapshot 60 \
     --individual-growth-phase 7 --seed 42
+
+# Gene-specific rates
+python run_pipeline.py \
+    --gene-rate-groups "50:0.004,50:0.005,50:0.006,50:0.007" \
+    --simulation ../phase1/data/gene_rates_*/simulation.json.gz \
+    --first-snapshot 50 --second-snapshot 60 --seed 42
 
 # With advanced features
 python run_pipeline.py \
@@ -23,29 +39,56 @@ python run_pipeline.py \
     --seed 42
 ```
 
-## Parameters
+## Configuration
 
-### Required
-- `--rate`: Methylation rate (must match simulation)
-- `--simulation`: Path to phase1 simulation file
+### Config File Structure
 
-### Snapshot Configuration
+Create a YAML file (e.g., `my_config.yaml`):
+
+```yaml
+simulation:
+  rate: 0.005              # Or use gene_rate_groups
+  first_snapshot: 50
+  second_snapshot: 60
+  individual_growth_phase: 7
+
+analysis:
+  n_quantiles: 10
+  cells_per_quantile: 3
+  mix_ratio: 80
+
+options:
+  uniform_mixing: false
+  normalize_size: false
+
+seed: 42
+```
+
+### Command-Line Parameters
+
+#### Required
+- `--config`: Path to YAML config file (optional, but recommended)
+- `--rate` OR `--gene-rate-groups`: Methylation rate configuration (must match simulation)
+- `--simulation`: Path to phase1 simulation file (supports wildcards)
+
+#### Snapshot Configuration
 - `--first-snapshot`: Year for initial cell extraction (default: 50)
 - `--second-snapshot`: Year for mixing cells (default: 60)
 - `--individual-growth-phase`: Years of exponential growth before homeostasis (default: 7)
   - Determines target population: 2^growth_phase cells
   - Example: 7 → 128 cells, 8 → 256 cells, 10 → 1024 cells
 
-### Sampling Configuration
+#### Sampling Configuration
 - `--n-quantiles`: Number of quantiles for sampling (default: 10)
 - `--cells-per-quantile`: Cells per quantile (default: 3)
 - `--mix-ratio`: Percentage of snapshot cells in final mix (default: 80)
 
-### Advanced Features
-- `--uniform-mixing`: All individuals receive same snapshot cells
+#### Advanced Features
+- `--uniform-mixing`: All individuals receive same snapshot cells (3-step normalization)
 - `--normalize-size`: Normalize to same size before mixing (median - 0.5σ)
+- `--plot-individuals`: Generate growth trajectory plots for each individual
 
-### Other Options
+#### Other Options
 - `--seed`: Random seed for reproducibility (default: 42)
 - `--bins`: Histogram bins for JSD plot (default: 200)
 - `--force-reload`: Force reload of cached snapshots
@@ -95,7 +138,7 @@ python run_pipeline.py \
 
 ```
 data/
-└── rate_0.00500-grow13-sites1000-years100/
+└── rate_0.00500-grow13-sites1000-years100/  # Or gene_rates_50x0.004_50x0.005.../
     └── snap50to60-growth7-quant10x3-mix80[u][n]-seed42-XXXX/
         ├── snapshots/
         │   ├── year50_snapshot.json.gz
@@ -104,11 +147,15 @@ data/
         │   ├── mutant/     # Quantile-sampled individuals
         │   ├── control1/   # Uniformly-sampled individuals
         │   └── control2/   # Pure snapshot individuals
-        └── results/
-            ├── year50_jsd_distribution_200bins.png
-            ├── jsd_comparison.png
-            ├── statistics.json
-            └── pipeline_metadata.json
+        ├── results/
+        │   ├── year50_jsd_distribution_200bins.png
+        │   ├── jsd_comparison.png
+        │   ├── statistics.json
+        │   └── pipeline_metadata.json
+        └── individual_plots/  # If --plot-individuals used
+            ├── mutant_00_jsd.png
+            ├── mutant_00_methylation.png
+            └── mutant_00_combined.png
 ```
 
 ### Directory Naming Convention
@@ -120,6 +167,13 @@ data/
   - `un`: Both features
 
 ## Features
+
+### New Lean JSON Format
+- **~90% file size reduction** compared to old format
+- Parameters stored once at top level (not per cell)
+- Cells contain only essential data: methylated array and cell_JSD
+- **No backward compatibility** - old format files not supported
+- Automatic compression with .json.gz
 
 ### Object-Oriented Design
 - Uses `Cell` and `PetriDish` objects throughout
@@ -165,9 +219,19 @@ python analyze_individual_sizes.py [output_directory]
 cd tests
 # Run comprehensive tests
 python test_normalization_comprehensive.py
+python test_gene_rate_support.py
+python test_final_integration.py
+
+# Run all uniform mixing tests
+python run_all_uniform_tests.py
 ```
 
 ## Troubleshooting
+
+### "Old format detected" Error
+- Phase 1 simulation must use the new lean JSON format
+- Re-run phase 1 simulation with latest code
+- Old format files are not supported (no backward compatibility)
 
 ### High CV Warning
 If you see "High variation in individual sizes (CV > 20%)", consider:
@@ -181,8 +245,18 @@ If normalization excludes all individuals:
 - Consider larger `--individual-growth-phase`
 - Increase `--cells-per-quantile`
 
+### Gene Rate Groups
+- Use `--gene-rate-groups` instead of `--rate` for gene-specific rates
+- Format: `"50:0.004,50:0.005,50:0.006,50:0.007"`
+- Must match the original phase 1 simulation configuration
+
 ### Memory Issues
 For large simulations:
 - Process in smaller batches
 - Use `--force-reload` sparingly
 - Consider reducing `--n-quantiles`
+
+### Config File Not Loading
+- Install PyYAML: `pip install pyyaml`
+- Check YAML syntax (proper indentation)
+- CLI arguments override config values

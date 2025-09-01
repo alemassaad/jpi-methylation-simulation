@@ -2,6 +2,13 @@
 
 A biologically realistic simulation framework for modeling DNA methylation patterns and epigenetic drift over time. This project uses object-oriented design to simulate how cells accumulate methylation through growth, division, and homeostasis.
 
+## 🚨 Breaking Changes (Latest)
+
+- **New Lean JSON Format**: ~90% file size reduction, no backward compatibility with old format
+- **Config File Support**: YAML configuration files now preferred over complex CLI commands
+- **Renamed Flag**: `calculate_jsds` → `calculate_cell_jsds` for clarity
+- **New Defaults**: Optimized for faster testing (100 sites, 50 years, 64 cells)
+
 ## Overview
 
 The simulation models:
@@ -40,28 +47,51 @@ This installs:
 - `kaleido` (0.2.1) - For PNG export
 - `scipy` - For statistical analysis
 - `numpy` - For numerical operations
+- `pyyaml` - For configuration file support
 
 ## Quick Start
 
 ### Phase 1: Biologically Realistic Simulation
 ```bash
-# Run simulation starting from 1 cell, growing to 8192 cells (2^13)
 cd phase1
+
+# Using config file (recommended)
+python run_simulation.py --config configs/production.yaml
+
+# Or with CLI arguments
 python run_simulation.py --rate 0.005 --years 100 --growth-phase 13 --seed 42
+
+# Quick test with new defaults (100 sites, 50 years, 64 cells)
+python run_simulation.py --rate 0.005
+
+# Gene-specific methylation rates
+python run_simulation.py --gene-rate-groups "50:0.004,50:0.005,50:0.006,50:0.007" --gene-size 5
+
+# Save uncompressed for inspection
+python run_simulation.py --rate 0.005 --no-compress
 
 # Output will be in hierarchical structure:
 # data/rate_0.00500/grow13-sites1000-years100-seed42-XXXX/simulation.json.gz
+# Or: data/gene_rates_50x0.004_50x0.005.../simulation.json.gz
 ```
 
 ### Phase 2: Analysis Pipeline
 ```bash
 cd phase2
 
+# Using config file (recommended)
+python run_pipeline.py --config configs/standard.yaml
+
 # Standard analysis (30 individuals from 10 deciles)
 python run_pipeline.py --rate 0.005 \
     --simulation ../phase1/data/rate_0.00500/grow13-*/simulation.json.gz \
     --first-snapshot 50 --second-snapshot 60 \
     --individual-growth-phase 7 --seed 42
+
+# With gene-specific rates
+python run_pipeline.py --gene-rate-groups "50:0.004,50:0.005,50:0.006,50:0.007" \
+    --simulation ../phase1/data/gene_rates_*/simulation.json.gz \
+    --first-snapshot 50 --second-snapshot 60 --seed 42
 
 # Quick test (4 individuals from quartiles, short growth)
 python run_pipeline.py --rate 0.005 \
@@ -93,16 +123,25 @@ Simulates cellular population dynamics starting from a single cell:
 ```bash
 cd phase1
 
-# Standard simulation (8192 cells, 100 years)
+# Standard simulation using config
+python run_simulation.py --config configs/production.yaml
+
+# Or with CLI parameters
 python run_simulation.py --rate 0.005 --years 100 --growth-phase 13 --seed 42
 
 # Parameters:
-# --rate: Methylation rate per site per year (0.005 = 0.5%)
-# --years: Total simulation time
-# --growth-phase: Years of exponential growth (final population = 2^growth-phase)
+# --config: Path to YAML configuration file
+# --rate: Uniform methylation rate (0.005 = 0.5%)
+# --gene-rate-groups: Gene-specific rates "n1:rate1,n2:rate2,..."
+# --years: Total simulation time (default 50)
+# --growth-phase: Years of exponential growth (default 6 → 64 cells)
 # --seed: Random seed (default 42, use -1 for no seed)
-# --sites: Number of CpG sites per cell (default 1000)
+# --sites: Number of CpG sites per cell (default 100)
 # --gene-size: Sites per gene (default 5)
+# --no-compress: Save as .json instead of .json.gz
+# --no-cell-jsds: Disable cell JSD calculations
+# --no-gene-jsd: Disable gene JSD tracking
+# --no-jsds: Disable ALL JSD calculations
 
 # Examples with different population sizes:
 python run_simulation.py --growth-phase 10  # 1024 cells (2^10)
@@ -298,6 +337,9 @@ cd phase1/tests
 python test_small.py           # Quick validation
 python test_comprehensive.py   # Full feature tests
 python test_edge_cases.py      # Edge case handling
+python test_gene_jsd.py        # Gene JSD functionality
+python test_new_format.py      # Lean JSON format tests
+python test_config.py          # Config system tests
 ```
 
 ### Phase 2 Tests
@@ -305,6 +347,9 @@ python test_edge_cases.py      # Edge case handling
 cd phase2/tests
 python test_reproducibility_robust.py   # Test full reproducibility
 python test_dynamic_mix_year.py        # Test dynamic year calculations
+python test_gene_rate_support.py       # Gene-specific rate support
+python test_final_integration.py       # Full pipeline integration
+python run_all_uniform_tests.py        # Complete uniform mixing suite
 ```
 
 ## License

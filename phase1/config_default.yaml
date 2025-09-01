@@ -9,16 +9,16 @@ simulation:
   # gene_rate_groups: null       # Alternative: "50:0.004,50:0.005,50:0.006,50:0.007"
   
   # Core parameters
-  sites: 1000                    # Number of CpG sites per cell
-  years: 100                     # Number of years to simulate
+  sites: 100                     # Number of CpG sites per cell
+  years: 50                      # Number of years to simulate
   gene_size: 5                   # Size of genes (sites per gene)
-  growth_phase: 13               # Duration of growth phase in years (2^13 = 8192 cells)
+  growth_phase: 6                # Duration of growth phase in years (2^6 = 64 cells)
 
 # Output configuration
 output:
   directory: "data"              # Base directory for output
   filename: null                 # Output filename (auto-generated if null)
-  compress: true                 # Save as .json.gz if true, .json if false
+  compress: false                 # Save as .json.gz if true, .json if false
   save: true                     # Whether to save results
 
 # Performance options

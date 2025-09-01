@@ -43,15 +43,18 @@ def main():
         mutant_dishes, control1_dishes, control2_dishes, results_dir
     )
     
-    # Print summary
-    stats = analysis_results['statistics']
+    # Print summary using new consolidated format
+    cell_jsd_data = analysis_results['cell_jsd_analysis']
+    summary_stats = cell_jsd_data['summary_statistics']
+    statistical_tests = cell_jsd_data['statistical_tests']
+    
     print("\nResults:")
-    print(f"  Mutant mean JSD: {stats['mutant']['mean']:.6f} ± {stats['mutant']['std']:.6f}")
-    print(f"  Control1 mean JSD: {stats['control1']['mean']:.6f} ± {stats['control1']['std']:.6f}")
-    print(f"  Control2 mean JSD: {stats['control2']['mean']:.6f} ± {stats['control2']['std']:.6f}")
+    print(f"  Mutant mean JSD: {summary_stats['mutant']['mean']:.6f} ± {summary_stats['mutant']['std']:.6f}")
+    print(f"  Control1 mean JSD: {summary_stats['control1']['mean']:.6f} ± {summary_stats['control1']['std']:.6f}")
+    print(f"  Control2 mean JSD: {summary_stats['control2']['mean']:.6f} ± {summary_stats['control2']['std']:.6f}")
     
     print("\nStatistical tests:")
-    for comparison, values in stats['comparisons'].items():
+    for comparison, values in statistical_tests.items():
         print(f"  {comparison}: p={values['p_value']:.6f}")
 
 if __name__ == "__main__":

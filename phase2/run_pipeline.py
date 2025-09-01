@@ -539,28 +539,31 @@ def run_pipeline(args, rate_config):
                                      seed=args.seed)
         
         for i, (cell, quantile) in enumerate(sampled):
-            # Create PetriDish with single cell using rate configuration
-            petri = create_petri_with_rate_config(rate_config, 
-                                                 growth_phase=args.individual_growth_phase,
-                                                 n=len(cell.cpg_sites))
-            petri.cells = [cell]  # Start with 1 cell
-            petri.year = 50
-            
-            # Add metadata
-            if not hasattr(petri, 'metadata'):
-                petri.metadata = {}
-            petri.metadata.update({
-                'individual_id': i,
+            # Use professional approach: from_snapshot_cell
+            # IMPORTANT: individual_id must match the filename index to ensure consistency
+            # across multiple runs (even if files are partially created/deleted)
+            file_index = i  # The index used in the filename
+            metadata = {
+                'individual_id': file_index,  # Must match filename for consistency
                 'individual_type': 'mutant',
                 'source_quantile': quantile,
                 'initial_year': 50,
                 'n_quantiles': args.n_quantiles
-            })
+            }
+            
+            petri = PetriDish.from_snapshot_cell(
+                cell=cell,
+                growth_phase=args.individual_growth_phase,
+                calculate_cell_jsds=True,
+                metadata=metadata
+            )
+            # Don't set year - it starts at 0 and grows from there
+            # Metadata tracks where it came from (initial_year: 50)
             
             mutant_dishes.append(petri)
             
             # Save immediately
-            filepath = os.path.join(mutant_dir, f"individual_{i:02d}{individual_ext}")
+            filepath = os.path.join(mutant_dir, f"individual_{file_index:02d}{individual_ext}")
             save_petri_dish(petri, filepath, compress=args.use_compression)
         
         print(f"  Created and saved {len(mutant_dishes)} mutant individuals")
@@ -581,27 +584,33 @@ def run_pipeline(args, rate_config):
                                       seed=args.seed + 1000)
         
         for i, cell in enumerate(sampled_cells):
-            # Create PetriDish with single cell using rate configuration
-            petri = create_petri_with_rate_config(rate_config, 
-                                                 growth_phase=args.individual_growth_phase,
-                                                 n=len(cell.cpg_sites))
-            petri.cells = [cell]
-            petri.year = 50
+            # Use professional approach: from_snapshot_cell
+            # IMPORTANT: individual_id must match the filename index to ensure consistency
+            # across multiple runs (even if files are partially created/deleted)
+            file_index = i  # The index used in the filename
+            metadata = {
+                'individual_id': file_index,  # Must match filename for consistency
+                'individual_type': 'control1',
+                'initial_year': 50
+            }
+            
+            petri = PetriDish.from_snapshot_cell(
+                cell=cell,
+                growth_phase=args.individual_growth_phase,
+                calculate_cell_jsds=True,
+                metadata=metadata
+            )
+            # Don't set year - it starts at 0 and grows from there
+            # Metadata already has initial_year: 50
             
             # Add metadata
-            if not hasattr(petri, 'metadata'):
-                petri.metadata = {}
-            petri.metadata.update({
-                'individual_id': i,
-                'individual_type': 'control1',
-                'source': 'uniform',
-                'initial_year': 50
-            })
+            # Already has metadata from from_snapshot_cell, just ensure source is set
+            petri.update_metadata({'source': 'uniform'})
             
             control1_dishes.append(petri)
             
             # Save immediately
-            filepath = os.path.join(control1_dir, f"individual_{i:02d}{individual_ext}")
+            filepath = os.path.join(control1_dir, f"individual_{file_index:02d}{individual_ext}")
             save_petri_dish(petri, filepath, compress=args.use_compression)
         
         print(f"  Created and saved {len(control1_dishes)} control1 individuals")
@@ -987,6 +996,10 @@ def run_pipeline(args, rate_config):
         for i in range(num_control2):
             print(f"    Creating individual {i+1}/{num_control2}")
             
+            # IMPORTANT: individual_id must match the filename index to ensure consistency
+            # across multiple runs (even if files are partially created/deleted)
+            file_index = i  # The index used in the filename
+            
             # Create PetriDish based on mixing mode
             if args.uniform_mixing and uniform_pool_for_control2 is not None:
                 # Use uniform base + additional sampling
@@ -1004,11 +1017,11 @@ def run_pipeline(args, rate_config):
                 if not hasattr(petri, 'metadata'):
                     petri.metadata = {}
                 petri.metadata.update({
-                    'individual_id': i,
+                    'individual_id': file_index,  # Must match filename for consistency
                     'individual_type': 'control2',
                     'source': f'uniform_base_plus_snapshot_year{args.second_snapshot}',
                     'uniform_base': True,
-                    'year': args.second_snapshot
+                    'initial_year': args.second_snapshot  # Where the cells came from
                 })
             else:
                 # Original random sampling
@@ -1019,16 +1032,16 @@ def run_pipeline(args, rate_config):
                 if not hasattr(petri, 'metadata'):
                     petri.metadata = {}
                 petri.metadata.update({
-                    'individual_id': i,
+                    'individual_id': file_index,  # Must match filename for consistency
                     'individual_type': 'control2',
                     'source': f'pure_year{args.second_snapshot}',
-                    'year': args.second_snapshot
+                    'initial_year': args.second_snapshot  # Where the cells came from
                 })
             
             control2_dishes.append(petri)
             
             # Save (with history if plotting individuals)
-            filepath = os.path.join(control2_dir, f"individual_{i:02d}{individual_ext}")
+            filepath = os.path.join(control2_dir, f"individual_{file_index:02d}{individual_ext}")
             save_petri_dish(petri, filepath, include_cell_history=args.plot_individuals, 
                           include_gene_metrics=True, compress=args.use_compression)
         

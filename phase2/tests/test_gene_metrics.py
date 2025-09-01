@@ -49,11 +49,12 @@ def test_gene_metrics_calculation():
     gene_means = petri.calculate_gene_mean_methylation()
     
     print(f"  Gene JSDs: {[f'{jsd:.4f}' for jsd in gene_jsds]}")
-    print(f"  Gene means: {[f'{mean:.2f}' for mean in gene_means]}")
+    print(f"  Gene mean proportions: {[f'{mean:.3f}' for mean in gene_means]}")
     
     # Check Gene 0 metrics
-    # Mean methylation: (0 + 2 + 5) / 3 = 2.33
-    expected_mean_gene0 = 7/3
+    # Mean methylation count: (0 + 2 + 5) / 3 = 2.33 sites
+    # Mean methylation proportion: 2.33 / 5 = 0.467
+    expected_mean_gene0 = (7/3) / 5  # Convert to proportion
     assert abs(gene_means[0] - expected_mean_gene0) < 0.01, f"Gene 0 mean incorrect: {gene_means[0]} vs {expected_mean_gene0}"
     
     # Gene 0 should have high JSD (heterogeneous)
@@ -88,11 +89,12 @@ def test_gene_metrics_with_uniform_pattern():
     gene_means = petri.calculate_gene_mean_methylation()
     
     print(f"  Gene JSDs: {[f'{jsd:.4f}' for jsd in gene_jsds]}")
-    print(f"  Gene means: {[f'{mean:.2f}' for mean in gene_means]}")
+    print(f"  Gene mean proportions: {[f'{mean:.3f}' for mean in gene_means]}")
     
     # All genes should have same JSD (all cells identical)
+    # Each gene has 2/5 sites methylated = 0.4 proportion
     for i in range(4):
-        assert abs(gene_means[i] - 2.0) < 0.001, f"Gene {i} mean should be 2.0"
+        assert abs(gene_means[i] - 0.4) < 0.001, f"Gene {i} mean should be 0.4 (2/5)"
         # JSD should be > 0 because different from baseline (all unmethylated)
         assert gene_jsds[i] > 0.1, f"Gene {i} JSD should be > 0"
     
@@ -143,7 +145,7 @@ def test_gene_metrics_in_saved_file():
             assert 0 <= jsd <= 1, f"JSD out of range: {jsd}"
         
         for mean in metadata['gene_mean_methylation']:
-            assert 0 <= mean <= 5, f"Mean methylation out of range: {mean}"
+            assert 0 <= mean <= 1.0, f"Mean methylation proportion out of range: {mean}"
         
         print(f"  ✅ Saved {n_genes} genes with metrics")
         print(f"     Mean gene JSD: {np.mean(metadata['gene_jsds']):.4f}")

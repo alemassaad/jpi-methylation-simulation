@@ -239,63 +239,20 @@ def save_petri_dish(petri: PetriDish, filepath: str, metadata: Optional[Dict] = 
     """
     os.makedirs(os.path.dirname(filepath), exist_ok=True)
     
-    # Calculate cell JSD statistics
-    cell_jsd_values = [cell.cell_JSD for cell in petri.cells]
-    actual_num_cells = len(petri.cells)  # Store actual count before any metadata merging
+    # Always use the professional prepare_for_save method - no fallback
+    data = petri.prepare_for_save(include_gene_metrics=include_gene_metrics)
     
-    data = {
-        "metadata": {
-            "num_cells": actual_num_cells,  # Use actual count
-            "mean_cell_jsd": float(np.mean(cell_jsd_values)) if cell_jsd_values else 0.0,
-            "std_cell_jsd": float(np.std(cell_jsd_values)) if cell_jsd_values else 0.0,
-            "min_cell_jsd": float(np.min(cell_jsd_values)) if cell_jsd_values else 0.0,
-            "max_cell_jsd": float(np.max(cell_jsd_values)) if cell_jsd_values else 0.0,
-            "median_cell_jsd": float(np.median(cell_jsd_values)) if cell_jsd_values else 0.0,
-            "year": petri.year,
-            "growth_phase": petri.growth_phase,
-            "rate": petri.rate,
-            "has_cell_history": include_cell_history and hasattr(petri, 'cell_history') and bool(petri.cell_history),
-            "has_gene_jsd": include_gene_jsd and hasattr(petri, 'gene_jsd_history') and bool(petri.gene_jsd_history),
-            "gene_size": getattr(petri, 'gene_size', GENE_SIZE),
-            "n_genes": getattr(petri, 'n_genes', petri.n // GENE_SIZE)
-        },
-        "cells": [cell.to_dict() for cell in petri.cells]
-    }
-    
-    # Add cell history if requested and available
+    # Add cell history if requested
     if include_cell_history and hasattr(petri, 'cell_history') and petri.cell_history:
         data["cell_history"] = petri.cell_history
     
-    # Add gene JSD history if requested and available
+    # Add gene JSD history if requested
     if include_gene_jsd and hasattr(petri, 'gene_jsd_history') and petri.gene_jsd_history:
         data["gene_jsd_history"] = petri.gene_jsd_history
     
     # Add custom metadata if provided
     if metadata:
         data["metadata"].update(metadata)
-    
-    # Add petri metadata if it exists (but preserve correct num_cells)
-    if hasattr(petri, 'metadata'):
-        # Remove num_cells from petri.metadata to avoid overwriting the correct count
-        petri_meta_copy = petri.metadata.copy()
-        petri_meta_copy.pop('num_cells', None)  # Remove if present
-        data["metadata"].update(petri_meta_copy)
-        # Ensure num_cells is still correct after merge
-        data["metadata"]["num_cells"] = actual_num_cells
-    
-    # Add gene-level metrics if requested
-    if include_gene_metrics and len(petri.cells) > 1:
-        try:
-            # Calculate gene JSDs and mean methylation
-            gene_jsds = petri.calculate_gene_jsds()
-            gene_means = petri.calculate_gene_mean_methylation()
-            
-            # Add to metadata
-            data["metadata"]["gene_jsds"] = [float(jsd) for jsd in gene_jsds]
-            data["metadata"]["gene_mean_methylation"] = [float(mean) for mean in gene_means]
-            data["metadata"]["n_genes"] = len(gene_jsds)
-        except Exception as e:
-            print(f"  Warning: Could not calculate gene metrics: {e}")
     
     # Adjust filepath based on compress flag
     if compress and not filepath.endswith('.gz'):
@@ -573,6 +530,10 @@ def mix_petri_with_snapshot(petri: PetriDish, snapshot_cells: List[Cell],
     # Shuffle to mix thoroughly
     random.shuffle(petri.cells)
     
+    # Update metadata to reflect new cell count
+    if hasattr(petri, 'update_metadata'):
+        petri.update_metadata({'num_cells': len(petri.cells)})
+    
     return len(petri.cells)
 
 
@@ -580,6 +541,7 @@ def create_pure_snapshot_petri(snapshot_cells: List[Cell], n_cells: int = 5120,
                               rate: float = 0.005, seed: Optional[int] = None) -> PetriDish:
     """
     Create a PetriDish with pure snapshot cells (for control2).
+    Uses professional approach with proper initialization.
     
     Args:
         snapshot_cells: Cells to sample from
@@ -601,18 +563,31 @@ def create_pure_snapshot_petri(snapshot_cells: List[Cell], n_cells: int = 5120,
     sample_indices = random.sample(range(len(snapshot_cells)), n_cells)
     sampled_cells = [copy.deepcopy(snapshot_cells[idx]) for idx in sample_indices]
     
-    # Get parameters from first cell
-    if sampled_cells:
-        n = len(sampled_cells[0].cpg_sites)
-        gene_size = sampled_cells[0].gene_size
-    else:
-        n = 1000
-        gene_size = GENE_SIZE
+    if not sampled_cells:
+        raise ValueError("No cells sampled")
     
-    # Create PetriDish
-    petri = PetriDish(rate=rate, n=n, gene_size=gene_size, seed=None)
+    # Use first cell as template for professional creation
+    first_cell = sampled_cells[0]
+    
+    # Create PetriDish professionally
+    petri = PetriDish.from_snapshot_cell(
+        cell=first_cell,
+        growth_phase=7,  # Default growth phase for control2
+        calculate_cell_jsds=True,
+        metadata={
+            'creation_method': 'pure_snapshot',
+            'n_cells_sampled': n_cells
+        }
+    )
+    
+    # Replace with all sampled cells and update metadata
     petri.cells = sampled_cells
-    petri.year = sampled_cells[0].age if sampled_cells else 60
+    # Don't set year - PetriDish tracks its own age starting from 0
+    # The snapshot year should be in metadata
+    petri.update_metadata({
+        'num_cells': len(sampled_cells),
+        'creation_method': 'pure_snapshot'  # Preserve this
+    })
     
     return petri
 
@@ -676,18 +651,33 @@ def create_control2_with_uniform_base(
         # Just use subset of uniform pool
         combined_cells = combined_cells[:target_size]
     
-    # Get parameters from first cell
-    if combined_cells:
-        n = len(combined_cells[0].cpg_sites)
-        gene_size = combined_cells[0].gene_size
-    else:
-        n = 1000
-        gene_size = GENE_SIZE
+    # Get first cell as template
+    if not combined_cells:
+        raise ValueError("No cells in combined pool")
     
-    # Create PetriDish
-    petri = PetriDish(rate=rate, n=n, gene_size=gene_size, seed=None)
+    first_cell = combined_cells[0]
+    
+    # Create PetriDish professionally
+    petri = PetriDish.from_snapshot_cell(
+        cell=first_cell,
+        growth_phase=7,  # Default growth phase for control2
+        calculate_cell_jsds=True,
+        metadata={
+            'creation_method': 'uniform_base_plus_snapshot',
+            'uniform_base_size': len(uniform_pool),
+            'additional_cells': n_additional if n_additional > 0 else 0,
+            'target_size': target_size
+        }
+    )
+    
+    # Replace with all combined cells and update metadata
     petri.cells = combined_cells
-    petri.year = combined_cells[0].age if combined_cells else 60
+    # Don't set year - PetriDish tracks its own age starting from 0
+    # The snapshot year should be in metadata
+    petri.update_metadata({
+        'num_cells': len(combined_cells),
+        'creation_method': 'uniform_base_plus_snapshot'  # Preserve this
+    })
     
     return petri
 
@@ -712,8 +702,8 @@ def grow_petri_for_years(petri: PetriDish, years: int, growth_phase: Optional[in
         raise ValueError(f"growth_phase ({growth_phase}) cannot exceed total years ({years})")
     
     # If history tracking is enabled, use PetriDish's new method
-    if track_history and start_year is not None:
-        petri.enable_history_tracking(start_year, track_gene_jsd=track_gene_jsd)
+    if track_history:
+        petri.enable_history_tracking(track_gene_jsd=track_gene_jsd)
         petri.grow_with_homeostasis(years, growth_phase, verbose, record_history=True)
         return
     
@@ -1081,8 +1071,11 @@ def mix_petri_uniform(petri: PetriDish,
     if target_ratio >= 1.0:
         # Replace all cells with snapshot cells
         current_size = len(petri.cells)
-        petri.cells = [copy.deepcopy(cell) for cell in uniform_pool[:current_size]]
-        random.shuffle(petri.cells)
+        new_cells = [copy.deepcopy(cell) for cell in uniform_pool[:current_size]]
+        random.shuffle(new_cells)
+        petri.cells = new_cells
+        # Update metadata to reflect change
+        petri.update_metadata({'num_cells': len(new_cells)})
         return len(petri.cells)
     
     # Normal case: individuals are already normalized, just add the entire pool
@@ -1091,6 +1084,9 @@ def mix_petri_uniform(petri: PetriDish,
     
     # Shuffle to mix
     random.shuffle(petri.cells)
+    
+    # Update metadata to reflect new cell count
+    petri.update_metadata({'num_cells': len(petri.cells)})
     
     return len(petri.cells)
 

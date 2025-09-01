@@ -210,8 +210,9 @@ class Cell:
         """
         return {
             'methylated': self.cpg_sites[:],  # The methylation state (0s and 1s)
-            'cell_JSD': self.cell_JSD         # The JSD value
-            # Note: age, rate, gene_size are redundant and stored in parameters
+            'cell_JSD': self.cell_JSD,        # The JSD value
+            'age': self.age                    # Cell age in years
+            # Note: rate, gene_size are stored in parameters
             # methylation_proportion and distribution can be calculated from methylated array
         }
     
@@ -236,6 +237,7 @@ class Cell:
         cell.cpg_sites = data['methylated'][:]
         cell.methylated = data['methylated'][:]  # For compatibility
         cell.cell_JSD = data.get('cell_JSD', 0.0)
+        cell.age = data.get('age', 0)  # Restore age (default to 0 for old data)
         
         # Properties are automatically calculated via @property decorators
         
@@ -324,7 +326,6 @@ class PetriDish:
         self.year = 0
         
         # Cell history tracking (renamed for clarity)
-        self.absolute_year = 0  # For proper year labeling in phase2
         self.track_cell_history = True  # Renamed from history_enabled
         
         # Gene JSD tracking
@@ -387,6 +388,10 @@ class PetriDish:
         self.cells = new_cells
         print(f"  Division: {len(self.cells)//2} → {len(self.cells)} cells")
         
+        # Update metadata if it exists
+        if hasattr(self, 'metadata'):
+            self.metadata['num_cells'] = len(self.cells)
+        
     def methylate_cells(self) -> None:
         """
         Apply stochastic methylation to all cells.
@@ -412,6 +417,10 @@ class PetriDish:
         self.cells = survivors
         print(f"  Random cull: {initial_count} → {len(self.cells)} cells")
         
+        # Update metadata if it exists
+        if hasattr(self, 'metadata'):
+            self.metadata['num_cells'] = len(self.cells)
+        
     def age_cells_growth_phase(self) -> None:
         """
         Age cells during growth phase.
@@ -435,7 +444,6 @@ class PetriDish:
         Chooses appropriate aging strategy based on current year.
         """
         self.year += 1
-        self.absolute_year += 1  # Keep absolute year in sync
         print(f"\nYear {self.year}:")
         
         if self.year <= self.growth_phase:
@@ -604,12 +612,11 @@ class PetriDish:
     
     # ==================== Enhanced History Tracking Methods ====================
     
-    def enable_history_tracking(self, start_year: int = 0, clear_history: bool = True, track_gene_jsd: bool = True) -> 'PetriDish':
+    def enable_history_tracking(self, clear_history: bool = True, track_gene_jsd: bool = True) -> 'PetriDish':
         """
-        Enable history tracking from a specific year.
+        Enable history tracking.
         
         Args:
-            start_year: The absolute year to start tracking from
             clear_history: Whether to clear existing history
             track_gene_jsd: Whether to also track gene JSD history
             
@@ -618,7 +625,6 @@ class PetriDish:
         """
         self.track_cell_history = True
         self.track_gene_jsd = track_gene_jsd
-        self.absolute_year = start_year
         if clear_history:
             self.cell_history = {}
             self.gene_jsd_history = {}
@@ -636,10 +642,10 @@ class PetriDish:
         Internal method to record current state in history.
         
         Args:
-            year: Optional year to record at. If None, uses absolute_year
+            year: Optional year to record at. If None, uses self.year
         """
         if year is None:
-            year = self.absolute_year
+            year = self.year
         
         # Record cell history if enabled
         if self.track_cell_history:
@@ -649,23 +655,10 @@ class PetriDish:
         if self.track_gene_jsd and self.calculate_cell_jsds:
             self.gene_jsd_history[str(year)] = self.calculate_gene_jsd()
     
-    def set_absolute_year(self, year: int) -> 'PetriDish':
-        """
-        Set the absolute year (for phase2 compatibility).
-        
-        Args:
-            year: The absolute year to set
-            
-        Returns:
-            Self for method chaining
-        """
-        self.absolute_year = year
-        self.year = 0  # Reset relative year
-        return self
     
     def increment_year(self, record_history: bool = True) -> 'PetriDish':
         """
-        Advance both year counters and optionally record history.
+        Advance year counter and optionally record history.
         
         Args:
             record_history: Whether to record the state after incrementing
@@ -674,7 +667,6 @@ class PetriDish:
             Self for method chaining
         """
         self.year += 1
-        self.absolute_year += 1
         if record_history:
             self._record_history()
         return self
@@ -743,10 +735,11 @@ class PetriDish:
     
     def calculate_gene_mean_methylation(self) -> List[float]:
         """
-        Calculate mean methylation level for each gene across all cells.
+        Calculate mean methylation proportion for each gene across all cells.
         
         Returns:
-            List of mean methylation levels (0 to gene_size), one per gene
+            List of mean methylation proportions (0.0 to 1.0), one per gene.
+            0.0 = completely unmethylated, 1.0 = fully methylated
         """
         if not self.cells:
             return []
@@ -764,9 +757,11 @@ class PetriDish:
                 gene_methylation = sum(cell.cpg_sites[start:end])
                 total_methylation += gene_methylation
             
-            # Calculate mean across all cells
-            mean_methylation = total_methylation / len(self.cells)
-            gene_means.append(mean_methylation)
+            # Calculate mean count across all cells
+            mean_count = total_methylation / len(self.cells)
+            # Convert to proportion (0.0 to 1.0)
+            mean_proportion = mean_count / self.gene_size
+            gene_means.append(mean_proportion)
         
         return gene_means
     
@@ -807,7 +802,6 @@ class PetriDish:
             final_count = len(self.cells)
             
             if verbose:
-                abs_year = self.absolute_year + 1  # Show what year we're moving to
                 print(f"      Year {current_year} ({phase}): {initial_count} → {final_count} cells")
             
             # Increment year and record history
@@ -815,9 +809,198 @@ class PetriDish:
                 self.increment_year(record_history=True)
             else:
                 self.year += 1
-                self.absolute_year += 1
         
         return self
+    
+    # ==================== Professional Pipeline Methods ====================
+    
+    @classmethod
+    def from_snapshot_cell(cls, cell: 'Cell', growth_phase: int = 7, 
+                          calculate_cell_jsds: bool = True,
+                          metadata: Dict = None) -> 'PetriDish':
+        """
+        Create a PetriDish from a single snapshot cell.
+        This is the professional way to create individuals in phase2 pipeline.
+        
+        Args:
+            cell: The cell to use as the founding population
+            growth_phase: The growth phase for this PetriDish
+            calculate_cell_jsds: Whether to calculate cell JSDs
+            metadata: Optional metadata to attach to the PetriDish
+            
+        Returns:
+            A properly initialized PetriDish with the given cell
+        """
+        # Extract rate configuration from the cell
+        if cell.rate is not None:
+            # Uniform rate
+            petri = cls(
+                n=cell.n,
+                rate=cell.rate,
+                growth_phase=growth_phase,
+                seed=None,  # Don't set seed for individual dishes
+                calculate_cell_jsds=calculate_cell_jsds
+            )
+        else:
+            # Gene-specific rates
+            petri = cls(
+                n=cell.n,
+                gene_rate_groups=cell.gene_rate_groups,
+                growth_phase=growth_phase,
+                seed=None,
+                calculate_cell_jsds=calculate_cell_jsds
+            )
+        
+        # Replace the initial unmethylated cell with our snapshot cell
+        petri.cells = [cell]
+        
+        # Set metadata if provided
+        if metadata:
+            petri.metadata = metadata.copy()
+        else:
+            petri.metadata = {}
+        
+        # Ensure critical metadata is set
+        petri.update_metadata({
+            'num_cells': 1,
+            'creation_method': 'from_snapshot_cell'
+        })
+        
+        return petri
+    
+    def update_metadata(self, updates: Dict) -> 'PetriDish':
+        """
+        Update the PetriDish metadata with new values.
+        
+        Args:
+            updates: Dictionary of metadata updates
+            
+        Returns:
+            Self for method chaining
+        """
+        if not hasattr(self, 'metadata'):
+            self.metadata = {}
+        self.metadata.update(updates)
+        
+        # Always keep num_cells in sync
+        self.metadata['num_cells'] = len(self.cells)
+        
+        return self
+    
+    def _calculate_mean_methylation_proportion(self) -> float:
+        """
+        Calculate the mean methylation proportion across all cells.
+        
+        Returns:
+            Mean proportion of methylated sites (0.0 to 1.0)
+        """
+        if not self.cells:
+            return 0.0
+        
+        total_methylation = sum(sum(cell.cpg_sites) for cell in self.cells)
+        total_sites = len(self.cells) * self.n
+        return total_methylation / total_sites if total_sites > 0 else 0.0
+    
+    def get_current_stats(self) -> Dict:
+        """
+        Get current statistics about the PetriDish state.
+        Always returns fresh, accurate values.
+        
+        Returns:
+            Dictionary with current statistics
+        """
+        stats = {
+            'num_cells': len(self.cells),
+            'year': self.year,
+            'mean_methylation': self._calculate_mean_methylation_proportion(),
+            'mean_cell_jsd': statistics.mean([c.cell_JSD for c in self.cells]) if self.cells else 0.0
+        }
+        
+        # Add gene metrics if we can calculate them
+        if self.calculate_cell_jsds and self.cells:
+            stats['gene_jsds'] = self.calculate_gene_jsds()
+            stats['gene_mean_methylation'] = self.calculate_gene_mean_methylation()
+            stats['n_genes'] = self.n_genes
+        
+        return stats
+    
+    def merge_metadata(self, other_metadata: Dict, preserve_keys: List[str] = None) -> 'PetriDish':
+        """
+        Merge metadata from another source while preserving critical values.
+        
+        Args:
+            other_metadata: Metadata to merge in
+            preserve_keys: Keys that should not be overwritten
+            
+        Returns:
+            Self for method chaining
+        """
+        if not hasattr(self, 'metadata'):
+            self.metadata = {}
+        
+        if preserve_keys is None:
+            # By default, preserve critical calculated values
+            preserve_keys = ['num_cells', 'gene_jsds', 'gene_mean_methylation']
+        
+        # Save values to preserve
+        preserved = {}
+        for key in preserve_keys:
+            if key in self.metadata:
+                preserved[key] = self.metadata[key]
+        
+        # Merge other metadata
+        if other_metadata:
+            self.metadata.update(other_metadata)
+        
+        # Restore preserved values
+        self.metadata.update(preserved)
+        
+        # Always ensure num_cells is accurate
+        self.metadata['num_cells'] = len(self.cells)
+        
+        return self
+    
+    def prepare_for_save(self, include_gene_metrics: bool = True) -> Dict:
+        """
+        Prepare the PetriDish data for saving, ensuring all metadata is current.
+        
+        Args:
+            include_gene_metrics: Whether to include gene-level metrics
+            
+        Returns:
+            Dictionary ready for JSON serialization
+        """
+        # Get fresh stats
+        current_stats = self.get_current_stats()
+        
+        # Build the save data
+        save_data = {
+            'cells': [cell.to_dict() for cell in self.cells],
+            'metadata': {}
+        }
+        
+        # Start with existing metadata
+        if hasattr(self, 'metadata'):
+            save_data['metadata'] = self.metadata.copy()
+        
+        # Update with fresh values
+        save_data['metadata']['num_cells'] = current_stats['num_cells']
+        save_data['metadata']['year'] = self.year
+        
+        # Add gene metrics if requested
+        if include_gene_metrics and self.calculate_cell_jsds:
+            save_data['metadata']['gene_jsds'] = current_stats.get('gene_jsds', [])
+            save_data['metadata']['gene_mean_methylation'] = current_stats.get('gene_mean_methylation', [])
+            save_data['metadata']['n_genes'] = self.n_genes
+        
+        # Add rate configuration and parameters
+        save_data['metadata']['rate'] = self.rate
+        save_data['metadata']['gene_rate_groups'] = self.gene_rate_groups
+        save_data['metadata']['gene_size'] = self.gene_size
+        save_data['metadata']['n'] = self.n
+        save_data['metadata']['growth_phase'] = self.growth_phase
+        
+        return save_data
 
 
 class PetriDishPlotter:

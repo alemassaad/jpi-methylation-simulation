@@ -11,13 +11,37 @@ import os
 import sys
 import glob
 import copy
-from typing import List, Dict, Tuple, Optional, Any
+from typing import List, Dict, Tuple, Optional, Any, Union, TextIO
 
 # Add parent directory to path to import from phase1
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 sys.path.append(os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'phase1'))
 from cell import Cell, PetriDish, GENE_SIZE, BASELINE_METHYLATION_DISTRIBUTION, RATE
+
+
+def smart_open(filepath: str, mode: str = 'r') -> Union[TextIO, gzip.GzipFile]:
+    """
+    Automatically open file based on extension.
+    
+    Args:
+        filepath: Path to file (can end with .json or .json.gz)
+        mode: File mode ('r' for read, 'w' for write)
+    
+    Returns:
+        File handle (text mode)
+    
+    Raises:
+        ValueError: If file extension is not .json or .json.gz
+    """
+    if filepath.endswith('.json.gz') or filepath.endswith('.gz'):
+        # Text mode for gzip (rt/wt)
+        return gzip.open(filepath, mode + 't' if 't' not in mode else mode)
+    elif filepath.endswith('.json'):
+        # Regular text mode
+        return open(filepath, mode)
+    else:
+        raise ValueError(f"Unsupported file extension: {filepath}. Expected .json or .json.gz")
 
 
 def dict_to_cell(cell_dict: Dict[str, Any], rate: Optional[float] = None) -> Cell:
@@ -86,7 +110,7 @@ def load_snapshot_as_cells(simulation_file: str, year: int) -> List[Cell]:
     
     # Handle both compressed and uncompressed files
     if simulation_file.endswith('.gz'):
-        with gzip.open(simulation_file, 'rt') as f:
+        with smart_open(simulation_file, 'r') as f:
             data = json.load(f)
     else:
         with open(simulation_file, 'r') as f:
@@ -129,20 +153,37 @@ def save_snapshot_cells(cells: List[Cell], filepath: str, compress: bool = True)
     """
     os.makedirs(os.path.dirname(filepath), exist_ok=True)
     
+    # Adjust filepath based on compress flag
+    if compress and not filepath.endswith('.gz'):
+        if filepath.endswith('.json'):
+            filepath = filepath + '.gz'
+        else:
+            filepath = filepath + '.json.gz'
+    elif not compress and filepath.endswith('.gz'):
+        filepath = filepath[:-3]  # Remove .gz extension
+    
+    # Extract rate configuration from first cell
+    metadata = {
+        "num_cells": len(cells),
+        "year": cells[0].age if cells else 0
+    }
+    
+    if cells:
+        first_cell = cells[0]
+        if hasattr(first_cell, 'rate') and first_cell.rate is not None:
+            metadata['rate'] = first_cell.rate
+        if hasattr(first_cell, 'gene_rate_groups') and first_cell.gene_rate_groups:
+            metadata['gene_rate_groups'] = first_cell.gene_rate_groups
+        metadata['gene_size'] = getattr(first_cell, 'gene_size', GENE_SIZE)
+    
     snapshot_data = {
-        "metadata": {
-            "num_cells": len(cells),
-            "year": cells[0].age if cells else 0
-        },
+        "metadata": metadata,
         "cells": [cell.to_dict() for cell in cells]
     }
     
-    if compress:
-        with gzip.open(filepath, 'wt') as f:
-            json.dump(snapshot_data, f, indent=2)
-    else:
-        with open(filepath, 'w') as f:
-            json.dump(snapshot_data, f, indent=2)
+    # Use smart_open which handles compression based on file extension
+    with smart_open(filepath, 'w') as f:
+        json.dump(snapshot_data, f, indent=2)
     
     print(f"  Saved {len(cells)} cells to {filepath}")
 
@@ -158,16 +199,24 @@ def load_snapshot_cells(filepath: str) -> List[Cell]:
     Returns:
         List[Cell]: List of Cell objects
     """
-    # Auto-detect format based on file extension
-    if filepath.endswith('.gz'):
-        with gzip.open(filepath, 'rt') as f:
-            data = json.load(f)
-    else:
-        with open(filepath, 'r') as f:
-            data = json.load(f)
+    # Use smart_open for automatic format detection
+    with smart_open(filepath, 'r') as f:
+        data = json.load(f)
     
     cell_dicts = data['cells']
-    cells = [dict_to_cell(cd) for cd in cell_dicts]
+    
+    # Detect format based on first cell
+    if cell_dicts and 'methylated' in cell_dicts[0] and 'cpg_sites' not in cell_dicts[0]:
+        # New lean format - use Cell.from_dict
+        metadata = data.get('metadata', {})
+        rate = metadata.get('rate')
+        gene_rate_groups = metadata.get('gene_rate_groups')
+        gene_size = metadata.get('gene_size', GENE_SIZE)
+        cells = [Cell.from_dict(cd, rate=rate, gene_rate_groups=gene_rate_groups, 
+                               gene_size=gene_size) for cd in cell_dicts]
+    else:
+        # Old format - use dict_to_cell
+        cells = [dict_to_cell(cd) for cd in cell_dicts]
     
     return cells
 
@@ -226,12 +275,18 @@ def save_petri_dish(petri: PetriDish, filepath: str, metadata: Optional[Dict] = 
     if hasattr(petri, 'metadata'):
         data["metadata"].update(petri.metadata)
     
-    if compress:
-        with gzip.open(filepath, 'wt') as f:
-            json.dump(data, f, indent=2)
-    else:
-        with open(filepath, 'w') as f:
-            json.dump(data, f, indent=2)
+    # Adjust filepath based on compress flag
+    if compress and not filepath.endswith('.gz'):
+        if filepath.endswith('.json'):
+            filepath = filepath + '.gz'
+        else:
+            filepath = filepath + '.json.gz'
+    elif not compress and filepath.endswith('.gz'):
+        filepath = filepath[:-3]  # Remove .gz extension
+    
+    # Use smart_open which handles compression based on file extension
+    with smart_open(filepath, 'w') as f:
+        json.dump(data, f, indent=2)
 
 
 def load_petri_dish(filepath: str, include_cell_history: bool = False, include_gene_jsd: bool = False) -> PetriDish:
@@ -247,19 +302,23 @@ def load_petri_dish(filepath: str, include_cell_history: bool = False, include_g
     Returns:
         PetriDish: Reconstructed object with cells, metadata, and optionally history
     """
-    # Auto-detect format based on file extension
-    if filepath.endswith('.gz'):
-        with gzip.open(filepath, 'rt') as f:
-            data = json.load(f)
-    else:
-        with open(filepath, 'r') as f:
-            data = json.load(f)
+    # Use smart_open for automatic format detection
+    with smart_open(filepath, 'r') as f:
+        data = json.load(f)
     
     # Get first cell to extract parameters and determine rate configuration
     if data['cells']:
         first_cell_dict = data['cells'][0]
-        n = len(first_cell_dict['cpg_sites'])
-        gene_size = first_cell_dict.get('gene_size', GENE_SIZE)
+        # Handle both old format (cpg_sites) and new format (methylated)
+        if 'cpg_sites' in first_cell_dict:
+            n = len(first_cell_dict['cpg_sites'])
+        elif 'methylated' in first_cell_dict:
+            n = len(first_cell_dict['methylated'])
+        else:
+            raise ValueError("Cell dict has neither 'cpg_sites' nor 'methylated' field")
+        
+        # Get gene_size from metadata or first cell
+        gene_size = data.get('metadata', {}).get('gene_size', first_cell_dict.get('gene_size', GENE_SIZE))
         
         # Determine rate configuration from first cell
         if 'gene_rate_groups' in first_cell_dict:
@@ -288,7 +347,17 @@ def load_petri_dish(filepath: str, include_cell_history: bool = False, include_g
         )
     
     # Replace cells with loaded cells
-    petri.cells = [dict_to_cell(cd) for cd in data['cells']]
+    # Detect format based on first cell
+    if data['cells'] and 'methylated' in data['cells'][0] and 'cpg_sites' not in data['cells'][0]:
+        # New lean format - use Cell.from_dict
+        rate = data.get('metadata', {}).get('rate')
+        gene_rate_groups = data.get('metadata', {}).get('gene_rate_groups')
+        gene_size = data.get('metadata', {}).get('gene_size', GENE_SIZE)
+        petri.cells = [Cell.from_dict(cd, rate=rate, gene_rate_groups=gene_rate_groups, 
+                                     gene_size=gene_size) for cd in data['cells']]
+    else:
+        # Old format or phase2 format - use dict_to_cell
+        petri.cells = [dict_to_cell(cd) for cd in data['cells']]
     
     # Validate consistency
     petri._validate_cell_rate_consistency()
@@ -725,7 +794,7 @@ def check_petri_files_state(directory: str, expected_cells: int = 1024) -> Dict:
         fname = os.path.basename(filepath)
         try:
             # Quick load to check cell count
-            with gzip.open(filepath, 'rt') as f:
+            with smart_open(filepath, 'r') as f:
                 data = json.load(f)
                 cell_count = len(data.get('cells', []))
                 result['cell_counts'][fname] = cell_count

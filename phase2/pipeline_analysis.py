@@ -528,17 +528,18 @@ def create_comparison_plot_from_jsds(mutant_jsds: np.ndarray,
     control2_cv = control2_std / control2_mean if control2_mean != 0 else 0
     control2_mad = np.median(np.abs(control2_jsds - control2_median))
     
-    # Determine y position for annotations (below the lowest points)
+    # Calculate y range for plot
     all_jsds = np.concatenate([mutant_jsds, control1_jsds, control2_jsds])
     y_min = np.min(all_jsds)
     y_max = np.max(all_jsds)
-    y_range = y_max - y_min
-    annotation_y = y_min - 0.15 * y_range  # More space to avoid overlap with x-axis labels
     
-    # Add comprehensive statistics text below each group
+    # Add comprehensive statistics text ABOVE the plot using paper coordinates
+    # Position them in three columns at the top
     fig.add_annotation(
-        x=0, y=annotation_y,
-        text=(f"Mean: {mutant_mean:.4f}<br>"
+        xref="paper", yref="paper",
+        x=0.2, y=1.02,  # Left column for Mutant
+        text=(f"<b>Mutant</b><br>"
+              f"Mean: {mutant_mean:.4f}<br>"
               f"Median: {mutant_median:.4f}<br>"
               f"SD: {mutant_std:.4f}<br>"
               f"CV: {mutant_cv:.3f}<br>"
@@ -547,14 +548,16 @@ def create_comparison_plot_from_jsds(mutant_jsds: np.ndarray,
               f"95%: {mutant_q95:.4f}"),
         showarrow=False,
         font=dict(size=9, color="#1f77b4"),
-        align="center",
+        align="left",
         xanchor="center",
-        yanchor="top"
+        yanchor="bottom"
     )
     
     fig.add_annotation(
-        x=1, y=annotation_y,
-        text=(f"Mean: {control1_mean:.4f}<br>"
+        xref="paper", yref="paper",
+        x=0.5, y=1.02,  # Middle column for Control1
+        text=(f"<b>Control1</b><br>"
+              f"Mean: {control1_mean:.4f}<br>"
               f"Median: {control1_median:.4f}<br>"
               f"SD: {control1_std:.4f}<br>"
               f"CV: {control1_cv:.3f}<br>"
@@ -563,14 +566,16 @@ def create_comparison_plot_from_jsds(mutant_jsds: np.ndarray,
               f"95%: {control1_q95:.4f}"),
         showarrow=False,
         font=dict(size=9, color="#ff7f0e"),
-        align="center",
+        align="left",
         xanchor="center",
-        yanchor="top"
+        yanchor="bottom"
     )
     
     fig.add_annotation(
-        x=2, y=annotation_y,
-        text=(f"Mean: {control2_mean:.4f}<br>"
+        xref="paper", yref="paper",
+        x=0.8, y=1.02,  # Right column for Control2
+        text=(f"<b>Control2</b><br>"
+              f"Mean: {control2_mean:.4f}<br>"
               f"Median: {control2_median:.4f}<br>"
               f"SD: {control2_std:.4f}<br>"
               f"CV: {control2_cv:.3f}<br>"
@@ -579,9 +584,9 @@ def create_comparison_plot_from_jsds(mutant_jsds: np.ndarray,
               f"95%: {control2_q95:.4f}"),
         showarrow=False,
         font=dict(size=9, color="#2ca02c"),
-        align="center",
+        align="left",
         xanchor="center",
-        yanchor="top"
+        yanchor="bottom"
     )
     
     # Clean layout with proper spacing
@@ -604,13 +609,13 @@ def create_comparison_plot_from_jsds(mutant_jsds: np.ndarray,
             title='Mean Cell JSD per Individual',
             showgrid=True,
             gridcolor='lightgray',
-            range=[annotation_y - 0.05, y_max + 0.01]
+            range=[y_min - 0.01, y_max + 0.01]  # Simple range without annotation adjustment
         ),
         plot_bgcolor='white',
         showlegend=False,
-        height=800,  # Increased height to accommodate stats
+        height=800,  # Keep height for good proportions
         width=700,
-        margin=dict(l=80, r=40, t=60, b=200)  # Increased bottom margin for stats
+        margin=dict(l=80, r=40, t=180, b=60)  # Increased TOP margin for stats above
     )
     
     # Save PNG only (no HTML)
@@ -1095,23 +1100,23 @@ def create_gene_comparison_plot(mutant_jsds: np.ndarray,
         fig.add_shape(type="line", x0=1.8, x1=2.2, y0=control2_mean, y1=control2_mean,
                       line=dict(color="#2ca02c", width=3))
     
-    # Determine y position for annotations (below the lowest points)
+    # Calculate y range for plot
     all_jsds = np.concatenate([jsds for jsds in [mutant_jsds, control1_jsds, control2_jsds] if len(jsds) > 0])
     if len(all_jsds) > 0:
         y_min = np.min(all_jsds)
         y_max = np.max(all_jsds)
-        y_range = y_max - y_min
-        annotation_y = y_min - 0.15 * y_range  # More space to avoid overlap with x-axis labels
     else:
         y_min = 0
         y_max = 1
-        annotation_y = -0.15
     
-    # Add comprehensive statistics text below each group
+    # Add comprehensive statistics text ABOVE the plot using paper coordinates
+    # Position them in three columns at the top
     if len(mutant_jsds) > 0:
         fig.add_annotation(
-            x=0, y=annotation_y,
-            text=(f"Mean: {mutant_mean:.4f}<br>"
+            xref="paper", yref="paper",
+            x=0.2, y=1.02,  # Left column for Mutant
+            text=(f"<b>Mutant</b><br>"
+                  f"Mean: {mutant_mean:.4f}<br>"
                   f"Median: {mutant_median:.4f}<br>"
                   f"SD: {mutant_std:.4f}<br>"
                   f"CV: {mutant_cv:.3f}<br>"
@@ -1120,15 +1125,17 @@ def create_gene_comparison_plot(mutant_jsds: np.ndarray,
                   f"95%: {mutant_q95:.4f}"),
             showarrow=False,
             font=dict(size=9, color="#1f77b4"),
-            align="center",
+            align="left",
             xanchor="center",
-            yanchor="top"
+            yanchor="bottom"
         )
     
     if len(control1_jsds) > 0:
         fig.add_annotation(
-            x=1, y=annotation_y,
-            text=(f"Mean: {control1_mean:.4f}<br>"
+            xref="paper", yref="paper",
+            x=0.5, y=1.02,  # Middle column for Control1
+            text=(f"<b>Control1</b><br>"
+                  f"Mean: {control1_mean:.4f}<br>"
                   f"Median: {control1_median:.4f}<br>"
                   f"SD: {control1_std:.4f}<br>"
                   f"CV: {control1_cv:.3f}<br>"
@@ -1137,15 +1144,17 @@ def create_gene_comparison_plot(mutant_jsds: np.ndarray,
                   f"95%: {control1_q95:.4f}"),
             showarrow=False,
             font=dict(size=9, color="#ff7f0e"),
-            align="center",
+            align="left",
             xanchor="center",
-            yanchor="top"
+            yanchor="bottom"
         )
     
     if len(control2_jsds) > 0:
         fig.add_annotation(
-            x=2, y=annotation_y,
-            text=(f"Mean: {control2_mean:.4f}<br>"
+            xref="paper", yref="paper",
+            x=0.8, y=1.02,  # Right column for Control2
+            text=(f"<b>Control2</b><br>"
+                  f"Mean: {control2_mean:.4f}<br>"
                   f"Median: {control2_median:.4f}<br>"
                   f"SD: {control2_std:.4f}<br>"
                   f"CV: {control2_cv:.3f}<br>"
@@ -1154,9 +1163,9 @@ def create_gene_comparison_plot(mutant_jsds: np.ndarray,
                   f"95%: {control2_q95:.4f}"),
             showarrow=False,
             font=dict(size=9, color="#2ca02c"),
-            align="center",
+            align="left",
             xanchor="center",
-            yanchor="top"
+            yanchor="bottom"
         )
     
     # Add gene rate annotation if applicable
@@ -1187,13 +1196,13 @@ def create_gene_comparison_plot(mutant_jsds: np.ndarray,
             title='Gene JSD Score',
             showgrid=True,
             gridcolor='lightgray',
-            range=[annotation_y - 0.05, y_max + 0.01] if len(all_jsds) > 0 else [0, 1]
+            range=[y_min - 0.01, y_max + 0.01] if len(all_jsds) > 0 else [0, 1]  # Simple range
         ),
         plot_bgcolor='white',
         showlegend=False,
-        height=800,  # Increased height to accommodate stats
+        height=800,  # Keep height for good proportions
         width=700,
-        margin=dict(l=80, r=40, t=60, b=200)  # Increased bottom margin for stats
+        margin=dict(l=80, r=40, t=180, b=60)  # Increased TOP margin for stats above
     )
     
     # Save PNG only

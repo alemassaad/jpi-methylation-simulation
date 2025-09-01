@@ -402,13 +402,16 @@ def load_all_petri_dishes(directory: str, include_cell_history: bool = False) ->
     Load all PetriDish objects from a directory.
     
     Args:
-        directory: Directory containing .json.gz files
+        directory: Directory containing .json or .json.gz files
         include_cell_history: Whether to load cell history if available
     
     Returns:
         List of PetriDish objects
     """
-    files = sorted(glob.glob(os.path.join(directory, "*.json.gz")))
+    # Look for both compressed and uncompressed files
+    gz_files = glob.glob(os.path.join(directory, "*.json.gz"))
+    json_files = glob.glob(os.path.join(directory, "*.json"))
+    files = sorted(gz_files + json_files)
     dishes = []
     
     for filepath in files:

@@ -542,7 +542,7 @@ def run_pipeline(args, rate_config):
             # Use professional approach: from_snapshot_cell
             # IMPORTANT: individual_id must match the filename index to ensure consistency
             # across multiple runs (even if files are partially created/deleted)
-            file_index = i  # The index used in the filename
+            file_index = i + 1  # Start IDs at 1 instead of 0
             metadata = {
                 'individual_id': file_index,  # Must match filename for consistency
                 'individual_type': 'mutant',
@@ -587,7 +587,7 @@ def run_pipeline(args, rate_config):
             # Use professional approach: from_snapshot_cell
             # IMPORTANT: individual_id must match the filename index to ensure consistency
             # across multiple runs (even if files are partially created/deleted)
-            file_index = i  # The index used in the filename
+            file_index = i + 1  # Start IDs at 1 instead of 0
             metadata = {
                 'individual_id': file_index,  # Must match filename for consistency
                 'individual_type': 'control1',
@@ -638,7 +638,7 @@ def run_pipeline(args, rate_config):
         for i, petri in enumerate(mutant_dishes):
             current_cells = len(petri.cells)
             # Use individual_id from metadata for consistent file naming
-            individual_id = petri.metadata.get('individual_id', i)
+            individual_id = petri.metadata.get('individual_id', i + 1)
             
             if current_cells == 1:
                 # Fresh individual, needs full growth
@@ -677,7 +677,7 @@ def run_pipeline(args, rate_config):
         for i, petri in enumerate(control1_dishes):
             current_cells = len(petri.cells)
             # Use individual_id from metadata for consistent file naming
-            individual_id = petri.metadata.get('individual_id', i)
+            individual_id = petri.metadata.get('individual_id', i + 1)
             
             if current_cells == 1:
                 # Fresh individual, needs full growth
@@ -766,7 +766,7 @@ def run_pipeline(args, rate_config):
             dish.metadata['normalized'] = True
             dish.metadata['normalization_threshold'] = normalization_threshold
             # Use individual_id from metadata for consistent file naming
-            individual_id = dish.metadata.get('individual_id', i)
+            individual_id = dish.metadata.get('individual_id', i + 1)
             filepath = os.path.join(mutant_dir, f"individual_{individual_id:02d}{individual_ext}")
             save_petri_dish(dish, filepath, compress=args.use_compression)
         
@@ -776,7 +776,7 @@ def run_pipeline(args, rate_config):
             dish.metadata['normalized'] = True
             dish.metadata['normalization_threshold'] = normalization_threshold
             # Use individual_id from metadata for consistent file naming
-            individual_id = dish.metadata.get('individual_id', i)
+            individual_id = dish.metadata.get('individual_id', i + 1)
             filepath = os.path.join(control1_dir, f"individual_{individual_id:02d}{individual_ext}")
             save_petri_dish(dish, filepath, compress=args.use_compression)
         
@@ -829,7 +829,7 @@ def run_pipeline(args, rate_config):
         print(f"  Processing {len(mutant_dishes)} mutant individuals...")
         for i, petri in enumerate(mutant_dishes):
             # Use individual_id from metadata for consistent file naming
-            individual_id = petri.metadata.get('individual_id', i)
+            individual_id = petri.metadata.get('individual_id', i + 1)
             initial_size = len(petri.cells)
             final_size = mix_petri_uniform(petri, uniform_pool, args.mix_ratio / 100)
             print(f"    Mutant {individual_id:02d}: {initial_size} → {final_size} cells")
@@ -853,7 +853,7 @@ def run_pipeline(args, rate_config):
         print(f"  Processing {len(control1_dishes)} control1 individuals...")
         for i, petri in enumerate(control1_dishes):
             # Use individual_id from metadata for consistent file naming
-            individual_id = petri.metadata.get('individual_id', i)
+            individual_id = petri.metadata.get('individual_id', i + 1)
             initial_size = len(petri.cells)
             final_size = mix_petri_uniform(petri, uniform_pool, args.mix_ratio / 100)
             print(f"    Control1 {individual_id:02d}: {initial_size} → {final_size} cells")
@@ -893,7 +893,7 @@ def run_pipeline(args, rate_config):
             
             for i, petri in enumerate(mutant_dishes):
                 # Use individual_id from metadata for consistent file naming
-                individual_id = petri.metadata.get('individual_id', i)
+                individual_id = petri.metadata.get('individual_id', i + 1)
                 
                 # Check if within expected range (homeostasis causes variation)
                 if expected_population * 0.5 <= len(petri.cells) <= expected_population * 1.5:
@@ -928,7 +928,7 @@ def run_pipeline(args, rate_config):
             
             for i, petri in enumerate(control1_dishes):
                 # Use individual_id from metadata for consistent file naming
-                individual_id = petri.metadata.get('individual_id', i)
+                individual_id = petri.metadata.get('individual_id', i + 1)
                 
                 # Check if within expected range (homeostasis causes variation)
                 if expected_population * 0.5 <= len(petri.cells) <= expected_population * 1.5:
@@ -1022,7 +1022,7 @@ def run_pipeline(args, rate_config):
             
             # IMPORTANT: individual_id must match the filename index to ensure consistency
             # across multiple runs (even if files are partially created/deleted)
-            file_index = i  # The index used in the filename
+            file_index = i + 1  # Start IDs at 1 instead of 0
             
             # Create PetriDish based on mixing mode
             if args.uniform_mixing and uniform_pool_for_control2 is not None:

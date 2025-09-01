@@ -51,6 +51,15 @@ python run_pipeline.py --config configs/quick_test.yaml --simulation PATH --rate
 - Gene-level JSD already clearly named with `gene_` prefix
 - **Breaking change**: Old JSON files will have old keys (`mean_jsd` etc.)
 
+### 🧬 Gene-Level Metrics for Individuals
+- Each individual now includes gene-level statistics after mixing
+- New metadata fields:
+  - `gene_jsds`: Array of JSD values, one per gene (heterogeneity measure)
+  - `gene_mean_methylation`: Array of mean methylation levels (0-5), one per gene
+  - `n_genes`: Number of genes analyzed
+- Calculated only for final mixed populations (Stage 7)
+- Enables analysis of gene-specific methylation patterns and rate effects
+
 ## Biological Background
 
 ### CpG Sites
@@ -119,6 +128,8 @@ Key methods:
 - `PetriDish.divide_cells()`: Population doubling
 - `PetriDish.random_cull_cells()`: Homeostatic ~50% survival
 - `PetriDish.calculate_gene_jsd()`: Calculate JSD for each gene across population
+- `PetriDish.calculate_gene_jsds()`: Alias for calculate_gene_jsd (clearer name)
+- `PetriDish.calculate_gene_mean_methylation()`: Mean methylation level per gene
 - `PetriDish.save_history()`: Save in new lean format
 
 ### JSON Format Structure (New Lean Format)

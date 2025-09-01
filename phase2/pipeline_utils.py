@@ -223,6 +223,7 @@ def load_snapshot_cells(filepath: str) -> List[Cell]:
 
 def save_petri_dish(petri: PetriDish, filepath: str, metadata: Optional[Dict] = None, 
                    include_cell_history: bool = False, include_gene_jsd: bool = False,
+                   include_gene_metrics: bool = False,
                    compress: bool = True) -> None:
     """
     Save a PetriDish to JSON file (compressed or uncompressed), optionally with history.
@@ -233,6 +234,7 @@ def save_petri_dish(petri: PetriDish, filepath: str, metadata: Optional[Dict] = 
         metadata: Extra metadata dict
         include_cell_history: Whether to save cell history
         include_gene_jsd: Whether to save gene JSD history
+        include_gene_metrics: Whether to calculate and save gene-level JSD and mean methylation
         compress: If True, save as .json.gz; if False, save as .json
     """
     os.makedirs(os.path.dirname(filepath), exist_ok=True)
@@ -274,6 +276,20 @@ def save_petri_dish(petri: PetriDish, filepath: str, metadata: Optional[Dict] = 
     # Add petri metadata if it exists
     if hasattr(petri, 'metadata'):
         data["metadata"].update(petri.metadata)
+    
+    # Add gene-level metrics if requested
+    if include_gene_metrics and len(petri.cells) > 1:
+        try:
+            # Calculate gene JSDs and mean methylation
+            gene_jsds = petri.calculate_gene_jsds()
+            gene_means = petri.calculate_gene_mean_methylation()
+            
+            # Add to metadata
+            data["metadata"]["gene_jsds"] = [float(jsd) for jsd in gene_jsds]
+            data["metadata"]["gene_mean_methylation"] = [float(mean) for mean in gene_means]
+            data["metadata"]["n_genes"] = len(gene_jsds)
+        except Exception as e:
+            print(f"  Warning: Could not calculate gene metrics: {e}")
     
     # Adjust filepath based on compress flag
     if compress and not filepath.endswith('.gz'):

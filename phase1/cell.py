@@ -731,6 +731,45 @@ class PetriDish:
         
         return gene_jsds
     
+    def calculate_gene_jsds(self) -> List[float]:
+        """
+        Calculate Jensen-Shannon Divergence for each gene across all cells.
+        This is identical to calculate_gene_jsd but with a clearer name.
+        
+        Returns:
+            List of JSD values, one per gene
+        """
+        return self.calculate_gene_jsd()
+    
+    def calculate_gene_mean_methylation(self) -> List[float]:
+        """
+        Calculate mean methylation level for each gene across all cells.
+        
+        Returns:
+            List of mean methylation levels (0 to gene_size), one per gene
+        """
+        if not self.cells:
+            return []
+        
+        gene_means = []
+        
+        for gene_idx in range(self.n_genes):
+            start = gene_idx * self.gene_size
+            end = start + self.gene_size
+            
+            # Calculate mean methylation for this gene across all cells
+            total_methylation = 0
+            for cell in self.cells:
+                # Sum methylation for this gene in this cell
+                gene_methylation = sum(cell.cpg_sites[start:end])
+                total_methylation += gene_methylation
+            
+            # Calculate mean across all cells
+            mean_methylation = total_methylation / len(self.cells)
+            gene_means.append(mean_methylation)
+        
+        return gene_means
+    
     def grow_with_homeostasis(self, years: int, growth_phase: int = None,
                              verbose: bool = False, record_history: bool = True) -> 'PetriDish':
         """

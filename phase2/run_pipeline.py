@@ -640,7 +640,8 @@ def run_pipeline(args, rate_config):
                 
                 # Save updated state (with history if tracked)
                 filepath = os.path.join(mutant_dir, f"individual_{i:02d}{individual_ext}")
-                save_petri_dish(petri, filepath, include_cell_history=args.plot_individuals, compress=args.use_compression)
+                save_petri_dish(petri, filepath, include_cell_history=args.plot_individuals, 
+                          include_gene_metrics=True, compress=args.use_compression)
             elif current_cells >= expected_population * 0.5 and current_cells <= expected_population * 1.5:
                 # Already grown (with homeostasis variation)
                 print(f"    Individual {i:02d}: Already at {current_cells} cells")
@@ -675,7 +676,8 @@ def run_pipeline(args, rate_config):
                 
                 # Save updated state (with history if tracked)
                 filepath = os.path.join(control1_dir, f"individual_{i:02d}{individual_ext}")
-                save_petri_dish(petri, filepath, include_cell_history=args.plot_individuals, compress=args.use_compression)
+                save_petri_dish(petri, filepath, include_cell_history=args.plot_individuals, 
+                          include_gene_metrics=True, compress=args.use_compression)
     
     # ========================================================================
     # STAGE 5: Extract Second Snapshot
@@ -822,7 +824,8 @@ def run_pipeline(args, rate_config):
             
             # Save (with history if tracking)
             filepath = os.path.join(mutant_dir, f"individual_{i:02d}{individual_ext}")
-            save_petri_dish(petri, filepath, include_cell_history=args.plot_individuals, compress=args.use_compression)
+            save_petri_dish(petri, filepath, include_cell_history=args.plot_individuals, 
+                          include_gene_metrics=True, compress=args.use_compression)
         
         # Mix control1 individuals (using SAME pool)
         print(f"  Processing {len(control1_dishes)} control1 individuals...")
@@ -842,7 +845,8 @@ def run_pipeline(args, rate_config):
             
             # Save (with history if tracking)
             filepath = os.path.join(control1_dir, f"individual_{i:02d}{individual_ext}")
-            save_petri_dish(petri, filepath, include_cell_history=args.plot_individuals, compress=args.use_compression)
+            save_petri_dish(petri, filepath, include_cell_history=args.plot_individuals, 
+                          include_gene_metrics=True, compress=args.use_compression)
                 
     else:
         print("\n  === INDEPENDENT MIXING MODE (default) ===")
@@ -880,7 +884,8 @@ def run_pipeline(args, rate_config):
                     
                     # Save updated state (with history if tracking)
                     filepath = os.path.join(mutant_dir, f"individual_{i:02d}{individual_ext}")
-                    save_petri_dish(petri, filepath, include_cell_history=args.plot_individuals, compress=args.use_compression)
+                    save_petri_dish(petri, filepath, include_cell_history=args.plot_individuals, 
+                          include_gene_metrics=True, compress=args.use_compression)
                 elif len(petri.cells) > expected_population * 1.5:
                     print(f"    Individual {i:02d}: Already mixed ({len(petri.cells)} cells)")
     
@@ -910,7 +915,8 @@ def run_pipeline(args, rate_config):
                     
                     # Save updated state (with history if tracking)
                     filepath = os.path.join(control1_dir, f"individual_{i:02d}{individual_ext}")
-                    save_petri_dish(petri, filepath, include_cell_history=args.plot_individuals, compress=args.use_compression)
+                    save_petri_dish(petri, filepath, include_cell_history=args.plot_individuals, 
+                          include_gene_metrics=True, compress=args.use_compression)
     
     # Store uniform pool data for Control2 creation (if using uniform mixing)
     uniform_pool_for_control2 = None
@@ -1023,7 +1029,8 @@ def run_pipeline(args, rate_config):
             
             # Save (with history if plotting individuals)
             filepath = os.path.join(control2_dir, f"individual_{i:02d}{individual_ext}")
-            save_petri_dish(petri, filepath, include_cell_history=args.plot_individuals, compress=args.use_compression)
+            save_petri_dish(petri, filepath, include_cell_history=args.plot_individuals, 
+                          include_gene_metrics=True, compress=args.use_compression)
         
         print(f"  Created and saved {len(control2_dishes)} control2 individuals")
     

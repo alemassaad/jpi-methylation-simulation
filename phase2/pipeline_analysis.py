@@ -23,7 +23,7 @@ from pipeline_utils import load_petri_dish, load_all_petri_dishes, get_jsd_array
 
 
 def plot_jsd_distribution_from_cells(cells: List[Cell], bins: int, output_path: str, 
-                                    rate: Optional[float] = None) -> None:
+                                    rate: Optional[float] = None, year: Optional[int] = None) -> None:
     """
     Create histogram of cell JSD distribution from Cell objects.
     
@@ -32,6 +32,7 @@ def plot_jsd_distribution_from_cells(cells: List[Cell], bins: int, output_path: 
         bins: Number of bins for histogram
         output_path: Path to save plot
         rate: Methylation rate (optional, for display)
+        year: Year to display in title (optional, otherwise uses cell.age)
     """
     print(f"\nPlotting Cell JSD distribution...")
     
@@ -111,7 +112,11 @@ def plot_jsd_distribution_from_cells(cells: List[Cell], bins: int, output_path: 
     )
     
     # Update layout
-    year = cells[0].age if cells else 'unknown'
+    # Use provided year if given, otherwise try cell.age
+    if year is not None:
+        display_year = year
+    else:
+        display_year = cells[0].age if cells else 'unknown'
     
     # Format rate as percentage if provided
     rate_text = ""
@@ -121,7 +126,7 @@ def plot_jsd_distribution_from_cells(cells: List[Cell], bins: int, output_path: 
     
     fig.update_layout(
         title=dict(
-            text=f"Cell JSD Distribution at Year {year}<br>"
+            text=f"Cell JSD Distribution at Year {display_year}<br>"
                  f"<sub>{len(cells)} cells{rate_text}</sub>",
             font=dict(size=16)
         ),

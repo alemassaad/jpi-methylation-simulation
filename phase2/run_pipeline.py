@@ -499,7 +499,8 @@ def run_pipeline(args, rate_config):
     plot_path = os.path.join(results_dir, f"year{args.first_snapshot}_jsd_distribution_{args.bins}bins.png")
     # Use args.rate if available, otherwise None (for gene-specific rates)
     plot_rate = args.rate if hasattr(args, 'rate') and args.rate is not None else None
-    plot_jsd_distribution_from_cells(first_snapshot_cells, args.bins, plot_path, rate=plot_rate)
+    plot_jsd_distribution_from_cells(first_snapshot_cells, args.bins, plot_path, 
+                                    rate=plot_rate, year=args.first_snapshot)
     
     # ========================================================================
     # STAGE 3: Create Initial Individuals (as PetriDish objects)
@@ -693,7 +694,8 @@ def run_pipeline(args, rate_config):
     second_plot_path = os.path.join(results_dir, f"year{args.second_snapshot}_jsd_distribution_{args.bins}bins.png")
     # Use args.rate if available, otherwise None (for gene-specific rates)
     plot_rate = args.rate if hasattr(args, 'rate') and args.rate is not None else None
-    plot_jsd_distribution_from_cells(second_snapshot_cells, args.bins, second_plot_path, rate=plot_rate)
+    plot_jsd_distribution_from_cells(second_snapshot_cells, args.bins, second_plot_path, 
+                                    rate=plot_rate, year=args.second_snapshot)
     
     # ========================================================================
     # STAGE 6: Mix Populations

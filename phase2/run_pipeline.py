@@ -1089,487 +1089,506 @@ def run_pipeline(args, rate_config):
         
         print(f"  Created and saved {len(control2_dishes)} control2 individuals")
     
-# ========================================================================
-# Generate Individual Growth Trajectories
-# ========================================================================
-print(f"\n{'='*60}")
-print("Generating Individual Growth Trajectories")
-print(f"{'='*60}")
-
-# Create output directory for individual trajectories
-individual_trajectories_dir = os.path.join(results_dir, 'individual_trajectories')
-os.makedirs(individual_trajectories_dir, exist_ok=True)
-
-# Plot mutant individuals
-print("\n  Creating plots for mutant individuals...")
-mutant_plot_count = 0
-for i, filename in enumerate(sorted(os.listdir(mutant_dir)), 1):
-    if filename.endswith(('.json', '.json.gz')):
-        filepath = os.path.join(mutant_dir, filename)
-        try:
-            # Load with history
-            petri = load_petri_dish(filepath, include_cell_history=True)
-            
-            # Check if history exists
-            if hasattr(petri, 'cell_history') and petri.cell_history:
-                plotter = PetriDishPlotter(petri)
-                
-                # Generate plots
-                jsd_path = os.path.join(individual_trajectories_dir, f"mutant_{i:02d}_jsd.png")
-                meth_path = os.path.join(individual_trajectories_dir, f"mutant_{i:02d}_methylation.png")
-                
-                plotter.plot_jsd(f"Mutant Individual {i:02d}", jsd_path)
-                plotter.plot_methylation(f"Mutant Individual {i:02d}", meth_path)
-                
-                mutant_plot_count += 1
-                print(f"    ✓ Plotted mutant_{i:02d} trajectories")
-        except Exception as e:
-            print(f"    ⚠️  Could not plot mutant_{i:02d}: {str(e)}")
-
-# Plot control1 individuals
-print("\n  Creating plots for control1 individuals...")
-control1_plot_count = 0
-for i, filename in enumerate(sorted(os.listdir(control1_dir)), 1):
-    if filename.endswith(('.json', '.json.gz')):
-        filepath = os.path.join(control1_dir, filename)
-        try:
-            # Load with history
-            petri = load_petri_dish(filepath, include_cell_history=True)
-            
-            # Check if history exists
-            if hasattr(petri, 'cell_history') and petri.cell_history:
-                plotter = PetriDishPlotter(petri)
-                
-                # Generate plots
-                jsd_path = os.path.join(individual_trajectories_dir, f"control1_{i:02d}_jsd.png")
-                meth_path = os.path.join(individual_trajectories_dir, f"control1_{i:02d}_methylation.png")
-                
-                plotter.plot_jsd(f"Control1 Individual {i:02d}", jsd_path)
-                plotter.plot_methylation(f"Control1 Individual {i:02d}", meth_path)
-                
-                control1_plot_count += 1
-                print(f"    ✓ Plotted control1_{i:02d} trajectories")
-        except Exception as e:
-            print(f"    ⚠️  Could not plot control1_{i:02d}: {str(e)}")
-
-print(f"\n  Skipping control2 (pure snapshots, no growth trajectories)")
-print(f"  ✓ Generated {(mutant_plot_count + control1_plot_count) * 2} trajectory plots in {individual_trajectories_dir}")
-
-# ========================================================================
-# STAGE 8: Analysis
-# ========================================================================
-print(f"\n{'='*60}")
-print("STAGE 8: Analysis and Visualization")
-print(f"{'='*60}")
-
-# Reload all final states
-print("\n  Loading final populations for analysis...")
-mutant_dishes = load_all_petri_dishes(mutant_dir)
-control1_dishes = load_all_petri_dishes(control1_dir)
-control2_dishes = load_all_petri_dishes(control2_dir)
+        # ========================================================================
+        # Generate Individual Growth Trajectories
+        # ========================================================================
+        print(f"\n{'='*60}")
+        print("Generating Individual Growth Trajectories")
+        print(f"{'='*60}")
     
-print(f"    Loaded {len(mutant_dishes)} mutant individuals")
-print(f"    Loaded {len(control1_dishes)} control1 individuals")
-print(f"    Loaded {len(control2_dishes)} control2 individuals")
-
-# Use the enhanced analysis function for cell-level JSD
-analysis_results = analyze_populations_from_dishes(
-    mutant_dishes, control1_dishes, control2_dishes, results_dir
-)
-
-# Generate gene-level JSD analysis
-from pipeline_analysis import generate_gene_jsd_analysis
-gene_analysis_results = generate_gene_jsd_analysis(
-    mutant_dishes, control1_dishes, control2_dishes, results_dir
-)
-
-# Generate gene-level JSD distribution plots
-if 'gene_jsd_analysis' in gene_analysis_results:
-    plot_gene_jsd_distributions(gene_analysis_results['gene_jsd_analysis'], results_dir, 
-                               max_genes=args.max_gene_plots)
+        # Create output directory for individual trajectories
+        individual_trajectories_dir = os.path.join(results_dir, 'individual_trajectories')
+        os.makedirs(individual_trajectories_dir, exist_ok=True)
     
-    # Generate individual-averaged gene JSD comparison plot
-    gene_jsd_path = os.path.join(results_dir, 'gene_jsd_analysis.json')
-    if os.path.exists(gene_jsd_path):
-        plot_gene_jsd_individual_comparison(
-            gene_jsd_path=gene_jsd_path,
-            output_dir=results_dir,
-            verbose=True  # Always verbose for now
+        # Plot mutant individuals
+        print("\n  Creating plots for mutant individuals...")
+        mutant_plot_count = 0
+        for i, filename in enumerate(sorted(os.listdir(mutant_dir)), 1):
+            if filename.endswith(('.json', '.json.gz')):
+                filepath = os.path.join(mutant_dir, filename)
+                try:
+                    # Load with history
+                    petri = load_petri_dish(filepath, include_cell_history=True)
+                
+                    # Check if history exists
+                    if hasattr(petri, 'cell_history') and petri.cell_history:
+                        from cell import PetriDishPlotter
+                        plotter = PetriDishPlotter(petri)
+                    
+                        # Generate plots
+                        jsd_path = os.path.join(individual_trajectories_dir, f"mutant_{i:02d}_jsd.png")
+                        meth_path = os.path.join(individual_trajectories_dir, f"mutant_{i:02d}_methylation.png")
+                    
+                        plotter.plot_jsd(f"Mutant Individual {i:02d}", jsd_path)
+                        plotter.plot_methylation(f"Mutant Individual {i:02d}", meth_path)
+                    
+                        mutant_plot_count += 1
+                        print(f"    ✓ Plotted mutant_{i:02d} trajectories")
+                except Exception as e:
+                    print(f"    ⚠️  Could not plot mutant_{i:02d}: {str(e)}")
+    
+        # Plot control1 individuals
+        print("\n  Creating plots for control1 individuals...")
+        control1_plot_count = 0
+        for i, filename in enumerate(sorted(os.listdir(control1_dir)), 1):
+            if filename.endswith(('.json', '.json.gz')):
+                filepath = os.path.join(control1_dir, filename)
+                try:
+                    # Load with history
+                    petri = load_petri_dish(filepath, include_cell_history=True)
+                
+                    # Check if history exists
+                    if hasattr(petri, 'cell_history') and petri.cell_history:
+                        from cell import PetriDishPlotter
+                        plotter = PetriDishPlotter(petri)
+                    
+                        # Generate plots
+                        jsd_path = os.path.join(individual_trajectories_dir, f"control1_{i:02d}_jsd.png")
+                        meth_path = os.path.join(individual_trajectories_dir, f"control1_{i:02d}_methylation.png")
+                    
+                        plotter.plot_jsd(f"Control1 Individual {i:02d}", jsd_path)
+                        plotter.plot_methylation(f"Control1 Individual {i:02d}", meth_path)
+                    
+                        control1_plot_count += 1
+                        print(f"    ✓ Plotted control1_{i:02d} trajectories")
+                except Exception as e:
+                    print(f"    ⚠️  Could not plot control1_{i:02d}: {str(e)}")
+    
+        print(f"\n  Skipping control2 (pure snapshots, no growth trajectories)")
+        print(f"  ✓ Generated {(mutant_plot_count + control1_plot_count) * 2} trajectory plots in {individual_trajectories_dir}")
+    
+        # ========================================================================
+        # STAGE 8: Analysis
+        # ========================================================================
+        print(f"\n{'='*60}")
+        print("STAGE 8: Analysis and Visualization")
+        print(f"{'='*60}")
+    
+        # Reload all final states
+        print("\n  Loading final populations for analysis...")
+        mutant_dishes = load_all_petri_dishes(mutant_dir)
+        control1_dishes = load_all_petri_dishes(control1_dir)
+        control2_dishes = load_all_petri_dishes(control2_dir)
+        
+        print(f"    Loaded {len(mutant_dishes)} mutant individuals")
+        print(f"    Loaded {len(control1_dishes)} control1 individuals")
+        print(f"    Loaded {len(control2_dishes)} control2 individuals")
+    
+        # Use the enhanced analysis function for cell-level JSD
+        analysis_results = analyze_populations_from_dishes(
+            mutant_dishes, control1_dishes, control2_dishes, results_dir
         )
-
-# Generate additional gene JSD plots if data is available
-print(f"\nGenerating additional gene JSD plots...")
-
-# Check if we have snapshots for gene JSD distribution comparison
-try:
-    # Load snapshots for gene JSD comparison
-    snapshot1_path = os.path.join(snapshots_dir, f"year{args.first_snapshot}_snapshot.json.gz")
-    snapshot2_path = os.path.join(snapshots_dir, f"year{args.second_snapshot}_snapshot.json.gz")
-    snapshot1_cells = load_snapshot_cells(snapshot1_path)
-    snapshot2_cells = load_snapshot_cells(snapshot2_path)
     
-    # Gene JSD distribution comparison (year vs year)
-    gene_dist_path = os.path.join(results_dir, "gene_jsd_distribution.png")
-    plot_gene_jsd_distribution_comparison(
-        snapshot1_cells, snapshot2_cells, 
-        args.first_snapshot, args.second_snapshot, gene_dist_path
-    )
-    
-except Exception as e:
-    print(f"  Skipping gene JSD distribution comparison: {e}")
-
-# Gene vs Cell JSD scatter plot - removed per user request
-# (This plot was not providing useful insights)
-
-# Top variable genes plot
-try:
-    # Combine all dishes for gene variability analysis
-    all_dishes = mutant_dishes + control1_dishes + control2_dishes
-    top_genes_path = os.path.join(results_dir, "top_variable_genes.png")
-    plot_top_variable_genes(all_dishes, n_top=20, output_path=top_genes_path)
-except Exception as e:
-    print(f"  Skipping top variable genes plot: {e}")
-
-# Generate phase1-style gene JSD plots using original simulation data
-try:
-    print(f"\nGenerating phase1-style gene JSD plots from simulation data...")
-    
-    # Load the original simulation data
-    print(f"  Loading original simulation: {args.simulation}")
-    with gzip.open(args.simulation, 'rt') as f:
-        sim_data = json.load(f)
-    
-    # Check if gene_jsd_history exists in simulation
-    if 'gene_jsd_history' in sim_data:
-        # Create a temporary PetriDish with gene_jsd_history for plotting
-        temp_petri = PetriDish()
-        temp_petri.gene_jsd_history = {int(year): values for year, values in sim_data['gene_jsd_history'].items()}
-        
-        # Add some cells for gene rate group detection (if available)
-        if sim_data.get('history') and len(sim_data['history']) > 0:
-            # Get cells from the last year for gene rate group info
-            last_year_data = list(sim_data['history'].values())[-1]
-            if 'cells' in last_year_data and len(last_year_data['cells']) > 0:
-                # Convert first cell to get gene rate group info
-                from pipeline_utils import dict_to_cell
-                sample_cell = dict_to_cell(last_year_data['cells'][0])
-                temp_petri.cells = [sample_cell]  # Just need one for gene rate group detection
-        
-        # Create plotter and generate phase1-style plots
-        from cell import PetriDishPlotter
-        plotter = PetriDishPlotter(temp_petri)
-        
-        # Gene JSD Heatmap
-        heatmap_path = os.path.join(results_dir, "simulation_gene_jsd_heatmap.png")
-        plotter.plot_gene_jsd_heatmap(
-            title="Gene JSD Evolution Heatmap (from Phase1 simulation)",
-            output_path=heatmap_path
+        # Generate gene-level JSD analysis
+        from pipeline_analysis import generate_gene_jsd_analysis
+        gene_analysis_results = generate_gene_jsd_analysis(
+            mutant_dishes, control1_dishes, control2_dishes, results_dir
         )
+    
+        # Generate gene-level JSD distribution plots
+        if 'gene_jsd_analysis' in gene_analysis_results:
+            plot_gene_jsd_distributions(gene_analysis_results['gene_jsd_analysis'], results_dir, 
+                                       max_genes=args.max_gene_plots)
         
-        # Gene Rate Group Comparison (only if gene rate groups exist)
-        if (temp_petri.cells and hasattr(temp_petri.cells[0], 'gene_rate_groups') 
-            and temp_petri.cells[0].gene_rate_groups):
-            rate_comparison_path = os.path.join(results_dir, "simulation_gene_rate_comparison.png")
-            plotter.plot_gene_jsd_by_rate_group(
-                title="Gene JSD by Rate Group (from Phase1 simulation)",
-                output_path=rate_comparison_path
+            # Generate individual-averaged gene JSD comparison plot
+            gene_jsd_path = os.path.join(results_dir, 'gene_jsd_analysis.json')
+            if os.path.exists(gene_jsd_path):
+                plot_gene_jsd_individual_comparison(
+                    gene_jsd_path=gene_jsd_path,
+                    output_dir=results_dir,
+                    verbose=True  # Always verbose for now
+                )
+    
+        # Generate additional gene JSD plots if data is available
+        print(f"\nGenerating additional gene JSD plots...")
+    
+        # Check if we have snapshots for gene JSD distribution comparison
+        try:
+            # Load snapshots for gene JSD comparison
+            snapshot1_path = os.path.join(snapshots_dir, f"year{args.first_snapshot}_snapshot.json.gz")
+            snapshot2_path = os.path.join(snapshots_dir, f"year{args.second_snapshot}_snapshot.json.gz")
+            snapshot1_cells = load_snapshot_cells(snapshot1_path)
+            snapshot2_cells = load_snapshot_cells(snapshot2_path)
+        
+            # Gene JSD distribution comparison (year vs year)
+            gene_dist_path = os.path.join(results_dir, "gene_jsd_distribution.png")
+            plot_gene_jsd_distribution_comparison(
+                snapshot1_cells, snapshot2_cells, 
+                args.first_snapshot, args.second_snapshot, gene_dist_path
             )
-        else:
-            print(f"    No gene rate groups found - skipping rate comparison plot")
+        
+        except Exception as e:
+            print(f"  Skipping gene JSD distribution comparison: {e}")
+    
+        # Gene vs Cell JSD scatter plot - removed per user request
+        # (This plot was not providing useful insights)
+    
+        # Top variable genes plot
+        try:
+            # Combine all dishes for gene variability analysis
+            all_dishes = mutant_dishes + control1_dishes + control2_dishes
+            top_genes_path = os.path.join(results_dir, "top_variable_genes.png")
+            plot_top_variable_genes(all_dishes, n_top=20, output_path=top_genes_path)
+        except Exception as e:
+            print(f"  Skipping top variable genes plot: {e}")
+    
+        # Generate phase1-style gene JSD plots using original simulation data
+        try:
+            print(f"\nGenerating phase1-style gene JSD plots from simulation data...")
+        
+            # Load the original simulation data
+            print(f"  Loading original simulation: {args.simulation}")
+            with gzip.open(args.simulation, 'rt') as f:
+                sim_data = json.load(f)
+        
+            # Check if gene_jsd_history exists in simulation
+            if 'gene_jsd_history' in sim_data:
+                # Create a temporary PetriDish with gene_jsd_history for plotting
+                temp_petri = PetriDish()
+                temp_petri.gene_jsd_history = {int(year): values for year, values in sim_data['gene_jsd_history'].items()}
             
-    else:
-        print(f"    No gene_jsd_history found in simulation")
-        print(f"    This simulation was likely run with --no-gene-jsd or --no-jsds flags")
-        print(f"    Gene JSD tracking is now enabled by default in new simulations")
-        
-except Exception as e:
-    print(f"  Skipping phase1-style gene JSD plots: {e}")
-
-# ========================================================================
-# Generate Original Simulation Timeline Plots
-# ========================================================================
-print(f"\n{'='*60}")
-print("Generating Original Simulation Timeline Plots")
-print(f"{'='*60}")
-
-try:
-    print(f"  Loading simulation with full history...")
+                # Add some cells for gene rate group detection (if available)
+                if sim_data.get('history') and len(sim_data['history']) > 0:
+                    # Get cells from the last year for gene rate group info
+                    last_year_data = list(sim_data['history'].values())[-1]
+                    if 'cells' in last_year_data and len(last_year_data['cells']) > 0:
+                        # Convert first cell to get gene rate group info
+                        from pipeline_utils import dict_to_cell
+                        sample_cell = dict_to_cell(last_year_data['cells'][0])
+                        temp_petri.cells = [sample_cell]  # Just need one for gene rate group detection
+            
+                # Create plotter and generate phase1-style plots
+                from cell import PetriDishPlotter
+                plotter = PetriDishPlotter(temp_petri)
+            
+                # Gene JSD Heatmap
+                heatmap_path = os.path.join(results_dir, "simulation_gene_jsd_heatmap.png")
+                plotter.plot_gene_jsd_heatmap(
+                    title="Gene JSD Evolution Heatmap (from Phase1 simulation)",
+                    output_path=heatmap_path
+                )
+            
+                # Gene Rate Group Comparison (only if gene rate groups exist)
+                if (temp_petri.cells and hasattr(temp_petri.cells[0], 'gene_rate_groups') 
+                    and temp_petri.cells[0].gene_rate_groups):
+                    rate_comparison_path = os.path.join(results_dir, "simulation_gene_rate_comparison.png")
+                    plotter.plot_gene_jsd_by_rate_group(
+                        title="Gene JSD by Rate Group (from Phase1 simulation)",
+                        output_path=rate_comparison_path
+                    )
+                else:
+                    print(f"    No gene rate groups found - skipping rate comparison plot")
+                
+            else:
+                print(f"    No gene_jsd_history found in simulation")
+                print(f"    This simulation was likely run with --no-gene-jsd or --no-jsds flags")
+                print(f"    Gene JSD tracking is now enabled by default in new simulations")
+            
+        except Exception as e:
+            print(f"  Skipping phase1-style gene JSD plots: {e}")
     
-    # Determine if simulation file is compressed
-    if args.simulation.endswith('.gz'):
-        with gzip.open(args.simulation, 'rt') as f:
-            sim_data = json.load(f)
-    else:
-        with open(args.simulation, 'r') as f:
-            sim_data = json.load(f)
+        # ========================================================================
+        # Generate Original Simulation Timeline Plots
+        # ========================================================================
+        print(f"\n{'='*60}")
+        print("Generating Original Simulation Timeline Plots")
+        print(f"{'='*60}")
     
-    # Convert history to PetriDish format
-    if 'history' in sim_data and sim_data['history']:
-        # Create a PetriDish with history
-        from pipeline_utils import dict_to_cell
+        try:
+            print(f"  Loading simulation with full history...")
         
-        # Get parameters from simulation
-        params = sim_data.get('parameters', {})
-        rate = params.get('rate')
-        gene_rate_groups = params.get('gene_rate_groups')
-        n_sites = params.get('n', 1000)
-        gene_size = params.get('gene_size', 5)
+            # Determine if simulation file is compressed
+            if args.simulation.endswith('.gz'):
+                with gzip.open(args.simulation, 'rt') as f:
+                    sim_data = json.load(f)
+            else:
+                with open(args.simulation, 'r') as f:
+                    sim_data = json.load(f)
         
-        # Create PetriDish with appropriate configuration
-        if gene_rate_groups:
-            # Convert gene_rate_groups format
-            rate_groups = [(g[0], g[1]) for g in gene_rate_groups]
-            original_petri = PetriDish(gene_rate_groups=rate_groups)
-        else:
-            original_petri = PetriDish(rate=rate)
-        
-        # Build cell history from simulation data
-        original_petri.cell_history = {}
-        original_petri.years_simulated = len(sim_data['history']) - 1
-        
-        for year_str, year_data in sim_data['history'].items():
-            year = int(year_str)
-            if 'cells' in year_data:
-                # Convert cell dicts to Cell objects
-                cells = [dict_to_cell(cell_dict) for cell_dict in year_data['cells']]
-                original_petri.cell_history[year] = cells
-        
-        # Also copy gene_jsd_history if available
-        if 'gene_jsd_history' in sim_data:
-            original_petri.gene_jsd_history = {
-                int(year): values for year, values in sim_data['gene_jsd_history'].items()
+            # Convert history to PetriDish format
+            if 'history' in sim_data and sim_data['history']:
+                # Create a PetriDish with history
+                from pipeline_utils import dict_to_cell
+            
+                # Get parameters from simulation
+                params = sim_data.get('parameters', {})
+                rate = params.get('rate')
+                gene_rate_groups = params.get('gene_rate_groups')
+                n_sites = params.get('n', 1000)
+                gene_size = params.get('gene_size', 5)
+            
+                # Create PetriDish with appropriate configuration
+                if gene_rate_groups:
+                    # Convert gene_rate_groups format
+                    rate_groups = [(g[0], g[1]) for g in gene_rate_groups]
+                    original_petri = PetriDish(gene_rate_groups=rate_groups, n=n_sites, gene_size=gene_size)
+                else:
+                    original_petri = PetriDish(rate=rate, n=n_sites, gene_size=gene_size)
+            
+                # Build cell history from simulation data
+                original_petri.cell_history = {}
+                original_petri.years_simulated = len(sim_data['history']) - 1
+            
+                for year_str, year_data in sim_data['history'].items():
+                    if 'cells' in year_data:
+                        # Keep year as string for PetriDishPlotter compatibility
+                        # Store cells as dictionaries for plotter compatibility
+                        cells = []
+                        for cell_dict in year_data['cells']:
+                            # Handle new lean format - convert to dict format expected by plotter
+                            if 'methylated' in cell_dict:
+                                cell_data = {
+                                    'methylated': cell_dict['methylated'],
+                                    'cell_JSD': cell_dict.get('cell_JSD', 0.0),
+                                    'cell_jsd': cell_dict.get('cell_JSD', 0.0),  # Include both naming conventions
+                                    'methylation_proportion': sum(cell_dict['methylated']) / len(cell_dict['methylated']),
+                                    'age': cell_dict.get('age', int(year_str))
+                                }
+                                cells.append(cell_data)
+                            else:
+                                # Old format - pass through
+                                cells.append(cell_dict)
+                        original_petri.cell_history[year_str] = cells
+            
+                # Also copy gene_jsd_history if available
+                if 'gene_jsd_history' in sim_data:
+                    original_petri.gene_jsd_history = {
+                        int(year): values for year, values in sim_data['gene_jsd_history'].items()
+                    }
+            
+                # Create plotter and generate timeline plots
+                plotter = PetriDishPlotter(original_petri)
+            
+                # JSD timeline
+                jsd_timeline_path = os.path.join(results_dir, "original_simulation_jsd_timeline.png")
+                plotter.plot_jsd("Original Simulation JSD Timeline", jsd_timeline_path)
+                print(f"  ✓ Generated original_simulation_jsd_timeline.png")
+            
+                # Methylation timeline
+                meth_timeline_path = os.path.join(results_dir, "original_simulation_methylation_timeline.png")
+                plotter.plot_methylation("Original Simulation Methylation Timeline", meth_timeline_path)
+                print(f"  ✓ Generated original_simulation_methylation_timeline.png")
+            
+                # Combined plot if desired
+                combined_timeline_path = os.path.join(results_dir, "original_simulation_combined_timeline.png")
+                plotter.plot_combined("Original Simulation Combined Timeline", combined_timeline_path)
+                print(f"  ✓ Generated original_simulation_combined_timeline.png")
+            
+            else:
+                print(f"  ⚠️  No history found in simulation file")
+                print(f"      The simulation may have been run without --track-cell-history")
+            
+        except Exception as e:
+            import traceback
+            print(f"  ⚠️  Could not generate original simulation timeline plots: {str(e)}")
+            if args.verbose:
+                print(f"      Full error: {traceback.format_exc()}")
+    
+        # Get statistics for summary from new consolidated format
+        cell_jsd_data = analysis_results['cell_jsd_analysis']
+        summary_stats = cell_jsd_data['summary_statistics']
+        statistical_tests = cell_jsd_data['statistical_tests']
+    
+        # ========================================================================
+        # Summary
+        # ========================================================================
+        elapsed_time = time.time() - start_time
+    
+        print(f"\n{'='*80}")
+        print("PIPELINE COMPLETE")
+        print(f"{'='*80}")
+        print(f"Total time: {elapsed_time/60:.1f} minutes")
+        print(f"Output directory: {base_dir}")
+    
+        print("\nKey results:")
+        print(f"  Mutant mean JSD: {summary_stats['mutant']['mean']:.6f} ± {summary_stats['mutant']['std']:.6f}")
+        print(f"  Control1 mean JSD: {summary_stats['control1']['mean']:.6f} ± {summary_stats['control1']['std']:.6f}")
+        print(f"  Control2 mean JSD: {summary_stats['control2']['mean']:.6f} ± {summary_stats['control2']['std']:.6f}")
+    
+        print("\nStatistical tests:")
+        for comparison, values in statistical_tests.items():
+            print(f"  {comparison}: p={values['p_value']:.6f}")
+    
+        # Save pipeline metadata (parameters only, no results)
+        metadata = {
+            "pipeline_version": "phase2",
+            "timestamp": time.strftime("%Y-%m-%d %H:%M:%S"),
+            "elapsed_time_minutes": elapsed_time / 60,
+            "parameters": {
+                "rate": args.rate,
+                "first_snapshot": args.first_snapshot,
+                "second_snapshot": args.second_snapshot,
+                "individual_growth_phase": args.individual_growth_phase,
+                "timeline_duration": timeline_duration,
+                "homeostasis_years": homeostasis_years,
+                "expected_population": expected_population,
+                "n_quantiles": args.n_quantiles,
+                "cells_per_quantile": args.cells_per_quantile,
+                "total_individuals": expected_individuals,
+                "mix_ratio": args.mix_ratio,
+                "uniform_mixing": args.uniform_mixing,
+                "normalize_size": args.normalize_size,
+                "normalization_threshold": normalization_threshold,
+                "seed": args.seed,
+                "bins": args.bins,
+                "plot_individuals": args.plot_individuals
             }
-        
-        # Create plotter and generate timeline plots
-        plotter = PetriDishPlotter(original_petri)
-        
-        # JSD timeline
-        jsd_timeline_path = os.path.join(results_dir, "original_simulation_jsd_timeline.png")
-        plotter.plot_jsd("Original Simulation JSD Timeline", jsd_timeline_path)
-        print(f"  ✓ Generated original_simulation_jsd_timeline.png")
-        
-        # Methylation timeline
-        meth_timeline_path = os.path.join(results_dir, "original_simulation_methylation_timeline.png")
-        plotter.plot_methylation("Original Simulation Methylation Timeline", meth_timeline_path)
-        print(f"  ✓ Generated original_simulation_methylation_timeline.png")
-        
-        # Combined plot if desired
-        combined_timeline_path = os.path.join(results_dir, "original_simulation_combined_timeline.png")
-        plotter.plot_combined("Original Simulation Combined Timeline", combined_timeline_path)
-        print(f"  ✓ Generated original_simulation_combined_timeline.png")
-        
-    else:
-        print(f"  ⚠️  No history found in simulation file")
-        print(f"      The simulation may have been run without --track-cell-history")
-        
-except Exception as e:
-    print(f"  ⚠️  Could not generate original simulation timeline plots: {str(e)}")
-
-# Get statistics for summary from new consolidated format
-cell_jsd_data = analysis_results['cell_jsd_analysis']
-summary_stats = cell_jsd_data['summary_statistics']
-statistical_tests = cell_jsd_data['statistical_tests']
-
-# ========================================================================
-# Summary
-# ========================================================================
-elapsed_time = time.time() - start_time
-
-print(f"\n{'='*80}")
-print("PIPELINE COMPLETE")
-print(f"{'='*80}")
-print(f"Total time: {elapsed_time/60:.1f} minutes")
-print(f"Output directory: {base_dir}")
-
-print("\nKey results:")
-print(f"  Mutant mean JSD: {summary_stats['mutant']['mean']:.6f} ± {summary_stats['mutant']['std']:.6f}")
-print(f"  Control1 mean JSD: {summary_stats['control1']['mean']:.6f} ± {summary_stats['control1']['std']:.6f}")
-print(f"  Control2 mean JSD: {summary_stats['control2']['mean']:.6f} ± {summary_stats['control2']['std']:.6f}")
-
-print("\nStatistical tests:")
-for comparison, values in statistical_tests.items():
-    print(f"  {comparison}: p={values['p_value']:.6f}")
-
-# Save pipeline metadata (parameters only, no results)
-metadata = {
-    "pipeline_version": "phase2",
-    "timestamp": time.strftime("%Y-%m-%d %H:%M:%S"),
-    "elapsed_time_minutes": elapsed_time / 60,
-    "parameters": {
-        "rate": args.rate,
-        "first_snapshot": args.first_snapshot,
-        "second_snapshot": args.second_snapshot,
-        "individual_growth_phase": args.individual_growth_phase,
-        "timeline_duration": timeline_duration,
-        "homeostasis_years": homeostasis_years,
-        "expected_population": expected_population,
-        "n_quantiles": args.n_quantiles,
-        "cells_per_quantile": args.cells_per_quantile,
-        "total_individuals": expected_individuals,
-        "mix_ratio": args.mix_ratio,
-        "uniform_mixing": args.uniform_mixing,
-        "normalize_size": args.normalize_size,
-        "normalization_threshold": normalization_threshold,
-        "seed": args.seed,
-        "bins": args.bins,
-        "plot_individuals": args.plot_individuals
-    }
-}
-
-metadata_path = os.path.join(results_dir, "pipeline_metadata.json")
-with open(metadata_path, 'w') as f:
-    json.dump(metadata, f, indent=2)
-
-print(f"\nPipeline metadata saved to: {metadata_path}")
-
-# Generate individual plots if requested
-if args.plot_individuals:
-    print(f"\n{'='*60}")
-    print("Generating Individual Growth Trajectory Plots")
-    print(f"{'='*60}")
+        }
     
-    from plot_individuals import plot_all_individuals
-    plot_all_individuals(base_dir, plot_combined=True)
+        metadata_path = os.path.join(results_dir, "pipeline_metadata.json")
+        with open(metadata_path, 'w') as f:
+            json.dump(metadata, f, indent=2)
+    
+        print(f"\nPipeline metadata saved to: {metadata_path}")
+    
+        # Generate individual plots if requested
+        if args.plot_individuals:
+            print(f"\n{'='*60}")
+            print("Generating Individual Growth Trajectory Plots")
+            print(f"{'='*60}")
+        
+            from plot_individuals import plot_all_individuals
+            plot_all_individuals(base_dir, plot_combined=True)
+    
+        return summary_stats
 
-return summary_stats
 
+    def create_petri_with_rate_config(rate_config: dict, growth_phase: int, n: int = 1000) -> PetriDish:
+        """Create PetriDish with proper rate configuration.
 
-def create_petri_with_rate_config(rate_config: dict, growth_phase: int, n: int = 1000) -> PetriDish:
-"""Create PetriDish with proper rate configuration.
-
-Args:
-    rate_config: Dictionary with rate configuration
-    growth_phase: Years of exponential growth
-    n: Number of CpG sites (default 1000)
-"""
-if rate_config['type'] == 'uniform':
-    return PetriDish(rate=rate_config['rate'], growth_phase=growth_phase, n=n)
-else:
-    return PetriDish(
-        gene_rate_groups=rate_config['gene_rate_groups'],
-        gene_size=rate_config['gene_size'],
-        growth_phase=growth_phase,
-        n=n
-    )
+        Args:
+            rate_config: Dictionary with rate configuration
+            growth_phase: Years of exponential growth
+            n: Number of CpG sites (default 1000)
+        """
+        if rate_config['type'] == 'uniform':
+            return PetriDish(rate=rate_config['rate'], growth_phase=growth_phase, n=n)
+        else:
+            return PetriDish(
+                gene_rate_groups=rate_config['gene_rate_groups'],
+                gene_size=rate_config['gene_size'],
+                growth_phase=growth_phase,
+                n=n
+            )
 
 
 def main():
-parser = argparse.ArgumentParser(
-    description="Phase 2 Pipeline using PetriDish and Cell classes",
-    formatter_class=argparse.ArgumentDefaultsHelpFormatter
-)
+    parser = argparse.ArgumentParser(
+        description="Phase 2 Pipeline using PetriDish and Cell classes",
+        formatter_class=argparse.ArgumentDefaultsHelpFormatter
+    )
 
-# Config file argument
-parser.add_argument("--config", type=str,
-                   help="Path to YAML configuration file")
-
-# Required arguments (can be set via config)
-# Rate configuration - mutually exclusive group
-rate_group = parser.add_mutually_exclusive_group(required=False)
-rate_group.add_argument("--rate", type=float,
-                       help="Uniform methylation rate (must match simulation)")
-rate_group.add_argument("--gene-rate-groups", type=str,
-                       help="Gene-specific methylation rates (format: 'n1:rate1,n2:rate2,...')")
-parser.add_argument("--gene-size", type=int, default=5,
-                   help="Sites per gene (only used with --gene-rate-groups, default: 5)")
-
-parser.add_argument("--simulation", type=str,
-                   help="Path to phase1 simulation file")
-
-# Quantile sampling parameters
-parser.add_argument("--n-quantiles", type=int, default=10,
-                   help="Number of quantiles for sampling (e.g., 4 for quartiles, 10 for deciles)")
-parser.add_argument("--cells-per-quantile", type=int, default=3,
-                   help="Number of cells to sample per quantile")
-
-# Snapshot and growth parameters
-parser.add_argument("--first-snapshot", type=int, default=50,
-                   help="Year to extract initial cells from simulation")
-parser.add_argument("--second-snapshot", type=int, default=60,
-                   help="Year to extract mixing cells from simulation")
-parser.add_argument("--individual-growth-phase", type=int, default=7,
-                   help="Years of exponential growth before homeostasis (7=128 cells, 8=256 cells)")
-parser.add_argument("--mix-ratio", type=int, default=80,
-                   help="Percentage of second snapshot cells in mix (0-100)")
-
-# Visualization parameters
-parser.add_argument("--bins", type=int, default=200,
-                   help="Number of bins for JSD histograms")
-parser.add_argument("--plot-individuals", action='store_true',
-                   help="Generate growth trajectory plots for each individual")
-parser.add_argument("--max-gene-plots", type=int, default=None,
-                   help="Maximum number of gene JSD plots to generate (default: all)")
-parser.add_argument("--no-compress", action='store_true',
-                   help="Save output as uncompressed JSON instead of .json.gz (larger files but easier to inspect)")
-
-# Mixing parameters
-parser.add_argument("--uniform-mixing", action='store_true',
-                   help="Use same snapshot cells for all individuals (default: independent random sampling)")
-parser.add_argument("--normalize-size", action='store_true',
-                   help="Normalize all individuals to same size before mixing (uses median - 0.5σ threshold)")
-
-# Other parameters
-parser.add_argument("--seed", type=int, default=42,
-                   help="Random seed for reproducibility")
-parser.add_argument("--output-dir", type=str, default="data",
-                   help="Output directory")
-
-# Force options
-parser.add_argument("--force-reload", action='store_true',
-                   help="Force reload of snapshots even if cached")
-parser.add_argument("--force-recreate", action='store_true',
-                   help="Force recreation of individuals even if they exist")
-
-args = parser.parse_args()
-
-# Load config file if provided
-config = load_config(args.config)
-
-# Merge config with CLI arguments
-args = merge_config_and_args(config, args)
-
-# Validate final configuration
-validate_pipeline_config(args)
-
-# Parse rate configuration
-if args.gene_rate_groups:
-    gene_rate_groups = parse_gene_rate_groups(args.gene_rate_groups)
-    # Note: Gene rate group validation will happen in run_pipeline after we parse sim_params
-    rate_config = {
-        'type': 'gene_specific',
-        'gene_rate_groups': gene_rate_groups,
-        'gene_size': args.gene_size
-    }
-else:
-    rate_config = {
-        'type': 'uniform',
-        'rate': args.rate
-    }
-
-# Handle glob patterns in simulation file path
-import glob
-if '*' in args.simulation:
-    matching_files = glob.glob(args.simulation)
-    if not matching_files:
-        print(f"Error: No files matching pattern: {args.simulation}")
+    # Config file argument
+    parser.add_argument("--config", type=str,
+                       help="Path to YAML configuration file")
+    
+    # Required arguments (can be set via config)
+    # Rate configuration - mutually exclusive group
+    rate_group = parser.add_mutually_exclusive_group(required=False)
+    rate_group.add_argument("--rate", type=float,
+                           help="Uniform methylation rate (must match simulation)")
+    rate_group.add_argument("--gene-rate-groups", type=str,
+                           help="Gene-specific methylation rates (format: 'n1:rate1,n2:rate2,...')")
+    parser.add_argument("--gene-size", type=int, default=5,
+                       help="Sites per gene (only used with --gene-rate-groups, default: 5)")
+    
+    parser.add_argument("--simulation", type=str,
+                       help="Path to phase1 simulation file")
+    
+    # Quantile sampling parameters
+    parser.add_argument("--n-quantiles", type=int, default=10,
+                       help="Number of quantiles for sampling (e.g., 4 for quartiles, 10 for deciles)")
+    parser.add_argument("--cells-per-quantile", type=int, default=3,
+                       help="Number of cells to sample per quantile")
+    
+    # Snapshot and growth parameters
+    parser.add_argument("--first-snapshot", type=int, default=50,
+                       help="Year to extract initial cells from simulation")
+    parser.add_argument("--second-snapshot", type=int, default=60,
+                       help="Year to extract mixing cells from simulation")
+    parser.add_argument("--individual-growth-phase", type=int, default=7,
+                       help="Years of exponential growth before homeostasis (7=128 cells, 8=256 cells)")
+    parser.add_argument("--mix-ratio", type=int, default=80,
+                       help="Percentage of second snapshot cells in mix (0-100)")
+    
+    # Visualization parameters
+    parser.add_argument("--bins", type=int, default=200,
+                       help="Number of bins for JSD histograms")
+    parser.add_argument("--plot-individuals", action='store_true',
+                       help="Generate growth trajectory plots for each individual")
+    parser.add_argument("--max-gene-plots", type=int, default=None,
+                       help="Maximum number of gene JSD plots to generate (default: all)")
+    parser.add_argument("--no-compress", action='store_true',
+                       help="Save output as uncompressed JSON instead of .json.gz (larger files but easier to inspect)")
+    
+    # Mixing parameters
+    parser.add_argument("--uniform-mixing", action='store_true',
+                       help="Use same snapshot cells for all individuals (default: independent random sampling)")
+    parser.add_argument("--normalize-size", action='store_true',
+                       help="Normalize all individuals to same size before mixing (uses median - 0.5σ threshold)")
+    
+    # Other parameters
+    parser.add_argument("--seed", type=int, default=42,
+                       help="Random seed for reproducibility")
+    parser.add_argument("--output-dir", type=str, default="data",
+                       help="Output directory")
+    
+    # Force options
+    parser.add_argument("--force-reload", action='store_true',
+                       help="Force reload of snapshots even if cached")
+    parser.add_argument("--force-recreate", action='store_true',
+                       help="Force recreation of individuals even if they exist")
+    
+    args = parser.parse_args()
+    
+    # Load config file if provided
+    config = load_config(args.config)
+    
+    # Merge config with CLI arguments
+    args = merge_config_and_args(config, args)
+    
+    # Validate final configuration
+    validate_pipeline_config(args)
+    
+    # Parse rate configuration
+    if args.gene_rate_groups:
+        gene_rate_groups = parse_gene_rate_groups(args.gene_rate_groups)
+        # Note: Gene rate group validation will happen in run_pipeline after we parse sim_params
+        rate_config = {
+            'type': 'gene_specific',
+            'gene_rate_groups': gene_rate_groups,
+            'gene_size': args.gene_size
+        }
+    else:
+        rate_config = {
+            'type': 'uniform',
+            'rate': args.rate
+        }
+    
+    # Handle glob patterns in simulation file path
+    import glob
+    if '*' in args.simulation:
+        matching_files = glob.glob(args.simulation)
+        if not matching_files:
+            print(f"Error: No files matching pattern: {args.simulation}")
+            sys.exit(1)
+        # Sort to prefer .json.gz over .json if both exist
+        matching_files.sort(key=lambda x: (0 if x.endswith('.json.gz') else 1))
+        args.simulation = matching_files[0]
+        if len(matching_files) > 1:
+            print(f"Multiple files found, using: {args.simulation}")
+    
+    # Check simulation file exists and has valid extension
+    if not os.path.exists(args.simulation):
+        print(f"Error: Simulation file not found: {args.simulation}")
         sys.exit(1)
-    # Sort to prefer .json.gz over .json if both exist
-    matching_files.sort(key=lambda x: (0 if x.endswith('.json.gz') else 1))
-    args.simulation = matching_files[0]
-    if len(matching_files) > 1:
-        print(f"Multiple files found, using: {args.simulation}")
-
-# Check simulation file exists and has valid extension
-if not os.path.exists(args.simulation):
-    print(f"Error: Simulation file not found: {args.simulation}")
-    sys.exit(1)
-
-if not (args.simulation.endswith('.json') or args.simulation.endswith('.json.gz')):
-    print(f"Error: Simulation file must be .json or .json.gz, got: {args.simulation}")
-    sys.exit(1)
-
-# Run pipeline
-run_pipeline(args, rate_config)
+    
+    if not (args.simulation.endswith('.json') or args.simulation.endswith('.json.gz')):
+        print(f"Error: Simulation file must be .json or .json.gz, got: {args.simulation}")
+        sys.exit(1)
+    
+    # Run pipeline
+    run_pipeline(args, rate_config)
 
 
 if __name__ == "__main__":

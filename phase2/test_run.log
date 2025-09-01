@@ -1,0 +1,581 @@
+
+============================================================
+TIMELINE BREAKDOWN
+============================================================
+📊 Individual Simulation Timeline:
+   Year 20: Sample individual cells
+   Years 20→23: Exponential growth (1 → 8 cells)
+   Years 23→30: Homeostasis (~8 cells)
+   Year 30: Extract for mixing
+
+📈 Growth Summary:
+   Total aging time: 10 years
+   Exponential phase: 3 years (30.0%)
+   Homeostasis phase: 7 years (70.0%)
+   Target population: 8 cells (2^3)
+Random seed set to 42 for reproducibility
+Compression strategy: uncompressed (.json) [from --no-compress flag]
+================================================================================
+PHASE 2 PIPELINE
+================================================================================
+Rate: 0.005
+Simulation: ../phase1/data/rate_0.00500/grow9-sites100-years50-seed42-20250901225422/simulation.json
+Output: data/rate_0.00500-grow9-sites100-years50/snap20to30-growth3-quant2x2-mix70un-seed42-20250902004716
+Quantiles: 2 (2-tiles)
+Cells per quantile: 2
+Total individuals: 4 per group
+Snapshots: year 20 → year 30
+Growth: 10 years total (3 growth + 7 homeostasis)
+Target population: 8 cells (2^3)
+Mix ratio: 70% year 30, 30% grown
+Seed: 42
+================================================================================
+
+============================================================
+STAGE 1: Extract Year 20 Snapshot
+============================================================
+  ✓ Extracting year 20 from simulation...
+Loading year 20 snapshot from ../phase1/data/rate_0.00500/grow9-sites100-years50-seed42-20250901225422/simulation.json...
+  Loaded 509 cells from year 20
+  Saved 509 cells to data/rate_0.00500-grow9-sites100-years50/snap20to30-growth3-quant2x2-mix70un-seed42-20250902004716/snapshots/year20_snapshot.json
+  Cached 509 cells for future use
+
+============================================================
+STAGE 2: Plot JSD Distribution
+============================================================
+
+Plotting Cell JSD distribution...
+  Saved plot to data/rate_0.00500-grow9-sites100-years50/snap20to30-growth3-quant2x2-mix70un-seed42-20250902004716/results/year20_jsd_distribution_200bins.png
+
+============================================================
+STAGE 3: Create Initial Individuals
+============================================================
+
+  ✓ Creating 4 mutant individuals...
+  Sampling by quantiles (2 quantiles, 2 each)...
+  Sampling 2 cells from each of 2 quantiles...
+    Sampled 4 cells total
+  Created and saved 4 mutant individuals
+
+  ✓ Creating 4 control1 individuals...
+  Sampling uniformly...
+  Sampling 4 cells uniformly...
+    Sampled 4 cells
+  Created and saved 4 control1 individuals
+
+============================================================
+STAGE 4: Grow Individuals (10 years)
+============================================================
+
+  ✓ Growing mutant individuals to ~8 cells...
+    Individual 01: 1 → ~8 cells
+  Division: 1 → 2 cells
+  Methylation applied to 2 cells
+      Year 1 (growth): 1 → 2 cells
+  Division: 2 → 4 cells
+  Methylation applied to 4 cells
+      Year 2 (growth): 2 → 4 cells
+  Division: 4 → 8 cells
+  Methylation applied to 8 cells
+      Year 3 (growth): 4 → 8 cells
+  Division: 8 → 16 cells
+  Random cull: 16 → 5 cells
+  Methylation applied to 5 cells
+      Year 4 (homeostasis): 8 → 5 cells
+  Division: 5 → 10 cells
+  Random cull: 10 → 4 cells
+  Methylation applied to 4 cells
+      Year 5 (homeostasis): 5 → 4 cells
+  Division: 4 → 8 cells
+  Random cull: 8 → 4 cells
+  Methylation applied to 4 cells
+      Year 6 (homeostasis): 4 → 4 cells
+  Division: 4 → 8 cells
+  Random cull: 8 → 4 cells
+  Methylation applied to 4 cells
+      Year 7 (homeostasis): 4 → 4 cells
+  Division: 4 → 8 cells
+  Random cull: 8 → 2 cells
+  Methylation applied to 2 cells
+      Year 8 (homeostasis): 4 → 2 cells
+  Division: 2 → 4 cells
+  Random cull: 4 → 3 cells
+  Methylation applied to 3 cells
+      Year 9 (homeostasis): 2 → 3 cells
+  Division: 3 → 6 cells
+  Random cull: 6 → 4 cells
+  Methylation applied to 4 cells
+      Year 10 (homeostasis): 3 → 4 cells
+    Individual 02: 1 → ~8 cells
+  Division: 1 → 2 cells
+  Methylation applied to 2 cells
+      Year 1 (growth): 1 → 2 cells
+  Division: 2 → 4 cells
+  Methylation applied to 4 cells
+      Year 2 (growth): 2 → 4 cells
+  Division: 4 → 8 cells
+  Methylation applied to 8 cells
+      Year 3 (growth): 4 → 8 cells
+  Division: 8 → 16 cells
+  Random cull: 16 → 8 cells
+  Methylation applied to 8 cells
+      Year 4 (homeostasis): 8 → 8 cells
+  Division: 8 → 16 cells
+  Random cull: 16 → 8 cells
+  Methylation applied to 8 cells
+      Year 5 (homeostasis): 8 → 8 cells
+  Division: 8 → 16 cells
+  Random cull: 16 → 10 cells
+  Methylation applied to 10 cells
+      Year 6 (homeostasis): 8 → 10 cells
+  Division: 10 → 20 cells
+  Random cull: 20 → 9 cells
+  Methylation applied to 9 cells
+      Year 7 (homeostasis): 10 → 9 cells
+  Division: 9 → 18 cells
+  Random cull: 18 → 10 cells
+  Methylation applied to 10 cells
+      Year 8 (homeostasis): 9 → 10 cells
+  Division: 10 → 20 cells
+  Random cull: 20 → 11 cells
+  Methylation applied to 11 cells
+      Year 9 (homeostasis): 10 → 11 cells
+  Division: 11 → 22 cells
+  Random cull: 22 → 10 cells
+  Methylation applied to 10 cells
+      Year 10 (homeostasis): 11 → 10 cells
+    Individual 03: 1 → ~8 cells
+  Division: 1 → 2 cells
+  Methylation applied to 2 cells
+      Year 1 (growth): 1 → 2 cells
+  Division: 2 → 4 cells
+  Methylation applied to 4 cells
+      Year 2 (growth): 2 → 4 cells
+  Division: 4 → 8 cells
+  Methylation applied to 8 cells
+      Year 3 (growth): 4 → 8 cells
+  Division: 8 → 16 cells
+  Random cull: 16 → 7 cells
+  Methylation applied to 7 cells
+      Year 4 (homeostasis): 8 → 7 cells
+  Division: 7 → 14 cells
+  Random cull: 14 → 7 cells
+  Methylation applied to 7 cells
+      Year 5 (homeostasis): 7 → 7 cells
+  Division: 7 → 14 cells
+  Random cull: 14 → 5 cells
+  Methylation applied to 5 cells
+      Year 6 (homeostasis): 7 → 5 cells
+  Division: 5 → 10 cells
+  Random cull: 10 → 4 cells
+  Methylation applied to 4 cells
+      Year 7 (homeostasis): 5 → 4 cells
+  Division: 4 → 8 cells
+  Random cull: 8 → 4 cells
+  Methylation applied to 4 cells
+      Year 8 (homeostasis): 4 → 4 cells
+  Division: 4 → 8 cells
+  Random cull: 8 → 2 cells
+  Methylation applied to 2 cells
+      Year 9 (homeostasis): 4 → 2 cells
+  Division: 2 → 4 cells
+  Random cull: 4 → 2 cells
+  Methylation applied to 2 cells
+      Year 10 (homeostasis): 2 → 2 cells
+    Individual 04: 1 → ~8 cells
+  Division: 1 → 2 cells
+  Methylation applied to 2 cells
+      Year 1 (growth): 1 → 2 cells
+  Division: 2 → 4 cells
+  Methylation applied to 4 cells
+      Year 2 (growth): 2 → 4 cells
+  Division: 4 → 8 cells
+  Methylation applied to 8 cells
+      Year 3 (growth): 4 → 8 cells
+  Division: 8 → 16 cells
+  Random cull: 16 → 7 cells
+  Methylation applied to 7 cells
+      Year 4 (homeostasis): 8 → 7 cells
+  Division: 7 → 14 cells
+  Random cull: 14 → 2 cells
+  Methylation applied to 2 cells
+      Year 5 (homeostasis): 7 → 2 cells
+  Division: 2 → 4 cells
+  Random cull: 4 → 4 cells
+  Methylation applied to 4 cells
+      Year 6 (homeostasis): 2 → 4 cells
+  Division: 4 → 8 cells
+  Random cull: 8 → 4 cells
+  Methylation applied to 4 cells
+      Year 7 (homeostasis): 4 → 4 cells
+  Division: 4 → 8 cells
+  Random cull: 8 → 2 cells
+  Methylation applied to 2 cells
+      Year 8 (homeostasis): 4 → 2 cells
+  Division: 2 → 4 cells
+  Random cull: 4 → 2 cells
+  Methylation applied to 2 cells
+      Year 9 (homeostasis): 2 → 2 cells
+  Division: 2 → 4 cells
+  Random cull: 4 → 2 cells
+  Methylation applied to 2 cells
+      Year 10 (homeostasis): 2 → 2 cells
+
+  ✓ Growing control1 individuals to ~8 cells...
+    Individual 01: 1 → ~8 cells
+  Division: 1 → 2 cells
+  Methylation applied to 2 cells
+      Year 1 (growth): 1 → 2 cells
+  Division: 2 → 4 cells
+  Methylation applied to 4 cells
+      Year 2 (growth): 2 → 4 cells
+  Division: 4 → 8 cells
+  Methylation applied to 8 cells
+      Year 3 (growth): 4 → 8 cells
+  Division: 8 → 16 cells
+  Random cull: 16 → 6 cells
+  Methylation applied to 6 cells
+      Year 4 (homeostasis): 8 → 6 cells
+  Division: 6 → 12 cells
+  Random cull: 12 → 8 cells
+  Methylation applied to 8 cells
+      Year 5 (homeostasis): 6 → 8 cells
+  Division: 8 → 16 cells
+  Random cull: 16 → 7 cells
+  Methylation applied to 7 cells
+      Year 6 (homeostasis): 8 → 7 cells
+  Division: 7 → 14 cells
+  Random cull: 14 → 10 cells
+  Methylation applied to 10 cells
+      Year 7 (homeostasis): 7 → 10 cells
+  Division: 10 → 20 cells
+  Random cull: 20 → 11 cells
+  Methylation applied to 11 cells
+      Year 8 (homeostasis): 10 → 11 cells
+  Division: 11 → 22 cells
+  Random cull: 22 → 11 cells
+  Methylation applied to 11 cells
+      Year 9 (homeostasis): 11 → 11 cells
+  Division: 11 → 22 cells
+  Random cull: 22 → 12 cells
+  Methylation applied to 12 cells
+      Year 10 (homeostasis): 11 → 12 cells
+    Individual 02: 1 → ~8 cells
+  Division: 1 → 2 cells
+  Methylation applied to 2 cells
+      Year 1 (growth): 1 → 2 cells
+  Division: 2 → 4 cells
+  Methylation applied to 4 cells
+      Year 2 (growth): 2 → 4 cells
+  Division: 4 → 8 cells
+  Methylation applied to 8 cells
+      Year 3 (growth): 4 → 8 cells
+  Division: 8 → 16 cells
+  Random cull: 16 → 10 cells
+  Methylation applied to 10 cells
+      Year 4 (homeostasis): 8 → 10 cells
+  Division: 10 → 20 cells
+  Random cull: 20 → 8 cells
+  Methylation applied to 8 cells
+      Year 5 (homeostasis): 10 → 8 cells
+  Division: 8 → 16 cells
+  Random cull: 16 → 5 cells
+  Methylation applied to 5 cells
+      Year 6 (homeostasis): 8 → 5 cells
+  Division: 5 → 10 cells
+  Random cull: 10 → 6 cells
+  Methylation applied to 6 cells
+      Year 7 (homeostasis): 5 → 6 cells
+  Division: 6 → 12 cells
+  Random cull: 12 → 8 cells
+  Methylation applied to 8 cells
+      Year 8 (homeostasis): 6 → 8 cells
+  Division: 8 → 16 cells
+  Random cull: 16 → 8 cells
+  Methylation applied to 8 cells
+      Year 9 (homeostasis): 8 → 8 cells
+  Division: 8 → 16 cells
+  Random cull: 16 → 4 cells
+  Methylation applied to 4 cells
+      Year 10 (homeostasis): 8 → 4 cells
+    Individual 03: 1 → ~8 cells
+  Division: 1 → 2 cells
+  Methylation applied to 2 cells
+      Year 1 (growth): 1 → 2 cells
+  Division: 2 → 4 cells
+  Methylation applied to 4 cells
+      Year 2 (growth): 2 → 4 cells
+  Division: 4 → 8 cells
+  Methylation applied to 8 cells
+      Year 3 (growth): 4 → 8 cells
+  Division: 8 → 16 cells
+  Random cull: 16 → 9 cells
+  Methylation applied to 9 cells
+      Year 4 (homeostasis): 8 → 9 cells
+  Division: 9 → 18 cells
+  Random cull: 18 → 8 cells
+  Methylation applied to 8 cells
+      Year 5 (homeostasis): 9 → 8 cells
+  Division: 8 → 16 cells
+  Random cull: 16 → 5 cells
+  Methylation applied to 5 cells
+      Year 6 (homeostasis): 8 → 5 cells
+  Division: 5 → 10 cells
+  Random cull: 10 → 5 cells
+  Methylation applied to 5 cells
+      Year 7 (homeostasis): 5 → 5 cells
+  Division: 5 → 10 cells
+  Random cull: 10 → 7 cells
+  Methylation applied to 7 cells
+      Year 8 (homeostasis): 5 → 7 cells
+  Division: 7 → 14 cells
+  Random cull: 14 → 9 cells
+  Methylation applied to 9 cells
+      Year 9 (homeostasis): 7 → 9 cells
+  Division: 9 → 18 cells
+  Random cull: 18 → 10 cells
+  Methylation applied to 10 cells
+      Year 10 (homeostasis): 9 → 10 cells
+    Individual 04: 1 → ~8 cells
+  Division: 1 → 2 cells
+  Methylation applied to 2 cells
+      Year 1 (growth): 1 → 2 cells
+  Division: 2 → 4 cells
+  Methylation applied to 4 cells
+      Year 2 (growth): 2 → 4 cells
+  Division: 4 → 8 cells
+  Methylation applied to 8 cells
+      Year 3 (growth): 4 → 8 cells
+  Division: 8 → 16 cells
+  Random cull: 16 → 7 cells
+  Methylation applied to 7 cells
+      Year 4 (homeostasis): 8 → 7 cells
+  Division: 7 → 14 cells
+  Random cull: 14 → 7 cells
+  Methylation applied to 7 cells
+      Year 5 (homeostasis): 7 → 7 cells
+  Division: 7 → 14 cells
+  Random cull: 14 → 11 cells
+  Methylation applied to 11 cells
+      Year 6 (homeostasis): 7 → 11 cells
+  Division: 11 → 22 cells
+  Random cull: 22 → 17 cells
+  Methylation applied to 17 cells
+      Year 7 (homeostasis): 11 → 17 cells
+  Division: 17 → 34 cells
+  Random cull: 34 → 18 cells
+  Methylation applied to 18 cells
+      Year 8 (homeostasis): 17 → 18 cells
+  Division: 18 → 36 cells
+  Random cull: 36 → 20 cells
+  Methylation applied to 20 cells
+      Year 9 (homeostasis): 18 → 20 cells
+  Division: 20 → 40 cells
+  Random cull: 40 → 24 cells
+  Methylation applied to 24 cells
+      Year 10 (homeostasis): 20 → 24 cells
+
+============================================================
+STAGE 5: Extract Year 30 Snapshot
+============================================================
+  ✓ Extracting year 30 from simulation...
+Loading year 30 snapshot from ../phase1/data/rate_0.00500/grow9-sites100-years50-seed42-20250901225422/simulation.json...
+  Loaded 461 cells from year 30
+  Saved 461 cells to data/rate_0.00500-grow9-sites100-years50/snap20to30-growth3-quant2x2-mix70un-seed42-20250902004716/snapshots/year30_snapshot.json
+  Cached 461 cells for future use
+
+============================================================
+STAGE 5.5: Plot Year 30 JSD Distribution
+============================================================
+
+Plotting Cell JSD distribution...
+  Saved plot to data/rate_0.00500-grow9-sites100-years50/snap20to30-growth3-quant2x2-mix70un-seed42-20250902004716/results/year30_jsd_distribution_200bins.png
+
+============================================================
+STAGE 6: Mix Populations
+============================================================
+
+  === APPLYING SIZE NORMALIZATION ===
+  Using median - 0.5σ threshold
+
+  === NORMALIZATION STATISTICS (median - 0.5σ method) ===
+  All individual sizes: min=2, max=24
+  Median: 7.0 cells
+  Std Dev: 6.9 cells
+  Threshold calculation: 7.0 - 0.5 * 6.9 = 3 cells
+    Mutant 00: 4 → 3 cells (trimmed)
+    Mutant 01: 10 → 3 cells (trimmed)
+    Mutant 02: 2 cells - EXCLUDED (below threshold)
+    Mutant 03: 2 cells - EXCLUDED (below threshold)
+    Control1 00: 12 → 3 cells (trimmed)
+    Control1 01: 4 → 3 cells (trimmed)
+    Control1 02: 10 → 3 cells (trimmed)
+    Control1 03: 24 → 3 cells (trimmed)
+
+  Mutant summary:
+    Kept: 2 (0 as-is, 2 trimmed)
+    Excluded: 2
+  Control1 summary:
+    Kept: 4 (0 as-is, 4 trimmed)
+    Excluded: 0
+
+  Overall retention: 6/8 (75.0%)
+
+  Saving normalized populations...
+  Normalized all individuals to 3 cells
+
+  === UNIFORM MIXING MODE (Fixed Normalization) ===
+  Step 1: Normalizing individuals for uniform mixing...
+
+  === NORMALIZING INDIVIDUALS FOR UNIFORM MIXING ===
+  Individual sizes: min=3, max=3
+  Normalizing all individuals to 3 cells
+  ✓ Successfully normalized 6 individuals to 3 cells each
+
+  Step 2: Creating uniform mixing pool from year 30...
+    Creating uniform mixing pool:
+      Normalized individual size: 3 cells
+      Target total size: 9 cells
+      Snapshot cells needed: 6 cells
+      Created pool of 6 cells
+
+  Population Size Distribution (before mixing):
+  ==================================================
+  Mutant individuals (n=2):
+    Mean: 3.0 ± 0.0 cells
+    Median: 3 cells
+    Range: 3-3 cells
+    CV: 0.0%
+
+  Control1 individuals (n=4):
+    Mean: 3.0 ± 0.0 cells
+    Median: 3 cells
+    Range: 3-3 cells
+    CV: 0.0%
+
+  Combined (n=6):
+    Median for mixing: 3 cells
+  ==================================================
+
+  Saved mixing statistics to data/rate_0.00500-grow9-sites100-years50/snap20to30-growth3-quant2x2-mix70un-seed42-20250902004716/results/mixing_statistics.json
+
+  Step 3: Mixing normalized individuals with uniform pool...
+  Processing 2 mutant individuals...
+    Mutant 01: 3 → 9 cells
+    Mutant 02: 3 → 9 cells
+  Processing 4 control1 individuals...
+    Control1 01: 3 → 9 cells
+    Control1 02: 3 → 9 cells
+    Control1 03: 3 → 9 cells
+    Control1 04: 3 → 9 cells
+
+============================================================
+STAGE 7: Create Control2 Individuals
+============================================================
+  Adjusted control2 count after normalization: 3
+    (Based on 2 mutant + 4 control1)
+  Using uniform mixing final size: 9 cells
+  ✓ Creating 3 control2 individuals (pure year 30)...
+    Each with 9 pure year 30 cells
+    Creating individual 1/3
+      Using uniform base + additional cells
+    Creating individual 2/3
+      Using uniform base + additional cells
+    Creating individual 3/3
+      Using uniform base + additional cells
+  Created and saved 3 control2 individuals
+
+============================================================
+Generating Individual Growth Trajectories
+============================================================
+
+  Creating plots for mutant individuals...
+    ⚠️  Could not plot mutant_01: local variable 'PetriDishPlotter' referenced before assignment
+    ⚠️  Could not plot mutant_02: local variable 'PetriDishPlotter' referenced before assignment
+
+  Creating plots for control1 individuals...
+    ⚠️  Could not plot control1_01: local variable 'PetriDishPlotter' referenced before assignment
+    ⚠️  Could not plot control1_02: local variable 'PetriDishPlotter' referenced before assignment
+    ⚠️  Could not plot control1_03: local variable 'PetriDishPlotter' referenced before assignment
+    ⚠️  Could not plot control1_04: local variable 'PetriDishPlotter' referenced before assignment
+
+  Skipping control2 (pure snapshots, no growth trajectories)
+  ✓ Generated 0 trajectory plots in data/rate_0.00500-grow9-sites100-years50/snap20to30-growth3-quant2x2-mix70un-seed42-20250902004716/results/individual_trajectories
+
+============================================================
+STAGE 8: Analysis and Visualization
+============================================================
+
+  Loading final populations for analysis...
+    Loaded 2 mutant individuals
+    Loaded 4 control1 individuals
+    Loaded 3 control2 individuals
+
+Analyzing populations from PetriDish objects...
+  Mutant: 2 individuals
+  Control1: 4 individuals
+  Control2: 3 individuals
+
+  Statistical comparisons:
+    Mutant vs Control1: t=-2.279, p=0.084918
+    Mutant vs Control2: t=-2.832, p=0.066102
+    Control1 vs Control2: t=1.083, p=0.328306
+
+  Creating comparison plot...
+    Saved plot to data/rate_0.00500-grow9-sites100-years50/snap20to30-growth3-quant2x2-mix70un-seed42-20250902004716/results/cell_jsd_comparison.png
+
+  Saved cell JSD analysis to data/rate_0.00500-grow9-sites100-years50/snap20to30-growth3-quant2x2-mix70un-seed42-20250902004716/results/cell_jsd_analysis.json
+
+Generating gene JSD analysis...
+  Calculating gene JSDs for mutant batch...
+  Calculating gene JSDs for control1 batch...
+  Calculating gene JSDs for control2 batch...
+  Saved gene JSD analysis to data/rate_0.00500-grow9-sites100-years50/snap20to30-growth3-quant2x2-mix70un-seed42-20250902004716/results/gene_jsd_analysis.json
+    Analyzed 20 genes across 9 individuals
+    Mutant: 2 individuals, mean gene JSD = 0.3148
+    Control1: 4 individuals, mean gene JSD = 0.3610
+    Control2: 3 individuals, mean gene JSD = 0.3405
+
+Generating gene JSD distribution plots...
+  Creating plots for 20 genes...
+    Processed 10/20 genes...
+    Processed 20/20 genes...
+  ✓ Generated 20 gene JSD plots in data/rate_0.00500-grow9-sites100-years50/snap20to30-growth3-quant2x2-mix70un-seed42-20250902004716/results/gene_jsd_plots
+
+📊 Creating individual-averaged gene JSD comparison plot...
+  ✓ Saved individual-averaged gene JSD comparison to data/rate_0.00500-grow9-sites100-years50/snap20to30-growth3-quant2x2-mix70un-seed42-20250902004716/results/gene_jsd_individual_comparison.png
+
+Generating additional gene JSD plots...
+  Skipping gene JSD distribution comparison: [Errno 2] No such file or directory: 'data/rate_0.00500-grow9-sites100-years50/snap20to30-growth3-quant2x2-mix70un-seed42-20250902004716/snapshots/year20_snapshot.json.gz'
+
+  Creating top 20 variable genes plot...
+    Analyzing 20 genes across 9 individuals
+    Saved top variable genes plot to data/rate_0.00500-grow9-sites100-years50/snap20to30-growth3-quant2x2-mix70un-seed42-20250902004716/results/top_variable_genes.png
+
+Generating phase1-style gene JSD plots from simulation data...
+  Loading original simulation: ../phase1/data/rate_0.00500/grow9-sites100-years50-seed42-20250901225422/simulation.json
+  Skipping phase1-style gene JSD plots: Not a gzipped file (b'{\n')
+
+============================================================
+Generating Original Simulation Timeline Plots
+============================================================
+  Loading simulation with full history...
+  ⚠️  Could not generate original simulation timeline plots: 'cpg_sites'
+
+================================================================================
+PIPELINE COMPLETE
+================================================================================
+Total time: 0.1 minutes
+Output directory: data/rate_0.00500-grow9-sites100-years50/snap20to30-growth3-quant2x2-mix70un-seed42-20250902004716
+
+Key results:
+  Mutant mean JSD: 0.292542 ± 0.012618
+  Control1 mean JSD: 0.336427 ± 0.020371
+  Control2 mean JSD: 0.321139 ± 0.004031
+
+Statistical tests:
+  mutant_vs_control1: p=0.084918
+  mutant_vs_control2: p=0.066102
+  control1_vs_control2: p=0.328306
+
+Pipeline metadata saved to: data/rate_0.00500-grow9-sites100-years50/snap20to30-growth3-quant2x2-mix70un-seed42-20250902004716/results/pipeline_metadata.json

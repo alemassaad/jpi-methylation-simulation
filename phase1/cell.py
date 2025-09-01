@@ -1050,9 +1050,28 @@ class PetriDishPlotter:
             if not year_data:
                 continue
             
-            # Extract values
-            jsd_values = [cell['cell_jsd'] for cell in year_data]
-            meth_values = [cell['methylation_proportion'] * 100 for cell in year_data]
+            # Extract values (handle both naming conventions)
+            jsd_values = []
+            meth_values = []
+            for cell in year_data:
+                # Handle both 'cell_jsd' and 'cell_JSD' for compatibility
+                if isinstance(cell, dict):
+                    jsd = cell.get('cell_jsd', cell.get('cell_JSD', 0.0))
+                    jsd_values.append(jsd)
+                    # Handle missing methylation_proportion
+                    if 'methylation_proportion' in cell:
+                        meth_values.append(cell['methylation_proportion'] * 100)
+                    else:
+                        # Calculate from methylated array if available
+                        if 'methylated' in cell:
+                            meth_prop = sum(cell['methylated']) / len(cell['methylated'])
+                            meth_values.append(meth_prop * 100)
+                        else:
+                            meth_values.append(0.0)
+                else:
+                    # Handle Cell objects
+                    jsd_values.append(getattr(cell, 'cell_JSD', 0.0))
+                    meth_values.append(getattr(cell, 'methylation_proportion', 0.0) * 100)
             
             stats['years'].append(year)
             stats['population_size'].append(len(year_data))

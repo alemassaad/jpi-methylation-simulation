@@ -1,0 +1,19 @@
+# Gene-specific rates configuration
+# Usage: python3 run_simulation.py --config configs/gene_rates.yaml
+
+simulation:
+  # Using gene-specific rates instead of uniform rate
+  gene_rate_groups: "50:0.004,50:0.0045,50:0.005,50:0.0055"
+  sites: 1000        # Must be divisible by gene_size * number of groups
+  years: 50
+  gene_size: 5
+  growth_phase: 10
+
+output:
+  compress: true
+
+performance:
+  track_gene_jsd: true
+  calculate_jsds: true
+
+seed: 777

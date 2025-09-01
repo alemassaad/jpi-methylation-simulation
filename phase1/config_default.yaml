@@ -1,0 +1,30 @@
+# Default configuration for Phase 1 methylation simulation
+# This file defines default values for all simulation parameters
+# Can be overridden by user config files or command-line arguments
+
+# Simulation parameters
+simulation:
+  # Methylation rate configuration (use one or the other)
+  rate: 0.005                    # Uniform methylation rate per site per year
+  # gene_rate_groups: null       # Alternative: "50:0.004,50:0.005,50:0.006,50:0.007"
+  
+  # Core parameters
+  sites: 1000                    # Number of CpG sites per cell
+  years: 100                     # Number of years to simulate
+  gene_size: 5                   # Size of genes (sites per gene)
+  growth_phase: 13               # Duration of growth phase in years (2^13 = 8192 cells)
+
+# Output configuration
+output:
+  directory: "data"              # Base directory for output
+  filename: null                 # Output filename (auto-generated if null)
+  compress: true                 # Save as .json.gz if true, .json if false
+  save: true                     # Whether to save results
+
+# Performance options
+performance:
+  track_gene_jsd: true           # Track gene JSD history
+  calculate_jsds: true           # Calculate all JSDs (cell and gene)
+
+# Reproducibility
+seed: 42                         # Random seed (use -1 or null for random)

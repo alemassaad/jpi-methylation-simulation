@@ -1,0 +1,19 @@
+# Production configuration - full simulation with compression
+# Usage: python3 run_simulation.py --config configs/production.yaml
+
+simulation:
+  rate: 0.005
+  sites: 1000
+  years: 100
+  gene_size: 5
+  growth_phase: 13   # 8192 cells
+
+output:
+  compress: true     # Save space
+  directory: "data/production"
+
+performance:
+  track_gene_jsd: true
+  calculate_jsds: true
+
+seed: 42

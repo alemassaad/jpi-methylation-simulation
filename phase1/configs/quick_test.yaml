@@ -1,0 +1,15 @@
+# Quick test configuration - fast simulation for testing
+# Usage: python3 run_simulation.py --config configs/quick_test.yaml
+
+simulation:
+  years: 10
+  growth_phase: 3    # Only 8 cells (2^3)
+  sites: 100         # Fewer sites for speed
+
+output:
+  compress: false    # Uncompressed for easy inspection
+
+performance:
+  track_gene_jsd: false  # Skip for speed
+
+seed: 12345

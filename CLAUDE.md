@@ -48,6 +48,18 @@ python run_pipeline.py --config configs/quick_test.yaml --simulation PATH --rate
 - All cell-level JSD metrics now prefixed with `cell_` for clarity
 - Metadata keys: `mean_cell_jsd`, `std_cell_jsd`, `min_cell_jsd`, `max_cell_jsd`, `median_cell_jsd`
 - Functions: `get_cell_jsd_array()`, `plot_cell_jsd_distribution()`
+- Output file: `cell_jsd_comparison.png` (renamed from `jsd_comparison.png`)
+
+### 🔢 Individual ID Convention
+- All individual IDs now start at 1 (not 0) for intuitive numbering
+- First individual: `individual_01.json` with `individual_id: 1`
+- Consistent across all batches (mutant, control1, control2)
+- IDs always match filenames through all pipeline stages
+
+### 📈 Gene Metrics as Proportions
+- `gene_mean_methylation` now returns proportions (0.0-1.0) instead of counts
+- Makes metrics more interpretable (e.g., 0.5 = 50% methylated)
+- Consistent with other proportion-based metrics
 - Gene-level JSD already clearly named with `gene_` prefix
 - **Breaking change**: Old JSON files will have old keys (`mean_jsd` etc.)
 

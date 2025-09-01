@@ -35,3 +35,7 @@ step2/data/snapshots/*.json.gz
 step3/data/individuals/**/*.json.gz
 step3/data/snapshots/*.json.gz
 step3/data/test_individuals/**/*.json.gz
+
+# Phase 2 temporary files
+phase2/tmp/
+phase2/*.log

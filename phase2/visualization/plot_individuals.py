@@ -17,7 +17,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 sys.path.append(os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'phase1'))
 
 from cell import PetriDish, PetriDishPlotter
-from pipeline_utils import load_petri_dish
+from core.pipeline_utils import load_petri_dish
 
 
 def plot_individual(filepath: str, output_dir: str, group_name: str, individual_id: int) -> bool:

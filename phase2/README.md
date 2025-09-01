@@ -328,3 +328,48 @@ For large simulations:
 - Install PyYAML: `pip install pyyaml`
 - Check YAML syntax (proper indentation)
 - CLI arguments override config values
+
+## Project Structure
+
+```
+phase2/
+├── README.md               # Main documentation
+├── run_pipeline.py         # Main pipeline entry point
+│
+├── core/                   # Core pipeline modules
+│   ├── __init__.py         # Package exports
+│   ├── pipeline_utils.py  # Helper functions for pipeline
+│   ├── pipeline_analysis.py # Analysis and visualization functions
+│   └── path_utils.py       # Path generation utilities
+│
+├── visualization/          # Visualization modules
+│   ├── __init__.py         # Package exports
+│   ├── plot_individuals.py # Individual growth trajectory plots
+│   └── analyze_individual_sizes.py # Size distribution analysis
+│
+├── configs/                # Configuration files
+│   ├── config_default.yaml # Default configuration
+│   ├── quick_test.yaml    # Quick testing configuration
+│   ├── full_analysis.yaml # Full analysis configuration
+│   └── uniform_mixing.yaml # Uniform mixing configuration
+│
+├── scripts/                # Standalone scripts
+│   ├── complete_analysis.py # Run complete analysis
+│   ├── create_control2.py  # Create control2 individuals
+│   └── clean_individuals.sh # Clean individual files
+│
+├── tools/                  # Analysis tools
+│   └── compare_two_runs.py # Compare two pipeline runs
+│
+├── tests/                  # Test suite (organized)
+│   ├── config/            # Configuration tests
+│   ├── integration/       # Integration tests
+│   └── unit/              # Unit tests
+│
+├── docs/                   # Additional documentation
+│   ├── NORMALIZATION_USAGE.md
+│   ├── JSON_CONSOLIDATION_PLAN.md
+│   └── PHASE2_REFACTORING_PLAN.md
+│
+├── data/                   # Output directory (gitignored)
+└── tmp/                    # Temporary files (gitignored)

@@ -19,7 +19,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 sys.path.append(os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'phase1'))
 
 from cell import Cell, PetriDish
-from pipeline_utils import load_petri_dish, load_all_petri_dishes, get_cell_jsd_array
+from .pipeline_utils import load_petri_dish, load_all_petri_dishes, get_cell_jsd_array
 
 
 def plot_cell_jsd_distribution(cells: List[Cell], bins: int, output_path: str, 

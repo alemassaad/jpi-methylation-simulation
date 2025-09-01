@@ -33,7 +33,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 sys.path.append(os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'phase1'))
 from cell import PetriDish, Cell, PetriDishPlotter
-from pipeline_utils import (
+from core.pipeline_utils import (
     load_snapshot_as_cells, save_snapshot_cells, load_snapshot_cells,
     save_petri_dish, load_petri_dish, load_all_petri_dishes,
     sample_by_quantiles, sample_uniform,
@@ -44,7 +44,7 @@ from pipeline_utils import (
     create_uniform_mixing_pool, mix_petri_uniform, normalize_populations,
     normalize_individuals_for_uniform_mixing
 )
-from pipeline_analysis import (
+from core.pipeline_analysis import (
     plot_cell_jsd_distribution,
     analyze_populations_from_dishes,
     plot_gene_jsd_distribution_comparison,
@@ -52,7 +52,8 @@ from pipeline_analysis import (
     plot_gene_jsd_distributions,
     plot_gene_jsd_individual_comparison
 )
-from path_utils import parse_step1_simulation_path, generate_step23_output_dir
+from core.path_utils import parse_step1_simulation_path, generate_step23_output_dir
+# Note: validate_timeline_parameters, check_timeline_warnings, print_timeline_breakdown are defined locally below
 
 
 def load_config(config_path: Optional[str] = None) -> Dict[str, Any]:
@@ -1180,7 +1181,7 @@ def run_pipeline(args, rate_config):
         )
     
         # Generate gene-level JSD analysis
-        from pipeline_analysis import generate_gene_jsd_analysis
+        from core.pipeline_analysis import generate_gene_jsd_analysis
         gene_analysis_results = generate_gene_jsd_analysis(
             mutant_dishes, control1_dishes, control2_dishes, results_dir
         )
@@ -1253,7 +1254,7 @@ def run_pipeline(args, rate_config):
                     last_year_data = list(sim_data['history'].values())[-1]
                     if 'cells' in last_year_data and len(last_year_data['cells']) > 0:
                         # Convert first cell to get gene rate group info
-                        from pipeline_utils import dict_to_cell
+                        from core.pipeline_utils import dict_to_cell
                         sample_cell = dict_to_cell(last_year_data['cells'][0])
                         temp_petri.cells = [sample_cell]  # Just need one for gene rate group detection
             
@@ -1381,7 +1382,7 @@ def run_pipeline(args, rate_config):
         except Exception as e:
             import traceback
             print(f"  ⚠️  Could not generate original simulation timeline plots: {str(e)}")
-            if args.verbose:
+            if hasattr(args, 'verbose') and args.verbose:
                 print(f"      Full error: {traceback.format_exc()}")
     
         # Get statistics for summary from new consolidated format
@@ -1447,7 +1448,7 @@ def run_pipeline(args, rate_config):
             print("Generating Individual Growth Trajectory Plots")
             print(f"{'='*60}")
         
-            from plot_individuals import plot_all_individuals
+            from visualization.plot_individuals import plot_all_individuals
             plot_all_individuals(base_dir, plot_combined=True)
     
         return summary_stats

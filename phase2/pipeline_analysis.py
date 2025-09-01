@@ -533,7 +533,7 @@ def create_comparison_plot_from_jsds(mutant_jsds: np.ndarray,
     y_min = np.min(all_jsds)
     y_max = np.max(all_jsds)
     y_range = y_max - y_min
-    annotation_y = y_min - 0.08 * y_range  # Slightly more space for more lines
+    annotation_y = y_min - 0.15 * y_range  # More space to avoid overlap with x-axis labels
     
     # Add comprehensive statistics text below each group
     fig.add_annotation(
@@ -604,19 +604,19 @@ def create_comparison_plot_from_jsds(mutant_jsds: np.ndarray,
             title='Mean Cell JSD per Individual',
             showgrid=True,
             gridcolor='lightgray',
-            range=[annotation_y - 0.02, y_max + 0.01]
+            range=[annotation_y - 0.05, y_max + 0.01]
         ),
         plot_bgcolor='white',
         showlegend=False,
-        height=700,  # Increased height for stats
+        height=800,  # Increased height to accommodate stats
         width=700,
-        margin=dict(l=80, r=40, t=60, b=150)  # Increased bottom margin for stats
+        margin=dict(l=80, r=40, t=60, b=200)  # Increased bottom margin for stats
     )
     
     # Save PNG only (no HTML)
     if os.path.dirname(output_path):
         os.makedirs(os.path.dirname(output_path), exist_ok=True)
-    fig.write_image(output_path, width=700, height=700, scale=2)
+    fig.write_image(output_path, width=700, height=800, scale=2)
     print(f"    Saved plot to {output_path}")
 
 
@@ -1101,11 +1101,11 @@ def create_gene_comparison_plot(mutant_jsds: np.ndarray,
         y_min = np.min(all_jsds)
         y_max = np.max(all_jsds)
         y_range = y_max - y_min
-        annotation_y = y_min - 0.08 * y_range
+        annotation_y = y_min - 0.15 * y_range  # More space to avoid overlap with x-axis labels
     else:
         y_min = 0
         y_max = 1
-        annotation_y = -0.08
+        annotation_y = -0.15
     
     # Add comprehensive statistics text below each group
     if len(mutant_jsds) > 0:
@@ -1187,16 +1187,16 @@ def create_gene_comparison_plot(mutant_jsds: np.ndarray,
             title='Gene JSD Score',
             showgrid=True,
             gridcolor='lightgray',
-            range=[annotation_y - 0.02, y_max + 0.01] if len(all_jsds) > 0 else [0, 1]
+            range=[annotation_y - 0.05, y_max + 0.01] if len(all_jsds) > 0 else [0, 1]
         ),
         plot_bgcolor='white',
         showlegend=False,
-        height=700,
+        height=800,  # Increased height to accommodate stats
         width=700,
-        margin=dict(l=80, r=40, t=60, b=150)
+        margin=dict(l=80, r=40, t=60, b=200)  # Increased bottom margin for stats
     )
     
     # Save PNG only
     if os.path.dirname(output_path):
         os.makedirs(os.path.dirname(output_path), exist_ok=True)
-    fig.write_image(output_path, width=700, height=700, scale=2)
+    fig.write_image(output_path, width=700, height=800, scale=2)

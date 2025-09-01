@@ -1309,7 +1309,7 @@ def run_pipeline(args, rate_config):
             # Convert history to PetriDish format
             if 'history' in sim_data and sim_data['history']:
                 # Create a PetriDish with history
-                from pipeline_utils import dict_to_cell
+                from core.pipeline_utils import dict_to_cell
             
                 # Get parameters from simulation
                 params = sim_data.get('parameters', {})

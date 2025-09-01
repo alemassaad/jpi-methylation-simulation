@@ -12,7 +12,7 @@ simulation:
   sites: 100                     # Number of CpG sites per cell
   years: 50                      # Number of years to simulate
   gene_size: 5                   # Size of genes (sites per gene)
-  growth_phase: 6                # Duration of growth phase in years (2^6 = 64 cells)
+  growth_phase: 9                # Duration of growth phase in years (2^9 = 512 cells)
 
 # Output configuration
 output:

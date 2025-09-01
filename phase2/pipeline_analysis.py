@@ -595,7 +595,9 @@ def create_comparison_plot_from_jsds(mutant_jsds: np.ndarray,
             text="Mean Cell JSD per Individual",
             font=dict(size=16),
             x=0.5,
-            xanchor='center'
+            xanchor='center',
+            y=0.98,  # Move title up (default is ~0.9)
+            yanchor='top'
         ),
         xaxis=dict(
             tickmode='array',
@@ -1182,7 +1184,9 @@ def create_gene_comparison_plot(mutant_jsds: np.ndarray,
             text=f"Gene {gene_idx} JSD Distribution{gene_rate_text}",
             font=dict(size=16),
             x=0.5,
-            xanchor='center'
+            xanchor='center',
+            y=0.98,  # Move title up (default is ~0.9)
+            yanchor='top'
         ),
         xaxis=dict(
             tickmode='array',

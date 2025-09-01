@@ -241,7 +241,10 @@ def run_pipeline(args, rate_config):
     print(f"STAGE 1: Extract Year {args.first_snapshot} Snapshot")
     print(f"{'='*60}")
     
-    first_snapshot_path = os.path.join(snapshots_dir, f"year{args.first_snapshot}_snapshot.json.gz")
+    # File extensions based on compression setting
+    snapshot_ext = ".json" if args.no_compress else ".json.gz"
+    individual_ext = ".json" if args.no_compress else ".json.gz"
+    first_snapshot_path = os.path.join(snapshots_dir, f"year{args.first_snapshot}_snapshot{snapshot_ext}")
     
     if os.path.exists(first_snapshot_path) and not args.force_reload:
         print(f"  ⏭ Loading existing snapshot from {first_snapshot_path}...")
@@ -250,7 +253,7 @@ def run_pipeline(args, rate_config):
     else:
         print(f"  ✓ Extracting year {args.first_snapshot} from simulation...")
         first_snapshot_cells = load_snapshot_as_cells(args.simulation, args.first_snapshot)
-        save_snapshot_cells(first_snapshot_cells, first_snapshot_path)
+        save_snapshot_cells(first_snapshot_cells, first_snapshot_path, compress=not args.no_compress)
         print(f"  Cached {len(first_snapshot_cells)} cells for future use")
     
     # ========================================================================
@@ -311,8 +314,8 @@ def run_pipeline(args, rate_config):
             mutant_dishes.append(petri)
             
             # Save immediately
-            filepath = os.path.join(mutant_dir, f"individual_{i:02d}.json.gz")
-            save_petri_dish(petri, filepath)
+            filepath = os.path.join(mutant_dir, f"individual_{i:02d}{individual_ext}")
+            save_petri_dish(petri, filepath, compress=not args.no_compress)
         
         print(f"  Created and saved {len(mutant_dishes)} mutant individuals")
     
@@ -352,8 +355,8 @@ def run_pipeline(args, rate_config):
             control1_dishes.append(petri)
             
             # Save immediately
-            filepath = os.path.join(control1_dir, f"individual_{i:02d}.json.gz")
-            save_petri_dish(petri, filepath)
+            filepath = os.path.join(control1_dir, f"individual_{i:02d}{individual_ext}")
+            save_petri_dish(petri, filepath, compress=not args.no_compress)
         
         print(f"  Created and saved {len(control1_dishes)} control1 individuals")
     
@@ -390,8 +393,8 @@ def run_pipeline(args, rate_config):
                                    start_year=args.first_snapshot)
                 
                 # Save updated state (with history if tracked)
-                filepath = os.path.join(mutant_dir, f"individual_{i:02d}.json.gz")
-                save_petri_dish(petri, filepath, include_cell_history=args.plot_individuals)
+                filepath = os.path.join(mutant_dir, f"individual_{i:02d}{individual_ext}")
+                save_petri_dish(petri, filepath, include_cell_history=args.plot_individuals, compress=not args.no_compress)
             elif current_cells >= expected_population * 0.5 and current_cells <= expected_population * 1.5:
                 # Already grown (with homeostasis variation)
                 print(f"    Individual {i:02d}: Already at {current_cells} cells")
@@ -425,8 +428,8 @@ def run_pipeline(args, rate_config):
                                    start_year=args.first_snapshot)
                 
                 # Save updated state (with history if tracked)
-                filepath = os.path.join(control1_dir, f"individual_{i:02d}.json.gz")
-                save_petri_dish(petri, filepath, include_cell_history=args.plot_individuals)
+                filepath = os.path.join(control1_dir, f"individual_{i:02d}{individual_ext}")
+                save_petri_dish(petri, filepath, include_cell_history=args.plot_individuals, compress=not args.no_compress)
     
     # ========================================================================
     # STAGE 5: Extract Second Snapshot
@@ -435,7 +438,7 @@ def run_pipeline(args, rate_config):
     print(f"STAGE 5: Extract Year {args.second_snapshot} Snapshot")
     print(f"{'='*60}")
     
-    second_snapshot_path = os.path.join(snapshots_dir, f"year{args.second_snapshot}_snapshot.json.gz")
+    second_snapshot_path = os.path.join(snapshots_dir, f"year{args.second_snapshot}_snapshot{snapshot_ext}")
     
     if os.path.exists(second_snapshot_path) and not args.force_reload:
         print(f"  ⏭ Loading existing snapshot from {second_snapshot_path}...")
@@ -444,7 +447,7 @@ def run_pipeline(args, rate_config):
     else:
         print(f"  ✓ Extracting year {args.second_snapshot} from simulation...")
         second_snapshot_cells = load_snapshot_as_cells(args.simulation, args.second_snapshot)
-        save_snapshot_cells(second_snapshot_cells, second_snapshot_path)
+        save_snapshot_cells(second_snapshot_cells, second_snapshot_path, compress=not args.no_compress)
         print(f"  Cached {len(second_snapshot_cells)} cells for future use")
     
     # ========================================================================
@@ -487,9 +490,9 @@ def run_pipeline(args, rate_config):
         
         # First, remove ALL existing individual files to avoid loading excluded ones later
         import glob
-        for old_file in glob.glob(os.path.join(mutant_dir, "individual_*.json.gz")):
+        for old_file in glob.glob(os.path.join(mutant_dir, f"individual_*{individual_ext}")):
             os.remove(old_file)
-        for old_file in glob.glob(os.path.join(control1_dir, "individual_*.json.gz")):
+        for old_file in glob.glob(os.path.join(control1_dir, f"individual_*{individual_ext}")):
             os.remove(old_file)
         
         # Now save only the kept individuals with sequential numbering
@@ -498,16 +501,16 @@ def run_pipeline(args, rate_config):
                 dish.metadata = {}
             dish.metadata['normalized'] = True
             dish.metadata['normalization_threshold'] = normalization_threshold
-            filepath = os.path.join(mutant_dir, f"individual_{i:02d}.json.gz")
-            save_petri_dish(dish, filepath)
+            filepath = os.path.join(mutant_dir, f"individual_{i:02d}{individual_ext}")
+            save_petri_dish(dish, filepath, compress=not args.no_compress)
         
         for i, dish in enumerate(control1_dishes):
             if not hasattr(dish, 'metadata'):
                 dish.metadata = {}
             dish.metadata['normalized'] = True
             dish.metadata['normalization_threshold'] = normalization_threshold
-            filepath = os.path.join(control1_dir, f"individual_{i:02d}.json.gz")
-            save_petri_dish(dish, filepath)
+            filepath = os.path.join(control1_dir, f"individual_{i:02d}{individual_ext}")
+            save_petri_dish(dish, filepath, compress=not args.no_compress)
         
         print(f"  Normalized all individuals to {normalization_threshold} cells")
     
@@ -571,7 +574,7 @@ def run_pipeline(args, rate_config):
             petri.metadata['final_cells'] = final_size
             
             # Save (with history if tracking)
-            filepath = os.path.join(mutant_dir, f"individual_{i:02d}.json.gz")
+            filepath = os.path.join(mutant_dir, f"individual_{i:02d}{individual_ext}")
             save_petri_dish(petri, filepath, include_cell_history=args.plot_individuals)
         
         # Mix control1 individuals (using SAME pool)
@@ -591,7 +594,7 @@ def run_pipeline(args, rate_config):
             petri.metadata['final_cells'] = final_size
             
             # Save (with history if tracking)
-            filepath = os.path.join(control1_dir, f"individual_{i:02d}.json.gz")
+            filepath = os.path.join(control1_dir, f"individual_{i:02d}{individual_ext}")
             save_petri_dish(petri, filepath, include_cell_history=args.plot_individuals)
                 
     else:
@@ -629,8 +632,8 @@ def run_pipeline(args, rate_config):
                     petri.metadata['final_cells'] = total_cells
                     
                     # Save updated state (with history if tracking)
-                    filepath = os.path.join(mutant_dir, f"individual_{i:02d}.json.gz")
-                    save_petri_dish(petri, filepath, include_cell_history=args.plot_individuals)
+                    filepath = os.path.join(mutant_dir, f"individual_{i:02d}{individual_ext}")
+                    save_petri_dish(petri, filepath, include_cell_history=args.plot_individuals, compress=not args.no_compress)
                 elif len(petri.cells) > expected_population * 1.5:
                     print(f"    Individual {i:02d}: Already mixed ({len(petri.cells)} cells)")
     
@@ -659,8 +662,8 @@ def run_pipeline(args, rate_config):
                     petri.metadata['final_cells'] = total_cells
                     
                     # Save updated state (with history if tracking)
-                    filepath = os.path.join(control1_dir, f"individual_{i:02d}.json.gz")
-                    save_petri_dish(petri, filepath, include_cell_history=args.plot_individuals)
+                    filepath = os.path.join(control1_dir, f"individual_{i:02d}{individual_ext}")
+                    save_petri_dish(petri, filepath, include_cell_history=args.plot_individuals, compress=not args.no_compress)
     
     # Store uniform pool data for Control2 creation (if using uniform mixing)
     uniform_pool_for_control2 = None
@@ -719,7 +722,7 @@ def run_pipeline(args, rate_config):
         
         # Clean up any existing control2 files first
         import glob
-        for old_file in glob.glob(os.path.join(control2_dir, "individual_*.json.gz")):
+        for old_file in glob.glob(os.path.join(control2_dir, f"individual_*{individual_ext}")):
             os.remove(old_file)
         
         # Adjust target size if snapshot has fewer cells
@@ -772,7 +775,7 @@ def run_pipeline(args, rate_config):
             control2_dishes.append(petri)
             
             # Save (with history if plotting individuals)
-            filepath = os.path.join(control2_dir, f"individual_{i:02d}.json.gz")
+            filepath = os.path.join(control2_dir, f"individual_{i:02d}{individual_ext}")
             save_petri_dish(petri, filepath, include_cell_history=args.plot_individuals)
         
         print(f"  Created and saved {len(control2_dishes)} control2 individuals")
@@ -1053,6 +1056,8 @@ def main():
                        help="Number of bins for JSD histograms")
     parser.add_argument("--plot-individuals", action='store_true',
                        help="Generate growth trajectory plots for each individual")
+    parser.add_argument("--no-compress", action='store_true',
+                       help="Save output as uncompressed JSON instead of .json.gz (larger files but easier to inspect)")
     
     # Mixing parameters
     parser.add_argument("--uniform-mixing", action='store_true',

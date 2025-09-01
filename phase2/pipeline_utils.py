@@ -99,13 +99,14 @@ def load_snapshot_as_cells(simulation_file: str, year: int) -> List[Cell]:
     return cells
 
 
-def save_snapshot_cells(cells: List[Cell], filepath: str) -> None:
+def save_snapshot_cells(cells: List[Cell], filepath: str, compress: bool = True) -> None:
     """
     Save a list of Cell objects as a snapshot.
     
     Args:
         cells: List of Cell objects
-        filepath: Output path for compressed JSON
+        filepath: Output path for JSON file
+        compress: If True, save as .json.gz; if False, save as .json
     """
     os.makedirs(os.path.dirname(filepath), exist_ok=True)
     
@@ -117,8 +118,12 @@ def save_snapshot_cells(cells: List[Cell], filepath: str) -> None:
         "cells": [cell.to_dict() for cell in cells]
     }
     
-    with gzip.open(filepath, 'wt') as f:
-        json.dump(snapshot_data, f, indent=2)
+    if compress:
+        with gzip.open(filepath, 'wt') as f:
+            json.dump(snapshot_data, f, indent=2)
+    else:
+        with open(filepath, 'w') as f:
+            json.dump(snapshot_data, f, indent=2)
     
     print(f"  Saved {len(cells)} cells to {filepath}")
 
@@ -126,15 +131,21 @@ def save_snapshot_cells(cells: List[Cell], filepath: str) -> None:
 def load_snapshot_cells(filepath: str) -> List[Cell]:
     """
     Load a snapshot file and convert to Cell objects.
+    Auto-detects whether file is compressed or not.
     
     Args:
-        filepath: Path to snapshot file
+        filepath: Path to snapshot file (.json or .json.gz)
     
     Returns:
         List[Cell]: List of Cell objects
     """
-    with gzip.open(filepath, 'rt') as f:
-        data = json.load(f)
+    # Auto-detect format based on file extension
+    if filepath.endswith('.gz'):
+        with gzip.open(filepath, 'rt') as f:
+            data = json.load(f)
+    else:
+        with open(filepath, 'r') as f:
+            data = json.load(f)
     
     cell_dicts = data['cells']
     cells = [dict_to_cell(cd) for cd in cell_dicts]
@@ -143,9 +154,10 @@ def load_snapshot_cells(filepath: str) -> List[Cell]:
 
 
 def save_petri_dish(petri: PetriDish, filepath: str, metadata: Optional[Dict] = None, 
-                   include_cell_history: bool = False, include_gene_jsd: bool = False) -> None:
+                   include_cell_history: bool = False, include_gene_jsd: bool = False,
+                   compress: bool = True) -> None:
     """
-    Save a PetriDish to compressed JSON file, optionally with history.
+    Save a PetriDish to JSON file (compressed or uncompressed), optionally with history.
     
     Args:
         petri: PetriDish object
@@ -153,6 +165,7 @@ def save_petri_dish(petri: PetriDish, filepath: str, metadata: Optional[Dict] = 
         metadata: Extra metadata dict
         include_cell_history: Whether to save cell history
         include_gene_jsd: Whether to save gene JSD history
+        compress: If True, save as .json.gz; if False, save as .json
     """
     os.makedirs(os.path.dirname(filepath), exist_ok=True)
     
@@ -194,24 +207,34 @@ def save_petri_dish(petri: PetriDish, filepath: str, metadata: Optional[Dict] = 
     if hasattr(petri, 'metadata'):
         data["metadata"].update(petri.metadata)
     
-    with gzip.open(filepath, 'wt') as f:
-        json.dump(data, f, indent=2)
+    if compress:
+        with gzip.open(filepath, 'wt') as f:
+            json.dump(data, f, indent=2)
+    else:
+        with open(filepath, 'w') as f:
+            json.dump(data, f, indent=2)
 
 
 def load_petri_dish(filepath: str, include_cell_history: bool = False, include_gene_jsd: bool = False) -> PetriDish:
     """
     Load a PetriDish from file, optionally with history.
+    Auto-detects whether file is compressed or not.
     
     Args:
-        filepath: Path to .json.gz file
+        filepath: Path to .json or .json.gz file
         include_cell_history: Whether to load cell history if available
         include_gene_jsd: Whether to load gene JSD history if available
         
     Returns:
         PetriDish: Reconstructed object with cells, metadata, and optionally history
     """
-    with gzip.open(filepath, 'rt') as f:
-        data = json.load(f)
+    # Auto-detect format based on file extension
+    if filepath.endswith('.gz'):
+        with gzip.open(filepath, 'rt') as f:
+            data = json.load(f)
+    else:
+        with open(filepath, 'r') as f:
+            data = json.load(f)
     
     # Get first cell to extract parameters and determine rate configuration
     if data['cells']:

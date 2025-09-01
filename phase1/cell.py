@@ -488,13 +488,14 @@ class PetriDish:
         print(f"Final population: {len(self.cells)} cells")
         print("="*60)
         
-    def save_history(self, filename: str = None, directory: str = "data") -> str:
+    def save_history(self, filename: str = None, directory: str = "data", compress: bool = True) -> str:
         """
-        Save simulation history to compressed JSON file using hierarchical structure.
+        Save simulation history to JSON file (compressed or uncompressed) using hierarchical structure.
         
         Args:
             filename: Output filename (ignored, kept for compatibility)
             directory: Base output directory
+            compress: If True, save as .json.gz; if False, save as .json
             
         Returns:
             Path to saved file
@@ -527,9 +528,11 @@ class PetriDish:
             os.makedirs(dir_path, exist_ok=True)
             print(f"Created directory: {dir_path}")
         
-        # Fixed filename
-        filepath = os.path.join(dir_path, "simulation.json.gz")
-        print(f"\nSaving compressed history to {filepath}")
+        # Fixed filename with appropriate extension
+        extension = ".json.gz" if compress else ".json"
+        filepath = os.path.join(dir_path, f"simulation{extension}")
+        format_type = "compressed" if compress else "uncompressed"
+        print(f"\nSaving {format_type} history to {filepath}")
         
         save_start = statistics.mean([0])  # Just to have time module if needed
         import time
@@ -546,15 +549,22 @@ class PetriDish:
         if hasattr(self, 'gene_jsd_history') and self.gene_jsd_history:
             save_data['gene_jsd_history'] = self.gene_jsd_history
         
-        # Use gzip compression and native JSON serialization
-        with gzip.open(filepath, 'wt', encoding='utf-8', compresslevel=1) as f:
-            json.dump(save_data, f, separators=(',', ':'))
+        # Save with or without compression
+        if compress:
+            # Use gzip compression and compact JSON
+            with gzip.open(filepath, 'wt', encoding='utf-8', compresslevel=1) as f:
+                json.dump(save_data, f, separators=(',', ':'))
+        else:
+            # Save uncompressed with indentation for readability
+            with open(filepath, 'w', encoding='utf-8') as f:
+                json.dump(save_data, f, indent=2)
         
         save_time = time.time() - save_start
         file_size_mb = os.path.getsize(filepath) / (1024 * 1024)
         
         print(f"  Save time: {save_time:.2f} seconds")
-        print(f"  File size: {file_size_mb:.2f} MB (compressed)")
+        format_note = " (compressed)" if compress else " (uncompressed)"
+        print(f"  File size: {file_size_mb:.2f} MB{format_note}")
         
         return filepath
     

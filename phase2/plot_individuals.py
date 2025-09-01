@@ -99,7 +99,7 @@ def plot_all_individuals(pipeline_dir: str, plot_combined: bool = True) -> None:
     # Process mutant individuals
     if os.path.exists(mutant_dir):
         print("\n  Processing mutant individuals...")
-        mutant_files = sorted(glob.glob(os.path.join(mutant_dir, "individual_*.json.gz")))
+        mutant_files = sorted(glob.glob(os.path.join(mutant_dir, "individual_*.json*")))  # Matches both .json and .json.gz
         for i, filepath in enumerate(mutant_files):
             total_count += 1
             if plot_individual(filepath, plots_dir, "mutant", i):
@@ -108,7 +108,7 @@ def plot_all_individuals(pipeline_dir: str, plot_combined: bool = True) -> None:
     # Process control1 individuals
     if os.path.exists(control1_dir):
         print("\n  Processing control1 individuals...")
-        control1_files = sorted(glob.glob(os.path.join(control1_dir, "individual_*.json.gz")))
+        control1_files = sorted(glob.glob(os.path.join(control1_dir, "individual_*.json*")))  # Matches both .json and .json.gz
         for i, filepath in enumerate(control1_files):
             total_count += 1
             if plot_individual(filepath, plots_dir, "control1", i):

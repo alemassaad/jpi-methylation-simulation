@@ -113,23 +113,13 @@ def test_json_consolidation():
                 assert 0 <= mean_val <= 1, f"Invalid JSD value: {mean_val}"
         print("  ✓ individual_means structure correct")
         
-        # Check backward compatibility files still exist
+        # Check that old files are NOT created (no backward compatibility)
         stats_path = os.path.join(results_dir, "statistics.json")
         distributions_path = os.path.join(results_dir, "jsd_distributions.json")
         
-        assert os.path.exists(stats_path), "statistics.json not created (backward compatibility)"
-        assert os.path.exists(distributions_path), "jsd_distributions.json not created (backward compatibility)"
-        print("  ✓ Backward compatibility files still created")
-        
-        # Verify old files contain consistent data
-        with open(stats_path, 'r') as f:
-            old_stats = json.load(f)
-        
-        # Check that old stats match new format (with n instead of n_individuals)
-        for batch in ["mutant", "control1", "control2"]:
-            assert old_stats[batch]["n"] == cell_jsd_data["summary_statistics"][batch]["n_individuals"]
-            assert old_stats[batch]["mean"] == cell_jsd_data["summary_statistics"][batch]["mean"]
-        print("  ✓ Backward compatibility data consistent")
+        assert not os.path.exists(stats_path), "statistics.json should not be created"
+        assert not os.path.exists(distributions_path), "jsd_distributions.json should not be created"
+        print("  ✓ Old files not created (no backward compatibility)")
         
         print("\n✅ JSON consolidation test passed!")
         return True
@@ -217,7 +207,7 @@ def main():
         print("\n🎉 All JSON consolidation tests passed!")
         print("   ✅ cell_jsd_analysis.json created successfully")
         print("   ✅ Structure matches specification")
-        print("   ✅ Backward compatibility maintained")
+        print("   ✅ No backward compatibility files created")
         print("   ✅ Semantic improvements working")
         return 0
     else:

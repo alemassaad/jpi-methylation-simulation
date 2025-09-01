@@ -150,11 +150,9 @@ data/
         ├── results/
         │   ├── year50_jsd_distribution_200bins.png
         │   ├── cell_jsd_comparison.png
-        │   ├── cell_jsd_analysis.json         # NEW: Consolidated analysis
+        │   ├── cell_jsd_analysis.json         # Consolidated cell JSD analysis
         │   ├── mixing_statistics.json          # Only when --uniform-mixing
-        │   ├── pipeline_metadata.json
-        │   ├── statistics.json                 # DEPRECATED: Use cell_jsd_analysis.json
-        │   └── jsd_distributions.json          # DEPRECATED: Use cell_jsd_analysis.json
+        │   └── pipeline_metadata.json
         └── individual_plots/  # If --plot-individuals used
             ├── mutant_01_jsd.png
             ├── mutant_01_methylation.png

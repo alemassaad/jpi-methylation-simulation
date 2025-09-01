@@ -285,35 +285,10 @@ def analyze_populations_from_dishes(mutant_dishes: List[PetriDish],
         json.dump(cell_jsd_analysis, f, indent=2)
     print(f"\n  Saved cell JSD analysis to {cell_jsd_path}")
     
-    # DEPRECATED: Keep old files for backward compatibility (will remove in future)
-    # Save statistics (old format)
-    stats_path = os.path.join(output_dir, "statistics.json")
-    stats_dict = {
-        "mutant": cell_jsd_analysis["summary_statistics"]["mutant"].copy(),
-        "control1": cell_jsd_analysis["summary_statistics"]["control1"].copy(),
-        "control2": cell_jsd_analysis["summary_statistics"]["control2"].copy(),
-        "comparisons": cell_jsd_analysis["statistical_tests"]
-    }
-    # Change n_individuals back to n for old format
-    for batch in ["mutant", "control1", "control2"]:
-        stats_dict[batch]["n"] = stats_dict[batch].pop("n_individuals")
-    
-    with open(stats_path, 'w') as f:
-        json.dump(stats_dict, f, indent=2)
-    
-    # Save raw distributions (old format)
-    distributions_path = os.path.join(output_dir, "jsd_distributions.json")
-    distributions = cell_jsd_analysis["individual_means"]
-    with open(distributions_path, 'w') as f:
-        json.dump(distributions, f, indent=2)
-    
     return {
         "cell_jsd_analysis": cell_jsd_analysis,
         "plot_path": plot_path,
-        "cell_jsd_path": cell_jsd_path,
-        # Keep old paths for backward compatibility
-        "stats_path": stats_path,
-        "distributions_path": distributions_path
+        "cell_jsd_path": cell_jsd_path
     }
 
 

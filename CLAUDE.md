@@ -2,9 +2,18 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
-## Important: Python Command Convention
+## Important Guidelines
 
-**ALWAYS use `python` instead of `python` for all commands in this repository.**
+### Python Command Convention
+**ALWAYS use `python` instead of `python3` for all commands in this repository.**
+
+### No Backward Compatibility Policy
+**DO NOT implement backward compatibility unless explicitly requested.**
+- Backward compatibility creates multiple code paths for single features
+- It increases complexity and introduces bugs
+- Makes maintenance harder
+- Clean breaks are preferred over compatibility layers
+- When making breaking changes, document them clearly but don't maintain old behavior
 
 ## Project Overview
 
@@ -74,13 +83,13 @@ python run_pipeline.py --config configs/quick_test.yaml --simulation PATH --rate
 
 ### 📦 Consolidated JSON Output
 - **NEW**: `cell_jsd_analysis.json` consolidates all cell JSD data
-- Replaces separate `statistics.json` and `jsd_distributions.json` files
+- **Breaking change**: Removes `statistics.json` and `jsd_distributions.json` files
 - Structure:
   - `summary_statistics`: Mean, std, median, min, max per batch
   - `statistical_tests`: T-test results between batches
   - `individual_means`: Mean cell JSD per individual
-- Old files still created for backward compatibility (marked deprecated)
 - Clearer semantic naming: `n_individuals` instead of `n`
+- No backward compatibility - clean break from old format
 
 ## Biological Background
 

@@ -1374,14 +1374,14 @@ def plot_gene_jsd_individual_comparison(gene_jsd_path, output_dir, verbose=False
     else:
         y_range = [0, 1]
     
-    # Update layout (matching cell plot style)
+    # Update layout (matching gene plot style exactly)
     fig.update_layout(
         title=dict(
             text="Individual-Averaged Gene JSD Comparison",
             font=dict(size=16),
             x=0.5,
             xanchor='center',
-            y=0.98,  # High position like cell plot
+            y=0.98,  # High position like gene plots
             yanchor='top'
         ),
         xaxis=dict(
@@ -1401,14 +1401,14 @@ def plot_gene_jsd_individual_comparison(gene_jsd_path, output_dir, verbose=False
         plot_bgcolor='white',
         showlegend=False,
         height=800,
-        width=1200,
+        width=700,  # Match gene plot width
         margin=dict(l=80, r=40, t=180, b=60)  # Increased top margin for stats
     )
     
-    # Save plot
+    # Save plot (exactly like gene plots)
     output_path = os.path.join(output_dir, 'gene_jsd_individual_comparison.png')
     os.makedirs(output_dir, exist_ok=True)
-    fig.write_image(output_path, format='png', scale=1.5)
+    fig.write_image(output_path, width=700, height=800, scale=2)  # Exact same as gene plots
     
     if verbose:
         print(f"  ✓ Saved individual-averaged gene JSD comparison to {output_path}")

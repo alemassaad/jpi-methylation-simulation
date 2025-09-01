@@ -1260,7 +1260,7 @@ def run_pipeline(args, rate_config):
         from plot_individuals import plot_all_individuals
         plot_all_individuals(base_dir, plot_combined=True)
     
-    return stats
+    return summary_stats
 
 
 def create_petri_with_rate_config(rate_config: dict, growth_phase: int, n: int = 1000) -> PetriDish:

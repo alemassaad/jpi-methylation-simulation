@@ -32,7 +32,7 @@ except ImportError:
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 sys.path.append(os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'phase1'))
-from cell import PetriDish, Cell
+from cell import PetriDish, Cell, PetriDishPlotter
 from pipeline_utils import (
     load_snapshot_as_cells, save_snapshot_cells, load_snapshot_cells,
     save_petri_dish, load_petri_dish, load_all_petri_dishes,
@@ -654,13 +654,13 @@ def run_pipeline(args, rate_config):
                 grow_petri_for_years(petri, timeline_duration, 
                                    growth_phase=args.individual_growth_phase, 
                                    verbose=True,
-                                   track_history=args.plot_individuals,
+                                   track_history=True,
                                    start_year=args.first_snapshot)
                 
                 # Save updated state (with history if tracked)
                 # Use individual_id for filename to maintain consistency
                 filepath = os.path.join(mutant_dir, f"individual_{individual_id:02d}{individual_ext}")
-                save_petri_dish(petri, filepath, include_cell_history=args.plot_individuals, 
+                save_petri_dish(petri, filepath, include_cell_history=True, 
                           include_gene_metrics=True, compress=args.use_compression)
             elif current_cells >= expected_population * 0.5 and current_cells <= expected_population * 1.5:
                 # Already grown (with homeostasis variation)
@@ -695,13 +695,13 @@ def run_pipeline(args, rate_config):
                 grow_petri_for_years(petri, timeline_duration, 
                                    growth_phase=args.individual_growth_phase, 
                                    verbose=True,
-                                   track_history=args.plot_individuals,
+                                   track_history=True,
                                    start_year=args.first_snapshot)
                 
                 # Save updated state (with history if tracked)
                 # Use individual_id for filename to maintain consistency
                 filepath = os.path.join(control1_dir, f"individual_{individual_id:02d}{individual_ext}")
-                save_petri_dish(petri, filepath, include_cell_history=args.plot_individuals, 
+                save_petri_dish(petri, filepath, include_cell_history=True, 
                           include_gene_metrics=True, compress=args.use_compression)
     
     # ========================================================================
@@ -744,8 +744,8 @@ def run_pipeline(args, rate_config):
     print(f"{'='*60}")
     
     # Reload current dishes for mixing (with history if tracking)
-    mutant_dishes = load_all_petri_dishes(mutant_dir, include_cell_history=args.plot_individuals)
-    control1_dishes = load_all_petri_dishes(control1_dir, include_cell_history=args.plot_individuals)
+    mutant_dishes = load_all_petri_dishes(mutant_dir, include_cell_history=True)
+    control1_dishes = load_all_petri_dishes(control1_dir, include_cell_history=True)
     
     # Apply normalization if requested
     normalization_threshold = None
@@ -858,7 +858,7 @@ def run_pipeline(args, rate_config):
             # Save (with history if tracking)
             # Use individual_id for filename to maintain consistency
             filepath = os.path.join(mutant_dir, f"individual_{individual_id:02d}{individual_ext}")
-            save_petri_dish(petri, filepath, include_cell_history=args.plot_individuals, 
+            save_petri_dish(petri, filepath, include_cell_history=True, 
                           include_gene_metrics=True, compress=args.use_compression)
         
         # Mix control1 individuals (using SAME pool)
@@ -884,7 +884,7 @@ def run_pipeline(args, rate_config):
             # Save (with history if tracking)
             # Use individual_id for filename to maintain consistency
             filepath = os.path.join(control1_dir, f"individual_{individual_id:02d}{individual_ext}")
-            save_petri_dish(petri, filepath, include_cell_history=args.plot_individuals, 
+            save_petri_dish(petri, filepath, include_cell_history=True, 
                           include_gene_metrics=True, compress=args.use_compression)
                 
     else:
@@ -929,7 +929,7 @@ def run_pipeline(args, rate_config):
                     # Save updated state (with history if tracking)
                     # Use individual_id for filename to maintain consistency
                     filepath = os.path.join(mutant_dir, f"individual_{individual_id:02d}{individual_ext}")
-                    save_petri_dish(petri, filepath, include_cell_history=args.plot_individuals, 
+                    save_petri_dish(petri, filepath, include_cell_history=True, 
                           include_gene_metrics=True, compress=args.use_compression)
                 elif len(petri.cells) > expected_population * 1.5:
                     print(f"    Individual {individual_id:02d}: Already mixed ({len(petri.cells)} cells)")
@@ -966,7 +966,7 @@ def run_pipeline(args, rate_config):
                     # Save updated state (with history if tracking)
                     # Use individual_id for filename to maintain consistency
                     filepath = os.path.join(control1_dir, f"individual_{individual_id:02d}{individual_ext}")
-                    save_petri_dish(petri, filepath, include_cell_history=args.plot_individuals, 
+                    save_petri_dish(petri, filepath, include_cell_history=True, 
                           include_gene_metrics=True, compress=args.use_compression)
     
     # Store uniform pool data for Control2 creation (if using uniform mixing)
@@ -1084,10 +1084,76 @@ def run_pipeline(args, rate_config):
             
             # Save (with history if plotting individuals)
             filepath = os.path.join(control2_dir, f"individual_{file_index:02d}{individual_ext}")
-            save_petri_dish(petri, filepath, include_cell_history=args.plot_individuals, 
+            save_petri_dish(petri, filepath, include_cell_history=True, 
                           include_gene_metrics=True, compress=args.use_compression)
         
         print(f"  Created and saved {len(control2_dishes)} control2 individuals")
+    
+    # ========================================================================
+    # Generate Individual Growth Trajectories
+    # ========================================================================
+    print(f"\n{'='*60}")
+    print("Generating Individual Growth Trajectories")
+    print(f"{'='*60}")
+    
+    # Create output directory for individual trajectories
+    individual_trajectories_dir = os.path.join(results_dir, 'individual_trajectories')
+    os.makedirs(individual_trajectories_dir, exist_ok=True)
+    
+    # Plot mutant individuals
+    print("\n  Creating plots for mutant individuals...")
+    mutant_plot_count = 0
+    for i, filename in enumerate(sorted(os.listdir(mutant_dir)), 1):
+        if filename.endswith(('.json', '.json.gz')):
+            filepath = os.path.join(mutant_dir, filename)
+            try:
+                # Load with history
+                petri = load_petri_dish(filepath, include_cell_history=True)
+                
+                # Check if history exists
+                if hasattr(petri, 'cell_history') and petri.cell_history:
+                    plotter = PetriDishPlotter(petri)
+                    
+                    # Generate plots
+                    jsd_path = os.path.join(individual_trajectories_dir, f"mutant_{i:02d}_jsd.png")
+                    meth_path = os.path.join(individual_trajectories_dir, f"mutant_{i:02d}_methylation.png")
+                    
+                    plotter.plot_jsd(f"Mutant Individual {i:02d}", jsd_path)
+                    plotter.plot_methylation(f"Mutant Individual {i:02d}", meth_path)
+                    
+                    mutant_plot_count += 1
+                    print(f"    ✓ Plotted mutant_{i:02d} trajectories")
+            except Exception as e:
+                print(f"    ⚠️  Could not plot mutant_{i:02d}: {str(e)}")
+    
+    # Plot control1 individuals
+    print("\n  Creating plots for control1 individuals...")
+    control1_plot_count = 0
+    for i, filename in enumerate(sorted(os.listdir(control1_dir)), 1):
+        if filename.endswith(('.json', '.json.gz')):
+            filepath = os.path.join(control1_dir, filename)
+            try:
+                # Load with history
+                petri = load_petri_dish(filepath, include_cell_history=True)
+                
+                # Check if history exists
+                if hasattr(petri, 'cell_history') and petri.cell_history:
+                    plotter = PetriDishPlotter(petri)
+                    
+                    # Generate plots
+                    jsd_path = os.path.join(individual_trajectories_dir, f"control1_{i:02d}_jsd.png")
+                    meth_path = os.path.join(individual_trajectories_dir, f"control1_{i:02d}_methylation.png")
+                    
+                    plotter.plot_jsd(f"Control1 Individual {i:02d}", jsd_path)
+                    plotter.plot_methylation(f"Control1 Individual {i:02d}", meth_path)
+                    
+                    control1_plot_count += 1
+                    print(f"    ✓ Plotted control1_{i:02d} trajectories")
+            except Exception as e:
+                print(f"    ⚠️  Could not plot control1_{i:02d}: {str(e)}")
+    
+    print(f"\n  Skipping control2 (pure snapshots, no growth trajectories)")
+    print(f"  ✓ Generated {(mutant_plot_count + control1_plot_count) * 2} trajectory plots in {individual_trajectories_dir}")
     
     # ========================================================================
     # STAGE 8: Analysis
@@ -1218,6 +1284,86 @@ def run_pipeline(args, rate_config):
             
     except Exception as e:
         print(f"  Skipping phase1-style gene JSD plots: {e}")
+    
+    # ========================================================================
+    # Generate Original Simulation Timeline Plots
+    # ========================================================================
+    print(f"\n{'='*60}")
+    print("Generating Original Simulation Timeline Plots")
+    print(f"{'='*60}")
+    
+    try:
+        print(f"  Loading simulation with full history...")
+        
+        # Determine if simulation file is compressed
+        if args.simulation.endswith('.gz'):
+            with gzip.open(args.simulation, 'rt') as f:
+                sim_data = json.load(f)
+        else:
+            with open(args.simulation, 'r') as f:
+                sim_data = json.load(f)
+        
+        # Convert history to PetriDish format
+        if 'history' in sim_data and sim_data['history']:
+            # Create a PetriDish with history
+            from pipeline_utils import dict_to_cell
+            
+            # Get parameters from simulation
+            params = sim_data.get('parameters', {})
+            rate = params.get('rate')
+            gene_rate_groups = params.get('gene_rate_groups')
+            n_sites = params.get('n', 1000)
+            gene_size = params.get('gene_size', 5)
+            
+            # Create PetriDish with appropriate configuration
+            if gene_rate_groups:
+                # Convert gene_rate_groups format
+                rate_groups = [(g[0], g[1]) for g in gene_rate_groups]
+                original_petri = PetriDish(gene_rate_groups=rate_groups, track_cell_history=True)
+            else:
+                original_petri = PetriDish(rate=rate, track_cell_history=True)
+            
+            # Build cell history from simulation data
+            original_petri.cell_history = {}
+            original_petri.years_simulated = len(sim_data['history']) - 1
+            
+            for year_str, year_data in sim_data['history'].items():
+                year = int(year_str)
+                if 'cells' in year_data:
+                    # Convert cell dicts to Cell objects
+                    cells = [dict_to_cell(cell_dict) for cell_dict in year_data['cells']]
+                    original_petri.cell_history[year] = cells
+            
+            # Also copy gene_jsd_history if available
+            if 'gene_jsd_history' in sim_data:
+                original_petri.gene_jsd_history = {
+                    int(year): values for year, values in sim_data['gene_jsd_history'].items()
+                }
+            
+            # Create plotter and generate timeline plots
+            plotter = PetriDishPlotter(original_petri)
+            
+            # JSD timeline
+            jsd_timeline_path = os.path.join(results_dir, "original_simulation_jsd_timeline.png")
+            plotter.plot_jsd("Original Simulation JSD Timeline", jsd_timeline_path)
+            print(f"  ✓ Generated original_simulation_jsd_timeline.png")
+            
+            # Methylation timeline
+            meth_timeline_path = os.path.join(results_dir, "original_simulation_methylation_timeline.png")
+            plotter.plot_methylation("Original Simulation Methylation Timeline", meth_timeline_path)
+            print(f"  ✓ Generated original_simulation_methylation_timeline.png")
+            
+            # Combined plot if desired
+            combined_timeline_path = os.path.join(results_dir, "original_simulation_combined_timeline.png")
+            plotter.plot_combined("Original Simulation Combined Timeline", combined_timeline_path)
+            print(f"  ✓ Generated original_simulation_combined_timeline.png")
+            
+        else:
+            print(f"  ⚠️  No history found in simulation file")
+            print(f"      The simulation may have been run without --track-cell-history")
+            
+    except Exception as e:
+        print(f"  ⚠️  Could not generate original simulation timeline plots: {str(e)}")
     
     # Get statistics for summary from new consolidated format
     cell_jsd_data = analysis_results['cell_jsd_analysis']

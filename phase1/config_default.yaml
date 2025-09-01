@@ -24,7 +24,7 @@ output:
 # Performance options
 performance:
   track_gene_jsd: true           # Track gene JSD history
-  calculate_jsds: true           # Calculate all JSDs (cell and gene)
+  calculate_cell_jsds: true      # Calculate cell JSDs (individual cell divergence)
 
 # Reproducibility
 seed: 42                         # Random seed (use -1 or null for random)

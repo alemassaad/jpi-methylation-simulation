@@ -398,7 +398,7 @@ simulation:
   growth_phase: 2
 performance:
   track_gene_jsd: false
-  calculate_jsds: false
+  calculate_cell_jsds: false
 seed: 555
 """
     

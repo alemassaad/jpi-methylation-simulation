@@ -134,8 +134,13 @@ def merge_config_and_args(config: Dict[str, Any], args: argparse.Namespace) -> D
     if args.no_gene_jsd:
         result['performance']['track_gene_jsd'] = False
     
+    if args.no_cell_jsds:
+        result['performance']['calculate_cell_jsds'] = False
+    
     if args.no_jsds:
-        result['performance']['calculate_jsds'] = False
+        # Disable both cell and gene JSDs
+        result['performance']['calculate_cell_jsds'] = False
+        result['performance']['track_gene_jsd'] = False
     
     return result
 
@@ -217,9 +222,11 @@ def parse_arguments():
     
     # Performance and tracking options
     parser.add_argument('--no-gene-jsd', action='store_true',
-                        help='Disable gene JSD tracking (enabled by default)')
+                        help='Disable gene JSD tracking (population-level heterogeneity per gene)')
+    parser.add_argument('--no-cell-jsds', action='store_true',
+                        help='Disable cell JSD calculations (individual cell divergence from baseline)')
     parser.add_argument('--no-jsds', action='store_true',
-                        help='Disable all JSD calculations for maximum performance')
+                        help='Disable ALL JSD calculations (both cell and gene) for maximum performance')
     parser.add_argument('--no-compress', action='store_true',
                         help='Save output as uncompressed JSON instead of .json.gz (larger files but easier to inspect)')
     
@@ -328,7 +335,7 @@ def main():
     print("\nInitializing PetriDish simulation...")
     
     # Get performance flags
-    calculate_jsds = perf_config.get('calculate_jsds', True)
+    calculate_cell_jsds = perf_config.get('calculate_cell_jsds', True)
     track_gene_jsd = perf_config.get('track_gene_jsd', True)
     
     if rate is not None:
@@ -338,7 +345,7 @@ def main():
             gene_size=gene_size,
             seed=seed,
             growth_phase=growth_phase,
-            calculate_jsds=calculate_jsds
+            calculate_cell_jsds=calculate_cell_jsds
         )
     else:
         petri_dish = PetriDish(
@@ -347,7 +354,7 @@ def main():
             gene_size=gene_size,
             seed=seed,
             growth_phase=growth_phase,
-            calculate_jsds=calculate_jsds
+            calculate_cell_jsds=calculate_cell_jsds
         )
     
     # Enable history tracking with gene JSD based on config

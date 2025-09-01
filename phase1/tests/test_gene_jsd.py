@@ -157,15 +157,15 @@ def test_gene_jsd_disabled():
     print("\nTest 5: Gene JSD Disabled for Performance")
     print("=" * 50)
     
-    # Create PetriDish with JSDs disabled
-    petri = PetriDish(rate=0.01, n=100, gene_size=5, seed=42, calculate_jsds=False)
+    # Create PetriDish with cell JSDs disabled
+    petri = PetriDish(rate=0.01, n=100, gene_size=5, seed=42, calculate_cell_jsds=False)
     
     # Enable tracking but grow
     petri.enable_history_tracking(start_year=0, track_gene_jsd=True)
     petri.grow_with_homeostasis(years=2, growth_phase=1, verbose=False)
     
-    # Gene JSD history should remain empty when calculate_jsds=False
-    assert len(petri.gene_jsd_history) <= 1, "Should not calculate gene JSDs when disabled"
+    # Gene JSD history should remain empty when calculate_cell_jsds=False
+    assert len(petri.gene_jsd_history) <= 1, "Should not calculate gene JSDs when cell JSDs disabled"
     
     # Cell JSDs should also not be calculated
     for cell in petri.cells:

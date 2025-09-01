@@ -261,7 +261,7 @@ class PetriDish:
     def __init__(self, rate: float = None, gene_rate_groups: List[Tuple[int, float]] = None,
                  n: int = N, gene_size: int = GENE_SIZE, 
                  seed: int = None, growth_phase: int = DEFAULT_GROWTH_PHASE, 
-                 cells: List['Cell'] = None, calculate_jsds: bool = True) -> None:
+                 cells: List['Cell'] = None, calculate_cell_jsds: bool = True) -> None:
         """
         Initialize petri dish with a single unmethylated cell or provided cells.
         
@@ -273,7 +273,7 @@ class PetriDish:
             seed: Random seed for reproducibility
             growth_phase: Duration of growth phase in years (target = 2^growth_phase cells)
             cells: Optional list of cells to start with (for phase2 compatibility)
-            calculate_jsds: Whether to calculate cell and gene JSDs (for performance)
+            calculate_cell_jsds: Whether to calculate cell JSDs (for performance)
         """
         # Validate rate specification
         if rate is not None and gene_rate_groups is not None:
@@ -307,7 +307,7 @@ class PetriDish:
         self.seed = seed
         self.growth_phase = growth_phase
         self.target_population = 2 ** growth_phase  # Calculate from growth_phase
-        self.calculate_jsds = calculate_jsds
+        self.calculate_cell_jsds = calculate_cell_jsds
         
         # Initialize cells - either provided or single unmethylated cell
         if cells is not None:
@@ -337,7 +337,7 @@ class PetriDish:
         if self.cells:
             self.cell_history = {'0': [cell.to_dict() for cell in self.cells]}
             # Initialize gene JSD at year 0 if tracking
-            if self.track_gene_jsd and self.calculate_jsds:
+            if self.track_gene_jsd and self.calculate_cell_jsds:
                 self.gene_jsd_history['0'] = [0.0] * self.n_genes  # All zeros initially
         else:
             self.cell_history = {}
@@ -395,7 +395,7 @@ class PetriDish:
         for cell in self.cells:
             cell.methylate()
             # Only calculate JSD if enabled
-            if not self.calculate_jsds:
+            if not self.calculate_cell_jsds:
                 cell.cell_JSD = 0.0
         print(f"  Methylation applied to {len(self.cells)} cells")
         
@@ -646,7 +646,7 @@ class PetriDish:
             self.cell_history[str(year)] = [cell.to_dict() for cell in self.cells]
         
         # Record gene JSD if enabled
-        if self.track_gene_jsd and self.calculate_jsds:
+        if self.track_gene_jsd and self.calculate_cell_jsds:
             self.gene_jsd_history[str(year)] = self.calculate_gene_jsd()
     
     def set_absolute_year(self, year: int) -> 'PetriDish':

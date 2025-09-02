@@ -226,15 +226,20 @@ class Cell:
         """
         Convert cell state to dictionary for serialization.
         
-        New lean format: Only stores essential cell-specific data.
-        Shared parameters (rate, gene_size) are stored once at the PetriDish level.
+        Stores essential cell data including rate configuration for verification.
+        While gene_rate_groups is redundant (stored in parameters), including it
+        makes each cell self-contained and enables verification of consistency.
         """
+        # Calculate methylation stats
+        n_methylated = sum(self.cpg_sites)
+        
         return {
-            'methylated': self.cpg_sites[:],  # The methylation state (0s and 1s)
-            'cell_JSD': self.cell_JSD,        # The JSD value
-            'age': self.age                    # Cell age in years
-            # Note: rate, gene_size are stored in parameters
-            # methylation_proportion and distribution can be calculated from methylated array
+            'methylated': self.cpg_sites[:],           # The methylation state (0s and 1s)
+            'cell_JSD': self.cell_JSD,                 # The JSD value
+            'age': self.age,                            # Cell age in years
+            'gene_rate_groups': self.gene_rate_groups, # Rate configuration (for verification)
+            'methylation_proportion': n_methylated / self.n,  # Proportion methylated
+            'n_methylated': n_methylated               # Count of methylated sites
         }
     
     @classmethod
@@ -242,12 +247,12 @@ class Cell:
                   gene_rate_groups: List[Tuple[int, float]] = None,
                   gene_size: int = GENE_SIZE) -> 'Cell':
         """
-        Create a Cell from dictionary data (new lean format only).
+        Create a Cell from dictionary data.
         
         Args:
-            data: Dictionary with 'methylated' and 'cell_JSD' keys
+            data: Dictionary with cell data
             rate: Uniform methylation rate (will be converted to gene_rate_groups)
-            gene_rate_groups: Gene-specific rates
+            gene_rate_groups: Gene-specific rates (can be overridden from data)
             gene_size: Sites per gene
             
         Returns:
@@ -255,11 +260,27 @@ class Cell:
         """
         n = len(data['methylated'])
         
+        # Use gene_rate_groups from data if available (new format)
+        # Otherwise fall back to provided parameters (backward compatibility)
+        if 'gene_rate_groups' in data:
+            actual_groups = data['gene_rate_groups']
+            # Convert list of lists to list of tuples if needed
+            if actual_groups and isinstance(actual_groups[0], list):
+                actual_groups = [tuple(group) for group in actual_groups]
+            gene_rate_groups = actual_groups
+        
         # Let __init__ handle the conversion
         cell = cls(n=n, rate=rate, gene_rate_groups=gene_rate_groups, gene_size=gene_size)
         cell.cpg_sites = data['methylated'][:]
         cell.cell_JSD = data.get('cell_JSD', 0.0)
         cell.age = data.get('age', 0)  # Restore age (default to 0 for old data)
+        
+        # Verify stored stats if available (for validation)
+        if 'methylation_proportion' in data:
+            actual_prop = sum(cell.cpg_sites) / n
+            stored_prop = data['methylation_proportion']
+            if abs(actual_prop - stored_prop) > 0.0001:
+                print(f"Warning: Methylation proportion mismatch: stored={stored_prop:.4f}, actual={actual_prop:.4f}")
         
         return cell
 

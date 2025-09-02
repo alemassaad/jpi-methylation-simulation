@@ -33,6 +33,9 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 sys.path.append(os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'phase1'))
 from cell import PetriDish, Cell, PetriDishPlotter
+from core.individual_helpers import (
+    create_individual, process_batch_growth, process_batch_mixing
+)
 from core.pipeline_utils import (
     load_snapshot_as_cells, save_snapshot_cells, load_snapshot_cells,
     save_petri_dish, load_petri_dish, load_all_petri_dishes,
@@ -546,32 +549,25 @@ def run_pipeline(args, rate_config):
                                      seed=args.seed)
         
         for i, (cell, quantile) in enumerate(sampled):
-            # Use professional approach: from_snapshot_cell
-            # IMPORTANT: individual_id must match the filename index to ensure consistency
-            # across multiple runs (even if files are partially created/deleted)
             file_index = i + 1  # Start IDs at 1 instead of 0
-            metadata = {
-                'individual_id': file_index,  # Must match filename for consistency
-                'individual_type': 'mutant',
+            
+            # Use helper function for cleaner code
+            additional_metadata = {
                 'source_quantile': quantile,
-                'initial_year': 50,
                 'n_quantiles': args.n_quantiles
             }
             
-            petri = PetriDish.from_snapshot_cell(
+            petri = create_individual(
                 cell=cell,
+                individual_type='mutant',
+                individual_id=file_index,
                 growth_phase=args.individual_growth_phase,
-                calculate_cell_jsds=True,
-                metadata=metadata
+                output_dir=mutant_dir,
+                compress=args.use_compression,
+                additional_metadata=additional_metadata
             )
-            # Don't set year - it starts at 0 and grows from there
-            # Metadata tracks where it came from (initial_year: 50)
             
             mutant_dishes.append(petri)
-            
-            # Save immediately
-            filepath = os.path.join(mutant_dir, f"individual_{file_index:02d}{individual_ext}")
-            save_petri_dish(petri, filepath, compress=args.use_compression)
         
         print(f"  Created and saved {len(mutant_dishes)} mutant individuals")
     
@@ -591,34 +587,24 @@ def run_pipeline(args, rate_config):
                                       seed=args.seed + 1000)
         
         for i, cell in enumerate(sampled_cells):
-            # Use professional approach: from_snapshot_cell
-            # IMPORTANT: individual_id must match the filename index to ensure consistency
-            # across multiple runs (even if files are partially created/deleted)
             file_index = i + 1  # Start IDs at 1 instead of 0
-            metadata = {
-                'individual_id': file_index,  # Must match filename for consistency
-                'individual_type': 'control1',
-                'initial_year': 50
+            
+            # Use helper function for cleaner code
+            additional_metadata = {
+                'source': 'uniform'
             }
             
-            petri = PetriDish.from_snapshot_cell(
+            petri = create_individual(
                 cell=cell,
+                individual_type='control1',
+                individual_id=file_index,
                 growth_phase=args.individual_growth_phase,
-                calculate_cell_jsds=True,
-                metadata=metadata
+                output_dir=control1_dir,
+                compress=args.use_compression,
+                additional_metadata=additional_metadata
             )
-            # Don't set year - it starts at 0 and grows from there
-            # Metadata already has initial_year: 50
-            
-            # Add metadata
-            # Already has metadata from from_snapshot_cell, just ensure source is set
-            petri.update_metadata({'source': 'uniform'})
             
             control1_dishes.append(petri)
-            
-            # Save immediately
-            filepath = os.path.join(control1_dir, f"individual_{file_index:02d}{individual_ext}")
-            save_petri_dish(petri, filepath, compress=args.use_compression)
         
         print(f"  Created and saved {len(control1_dishes)} control1 individuals")
     
@@ -637,38 +623,21 @@ def run_pipeline(args, rate_config):
         print(f"    At target (~{expected_population} cells): {mutant_state['expected_count']}")
         print(f"    Above target (mixed): {mutant_state['above_count']}")
     else:
-        print(f"\n  ✓ Growing mutant individuals to ~{expected_population} cells...")
-        
         # Reload to get current state
         mutant_dishes = load_all_petri_dishes(mutant_dir)
         
-        for i, petri in enumerate(mutant_dishes):
-            current_cells = len(petri.cells)
-            # Ensure metadata exists and get individual_id for consistent file naming
-            if not hasattr(petri, 'metadata'):
-                petri.metadata = {}
-            individual_id = petri.metadata.get('individual_id', i + 1)
-            
-            if current_cells == 1:
-                # Fresh individual, needs full growth
-                print(f"    Individual {individual_id:02d}: {current_cells} → ~{expected_population} cells")
-                grow_petri_for_years(petri, timeline_duration, 
-                                   growth_phase=args.individual_growth_phase, 
-                                   verbose=True,
-                                   track_history=True,
-                                   start_year=args.first_snapshot)
-                
-                # Save updated state (with history if tracked)
-                # Use individual_id for filename to maintain consistency
-                filepath = os.path.join(mutant_dir, f"individual_{individual_id:02d}{individual_ext}")
-                save_petri_dish(petri, filepath, include_cell_history=True, 
-                          include_gene_metrics=True, compress=args.use_compression)
-            elif current_cells >= expected_population * 0.5 and current_cells <= expected_population * 1.5:
-                # Already grown (with homeostasis variation)
-                print(f"    Individual {individual_id:02d}: Already at {current_cells} cells")
-            else:
-                # Already mixed or in unexpected state
-                print(f"    Individual {individual_id:02d}: Already mixed ({current_cells} cells)")
+        # Use helper function for cleaner code
+        process_batch_growth(
+            dishes=mutant_dishes,
+            batch_name='mutant',
+            output_dir=mutant_dir,
+            years=timeline_duration,
+            growth_phase=args.individual_growth_phase,
+            expected_population=expected_population,
+            start_year=args.first_snapshot,
+            compress=args.use_compression,
+            verbose=True
+        )
     
     # Check control1 growth state
     control1_state = check_petri_files_state(control1_dir, expected_population)
@@ -678,32 +647,21 @@ def run_pipeline(args, rate_config):
         print(f"    At target (~{expected_population} cells): {control1_state['expected_count']}")
         print(f"    Above target (mixed): {control1_state['above_count']}")
     else:
-        print(f"\n  ✓ Growing control1 individuals to ~{expected_population} cells...")
-        
         # Reload to get current state
         control1_dishes = load_all_petri_dishes(control1_dir)
         
-        for i, petri in enumerate(control1_dishes):
-            current_cells = len(petri.cells)
-            # Ensure metadata exists and get individual_id for consistent file naming
-            if not hasattr(petri, 'metadata'):
-                petri.metadata = {}
-            individual_id = petri.metadata.get('individual_id', i + 1)
-            
-            if current_cells == 1:
-                # Fresh individual, needs full growth
-                print(f"    Individual {individual_id:02d}: {current_cells} → ~{expected_population} cells")
-                grow_petri_for_years(petri, timeline_duration, 
-                                   growth_phase=args.individual_growth_phase, 
-                                   verbose=True,
-                                   track_history=True,
-                                   start_year=args.first_snapshot)
-                
-                # Save updated state (with history if tracked)
-                # Use individual_id for filename to maintain consistency
-                filepath = os.path.join(control1_dir, f"individual_{individual_id:02d}{individual_ext}")
-                save_petri_dish(petri, filepath, include_cell_history=True, 
-                          include_gene_metrics=True, compress=args.use_compression)
+        # Use helper function for cleaner code
+        process_batch_growth(
+            dishes=control1_dishes,
+            batch_name='control1',
+            output_dir=control1_dir,
+            years=timeline_duration,
+            growth_phase=args.individual_growth_phase,
+            expected_population=expected_population,
+            start_year=args.first_snapshot,
+            compress=args.use_compression,
+            verbose=True
+        )
     
     # ========================================================================
     # STAGE 5: Extract Second Snapshot
@@ -892,8 +850,10 @@ def run_pipeline(args, rate_config):
         print("\n  === INDEPENDENT MIXING MODE (default) ===")
         
         # Calculate expected final size after mixing
+        # If grown cells are 20% of final, what's 100%?
         grown_cells = expected_population  # e.g., 128 cells
-        expected_final_cells = int(grown_cells / ((100 - args.mix_ratio) / 100))
+        grown_fraction = (100 - args.mix_ratio) / 100  # e.g., 0.2 for 20% grown
+        expected_final_cells = int(grown_cells / grown_fraction)
         
         print(f"  Target size after mixing: {expected_final_cells} cells")
         print(f"  Mix ratio: {args.mix_ratio}% from year {args.second_snapshot}")
@@ -904,36 +864,18 @@ def run_pipeline(args, rate_config):
         if mutant_state['all_above']:
             print(f"\n  ⏭ Mutant individuals already mixed")
         else:
-            print(f"\n  ✓ Mixing mutant individuals with year {args.second_snapshot} cells...")
-            
-            for i, petri in enumerate(mutant_dishes):
-                # Ensure metadata exists and get individual_id for consistent file naming
-                if not hasattr(petri, 'metadata'):
-                    petri.metadata = {}
-                individual_id = petri.metadata.get('individual_id', i + 1)
-                
-                # Check if within expected range (homeostasis causes variation)
-                if expected_population * 0.5 <= len(petri.cells) <= expected_population * 1.5:
-                    print(f"    Individual {individual_id:02d}: Mixing {len(petri.cells)} → {expected_final_cells} cells")
-                    
-                    total_cells = mix_petri_with_snapshot(petri, second_snapshot_cells,
-                                                         mix_ratio=args.mix_ratio / 100,
-                                                         seed=args.seed + 100 + i)
-                    
-                    # Update metadata
-                    if not hasattr(petri, 'metadata'):
-                        petri.metadata = {}
-                    petri.metadata['mixed'] = True
-                    petri.metadata['mix_ratio'] = args.mix_ratio
-                    petri.metadata['final_cells'] = total_cells
-                    
-                    # Save updated state (with history if tracking)
-                    # Use individual_id for filename to maintain consistency
-                    filepath = os.path.join(mutant_dir, f"individual_{individual_id:02d}{individual_ext}")
-                    save_petri_dish(petri, filepath, include_cell_history=True, 
-                          include_gene_metrics=True, compress=args.use_compression)
-                elif len(petri.cells) > expected_population * 1.5:
-                    print(f"    Individual {individual_id:02d}: Already mixed ({len(petri.cells)} cells)")
+            # Use helper function for cleaner code
+            process_batch_mixing(
+                dishes=mutant_dishes,
+                batch_name='mutant',
+                output_dir=mutant_dir,
+                snapshot_cells=second_snapshot_cells,
+                mix_ratio=args.mix_ratio,
+                expected_population=expected_population,
+                expected_final_cells=expected_final_cells,
+                base_seed=args.seed + 100,
+                compress=args.use_compression
+            )
     
         # Check control1 mix state
         control1_state = check_petri_files_state(control1_dir, expected_population)
@@ -941,34 +883,18 @@ def run_pipeline(args, rate_config):
         if control1_state['all_above']:
             print(f"\n  ⏭ Control1 individuals already mixed")
         else:
-            print(f"\n  ✓ Mixing control1 individuals with year {args.second_snapshot} cells...")
-            
-            for i, petri in enumerate(control1_dishes):
-                # Ensure metadata exists and get individual_id for consistent file naming
-                if not hasattr(petri, 'metadata'):
-                    petri.metadata = {}
-                individual_id = petri.metadata.get('individual_id', i + 1)
-                
-                # Check if within expected range (homeostasis causes variation)
-                if expected_population * 0.5 <= len(petri.cells) <= expected_population * 1.5:
-                    print(f"    Individual {individual_id:02d}: Mixing {len(petri.cells)} → {expected_final_cells} cells")
-                    
-                    total_cells = mix_petri_with_snapshot(petri, second_snapshot_cells,
-                                                         mix_ratio=args.mix_ratio / 100,
-                                                         seed=args.seed + 200 + i)
-                    
-                    # Update metadata
-                    if not hasattr(petri, 'metadata'):
-                        petri.metadata = {}
-                    petri.metadata['mixed'] = True
-                    petri.metadata['mix_ratio'] = args.mix_ratio
-                    petri.metadata['final_cells'] = total_cells
-                    
-                    # Save updated state (with history if tracking)
-                    # Use individual_id for filename to maintain consistency
-                    filepath = os.path.join(control1_dir, f"individual_{individual_id:02d}{individual_ext}")
-                    save_petri_dish(petri, filepath, include_cell_history=True, 
-                          include_gene_metrics=True, compress=args.use_compression)
+            # Use helper function for control1 mixing
+            process_batch_mixing(
+                dishes=control1_dishes,
+                batch_name='control1',
+                output_dir=control1_dir,
+                snapshot_cells=second_snapshot_cells,
+                mix_ratio=args.mix_ratio,
+                expected_population=expected_population,
+                expected_final_cells=expected_final_cells,
+                base_seed=args.seed + 200,
+                compress=args.use_compression
+            )
     
     # Store uniform pool data for Control2 creation (if using uniform mixing)
     uniform_pool_for_control2 = None
@@ -1014,7 +940,8 @@ def run_pipeline(args, rate_config):
     else:
         # Use the standard calculation
         grown_cells = expected_population
-        expected_final_cells = int(grown_cells / ((100 - args.mix_ratio) / 100))
+        grown_fraction = (100 - args.mix_ratio) / 100
+        expected_final_cells = int(grown_cells / grown_fraction)
     
     control2_state = check_petri_files_state(control2_dir, expected_final_cells)
     
@@ -1083,9 +1010,9 @@ def run_pipeline(args, rate_config):
             
             control2_dishes.append(petri)
             
-            # Save (with history if plotting individuals)
+            # Save without history - control2 doesn't need it (pure snapshot, no growth)
             filepath = os.path.join(control2_dir, f"individual_{file_index:02d}{individual_ext}")
-            save_petri_dish(petri, filepath, include_cell_history=True, 
+            save_petri_dish(petri, filepath, include_cell_history=False,  # No history needed!
                           include_gene_metrics=True, compress=args.use_compression)
         
         print(f"  Created and saved {len(control2_dishes)} control2 individuals")
@@ -1247,6 +1174,16 @@ def run_pipeline(args, rate_config):
                 # Create a temporary PetriDish with gene_jsd_history for plotting
                 temp_petri = PetriDish()
                 temp_petri.gene_jsd_history = {int(year): values for year, values in sim_data['gene_jsd_history'].items()}
+                
+                # Extract mean and median gene JSD histories from the history structure if available
+                temp_petri.mean_gene_jsd_history = {}
+                temp_petri.median_gene_jsd_history = {}
+                if 'history' in sim_data:
+                    for year_str, year_data in sim_data['history'].items():
+                        if 'mean_gene_jsd' in year_data:
+                            temp_petri.mean_gene_jsd_history[int(year_str)] = year_data['mean_gene_jsd']
+                        if 'median_gene_jsd' in year_data:
+                            temp_petri.median_gene_jsd_history[int(year_str)] = year_data['median_gene_jsd']
             
                 # Add some cells for gene rate group detection (if available)
                 if sim_data.get('history') and len(sim_data['history']) > 0:

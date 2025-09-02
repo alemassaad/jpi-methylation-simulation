@@ -475,6 +475,40 @@ Configuration follows this priority (highest to lowest):
 4. **Config Files**: Preferred method for complex runs
 5. **Defaults**: Optimized for testing, not production
 
+## Phase 2 Individual JSON Structure
+
+### **Important: Understanding Individual JSON Files**
+
+Phase 2 saves individuals with different structures depending on their type:
+
+#### **Mutant & Control1 (Grown Individuals):**
+- **cells array**: Final mixed population (all cells age 50 after mixing)
+- **cell_history**: Full 20-year growth trajectory
+  - Year 0 = 1 cell sampled from year 30 snapshot (age 30)
+  - Years 0-6 = Exponential growth phase  
+  - Years 7-20 = Homeostasis phase
+  - Year 20 = Cells at year 50 (age 50)
+- **metadata.year**: 20 (end of growth period)
+- **Why saved with history**: Used for trajectory plots
+
+#### **Control2 (Pure Snapshot):**
+- **cells array**: Pure year 50 snapshot cells (all age 50)
+- **cell_history**: ⚠️ ISSUE: Contains bogus year 0 with fresh unmethylated cell (age 0)
+  - This is a bug from PetriDish initialization
+- **metadata.year**: 0 (should be 50)
+- **metadata.creation_method**: "uniform_base_plus_snapshot" or "pure_snapshot"
+- **Additional metadata**: uniform_base, uniform_base_size, etc.
+
+### **Known Issues:**
+
+1. **Control2 Bogus History**: Control2 has a fake year 0 history entry with an age-0 unmethylated cell due to PetriDish initialization before cells are replaced with snapshot cells
+
+2. **Control2 Metadata Year**: Set to 0 instead of 50 (the actual snapshot year)
+
+3. **Unnecessary History Storage**: All individuals are saved with `include_cell_history=True` even though control2 doesn't need history
+
+4. **Inconsistent Metadata**: Control1/mutant lack creation_method field that control2 has
+
 ## Common Troubleshooting
 
 ### "Year X not found" in Phase 2

@@ -299,21 +299,23 @@ def load_petri_dish(filepath: str, include_cell_history: bool = False, include_g
         # Get gene_size from metadata or first cell
         gene_size = data.get('metadata', {}).get('gene_size', first_cell_dict.get('gene_size', GENE_SIZE))
         
-        # Determine rate configuration from first cell
-        if 'gene_rate_groups' in first_cell_dict:
-            gene_rate_groups = [tuple(group) for group in first_cell_dict['gene_rate_groups']]
+        # Determine rate configuration from METADATA (not cell dict - cells don't store rate info in lean format!)
+        metadata = data.get('metadata', {})
+        if 'gene_rate_groups' in metadata and metadata['gene_rate_groups'] is not None:
+            gene_rate_groups = [tuple(group) for group in metadata['gene_rate_groups']]
             petri = PetriDish(
                 gene_rate_groups=gene_rate_groups,
                 n=n,
-                gene_size=data.get('metadata', {}).get('gene_size', gene_size),
+                gene_size=gene_size,
                 seed=None
             )
         else:
-            rate = first_cell_dict.get('rate', data.get('metadata', {}).get('rate', 0.005))
+            # Use rate from metadata, fallback to old cell format, then default
+            rate = metadata.get('rate') or first_cell_dict.get('rate', 0.005)
             petri = PetriDish(
                 rate=rate,
                 n=n,
-                gene_size=data.get('metadata', {}).get('gene_size', gene_size),
+                gene_size=gene_size,
                 seed=None
             )
     else:
@@ -368,8 +370,14 @@ def load_petri_dish(filepath: str, include_cell_history: bool = False, include_g
     if include_gene_jsd and 'gene_jsd_history' in data:
         petri.gene_jsd_history = data['gene_jsd_history']
         petri.track_gene_jsd = True
+        
+        # Also restore mean and median gene JSD histories if available
+        petri.mean_gene_jsd_history = data.get('mean_gene_jsd_history', {})
+        petri.median_gene_jsd_history = data.get('median_gene_jsd_history', {})
     else:
         petri.gene_jsd_history = {}
+        petri.mean_gene_jsd_history = {}
+        petri.median_gene_jsd_history = {}
         petri.track_gene_jsd = False
         petri.history_enabled = False
     
@@ -566,28 +574,37 @@ def create_pure_snapshot_petri(snapshot_cells: List[Cell], n_cells: int = 5120,
     if not sampled_cells:
         raise ValueError("No cells sampled")
     
-    # Use first cell as template for professional creation
+    # Get first cell as template for rate configuration
     first_cell = sampled_cells[0]
     
-    # Create PetriDish professionally
-    petri = PetriDish.from_snapshot_cell(
-        cell=first_cell,
-        growth_phase=7,  # Default growth phase for control2
-        calculate_cell_jsds=True,
-        metadata={
-            'creation_method': 'pure_snapshot',
-            'n_cells_sampled': n_cells
-        }
-    )
+    # Create PetriDish directly with all cells - simple and clean!
+    if first_cell.rate is not None:
+        # Uniform rate
+        petri = PetriDish(
+            cells=sampled_cells,  # Pass ALL cells directly - no bogus history!
+            rate=first_cell.rate,
+            n=first_cell.n,
+            gene_size=first_cell.gene_size,
+            growth_phase=7,  # Default for control2
+            calculate_cell_jsds=True
+        )
+    else:
+        # Gene-specific rates
+        petri = PetriDish(
+            cells=sampled_cells,  # Pass ALL cells directly - no bogus history!
+            gene_rate_groups=first_cell.gene_rate_groups,
+            n=first_cell.n,
+            gene_size=first_cell.gene_size,
+            growth_phase=7,  # Default for control2
+            calculate_cell_jsds=True
+        )
     
-    # Replace with all sampled cells and update metadata
-    petri.cells = sampled_cells
-    # Don't set year - PetriDish tracks its own age starting from 0
-    # The snapshot year should be in metadata
-    petri.update_metadata({
-        'num_cells': len(sampled_cells),
-        'creation_method': 'pure_snapshot'  # Preserve this
-    })
+    # Set metadata
+    petri.metadata = {
+        'creation_method': 'pure_snapshot',
+        'n_cells_sampled': n_cells,
+        'num_cells': len(sampled_cells)
+    }
     
     return petri
 
@@ -651,33 +668,42 @@ def create_control2_with_uniform_base(
         # Just use subset of uniform pool
         combined_cells = combined_cells[:target_size]
     
-    # Get first cell as template
+    # Get first cell as template for rate configuration
     if not combined_cells:
         raise ValueError("No cells in combined pool")
     
     first_cell = combined_cells[0]
     
-    # Create PetriDish professionally
-    petri = PetriDish.from_snapshot_cell(
-        cell=first_cell,
-        growth_phase=7,  # Default growth phase for control2
-        calculate_cell_jsds=True,
-        metadata={
-            'creation_method': 'uniform_base_plus_snapshot',
-            'uniform_base_size': len(uniform_pool),
-            'additional_cells': n_additional if n_additional > 0 else 0,
-            'target_size': target_size
-        }
-    )
+    # Create PetriDish directly with all cells - simple and clean!
+    if first_cell.rate is not None:
+        # Uniform rate
+        petri = PetriDish(
+            cells=combined_cells,  # Pass ALL cells directly - no bogus history!
+            rate=first_cell.rate,
+            n=first_cell.n,
+            gene_size=first_cell.gene_size,
+            growth_phase=7,  # Default for control2
+            calculate_cell_jsds=True
+        )
+    else:
+        # Gene-specific rates
+        petri = PetriDish(
+            cells=combined_cells,  # Pass ALL cells directly - no bogus history!
+            gene_rate_groups=first_cell.gene_rate_groups,
+            n=first_cell.n,
+            gene_size=first_cell.gene_size,
+            growth_phase=7,  # Default for control2
+            calculate_cell_jsds=True
+        )
     
-    # Replace with all combined cells and update metadata
-    petri.cells = combined_cells
-    # Don't set year - PetriDish tracks its own age starting from 0
-    # The snapshot year should be in metadata
-    petri.update_metadata({
-        'num_cells': len(combined_cells),
-        'creation_method': 'uniform_base_plus_snapshot'  # Preserve this
-    })
+    # Set metadata
+    petri.metadata = {
+        'creation_method': 'uniform_base_plus_snapshot',
+        'uniform_base_size': len(uniform_pool),
+        'additional_cells': n_additional if n_additional > 0 else 0,
+        'target_size': target_size,
+        'num_cells': len(combined_cells)
+    }
     
     return petri
 

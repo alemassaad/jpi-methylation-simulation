@@ -331,6 +331,8 @@ class PetriDish:
         # Gene JSD tracking
         self.track_gene_jsd = False
         self.gene_jsd_history = {}
+        self.mean_gene_jsd_history = {}    # Track mean gene JSD over time
+        self.median_gene_jsd_history = {}  # Track median gene JSD over time
         # Baseline must match gene_size + 1 bins
         self.BASELINE_GENE_DISTRIBUTION = [1.0] + [0.0] * self.gene_size
         
@@ -340,6 +342,8 @@ class PetriDish:
             # Initialize gene JSD at year 0 if tracking
             if self.track_gene_jsd and self.calculate_cell_jsds:
                 self.gene_jsd_history['0'] = [0.0] * self.n_genes  # All zeros initially
+                self.mean_gene_jsd_history['0'] = 0.0
+                self.median_gene_jsd_history['0'] = 0.0
         else:
             self.cell_history = {}
         
@@ -590,6 +594,19 @@ class PetriDish:
                     save_data['history'][year_str] = {}
                 save_data['history'][year_str]['gene_jsd'] = gene_jsds
         
+        # Add mean and median gene JSD histories
+        if hasattr(self, 'mean_gene_jsd_history') and self.mean_gene_jsd_history:
+            for year_str, mean_jsd in self.mean_gene_jsd_history.items():
+                if year_str not in save_data['history']:
+                    save_data['history'][year_str] = {}
+                save_data['history'][year_str]['mean_gene_jsd'] = mean_jsd
+        
+        if hasattr(self, 'median_gene_jsd_history') and self.median_gene_jsd_history:
+            for year_str, median_jsd in self.median_gene_jsd_history.items():
+                if year_str not in save_data['history']:
+                    save_data['history'][year_str] = {}
+                save_data['history'][year_str]['median_gene_jsd'] = median_jsd
+        
         # Save with or without compression
         if compress:
             # Use gzip compression and compact JSON
@@ -652,7 +669,16 @@ class PetriDish:
         
         # Record gene JSD if enabled
         if self.track_gene_jsd and self.calculate_cell_jsds:
-            self.gene_jsd_history[str(year)] = self.calculate_gene_jsd()
+            gene_jsds = self.calculate_gene_jsd()
+            self.gene_jsd_history[str(year)] = gene_jsds
+            
+            # Calculate and store summary statistics
+            if gene_jsds:
+                self.mean_gene_jsd_history[str(year)] = sum(gene_jsds) / len(gene_jsds)
+                self.median_gene_jsd_history[str(year)] = statistics.median(gene_jsds)
+            else:
+                self.mean_gene_jsd_history[str(year)] = 0.0
+                self.median_gene_jsd_history[str(year)] = 0.0
     
     
     def increment_year(self, record_history: bool = True) -> 'PetriDish':
@@ -764,6 +790,22 @@ class PetriDish:
         
         return gene_means
     
+    @property
+    def mean_gene_jsd(self) -> float:
+        """Current mean JSD across all genes."""
+        if not self.cells:
+            return 0.0
+        gene_jsds = self.calculate_gene_jsd()
+        return sum(gene_jsds) / len(gene_jsds) if gene_jsds else 0.0
+    
+    @property
+    def median_gene_jsd(self) -> float:
+        """Current median JSD across all genes."""
+        if not self.cells:
+            return 0.0
+        gene_jsds = self.calculate_gene_jsd()
+        return statistics.median(gene_jsds) if gene_jsds else 0.0
+    
     def grow_with_homeostasis(self, years: int, growth_phase: int = None,
                              verbose: bool = False, record_history: bool = True) -> 'PetriDish':
         """
@@ -863,6 +905,65 @@ class PetriDish:
         petri.update_metadata({
             'num_cells': 1,
             'creation_method': 'from_snapshot_cell'
+        })
+        
+        return petri
+    
+    @classmethod
+    def from_cells(cls, cells, growth_phase: int = 7, 
+                   calculate_cell_jsds: bool = True,
+                   metadata: Dict = None) -> 'PetriDish':
+        """
+        Create a PetriDish from one or more cells without intermediate steps.
+        This is cleaner than from_snapshot_cell as it doesn't create/replace cells.
+        
+        Args:
+            cells: Single cell or list of cells to use as founding population
+            growth_phase: The growth phase for this PetriDish
+            calculate_cell_jsds: Whether to calculate cell JSDs
+            metadata: Optional metadata to attach to the PetriDish
+            
+        Returns:
+            A properly initialized PetriDish with the given cells
+        """
+        # Handle single cell or list
+        cells_list = cells if isinstance(cells, list) else [cells]
+        first_cell = cells_list[0]
+        
+        # Extract rate configuration from first cell
+        if first_cell.rate is not None:
+            # Uniform rate
+            petri = cls(
+                cells=cells_list,  # Pass cells directly - no replacement needed!
+                n=first_cell.n,
+                rate=first_cell.rate,
+                gene_size=first_cell.gene_size,
+                growth_phase=growth_phase,
+                seed=None,
+                calculate_cell_jsds=calculate_cell_jsds
+            )
+        else:
+            # Gene-specific rates
+            petri = cls(
+                cells=cells_list,  # Pass cells directly - no replacement needed!
+                n=first_cell.n,
+                gene_rate_groups=first_cell.gene_rate_groups,
+                gene_size=first_cell.gene_size,
+                growth_phase=growth_phase,
+                seed=None,
+                calculate_cell_jsds=calculate_cell_jsds
+            )
+        
+        # Set metadata if provided
+        if metadata:
+            petri.metadata = metadata.copy()
+        else:
+            petri.metadata = {}
+        
+        # Ensure critical metadata is set
+        petri.update_metadata({
+            'num_cells': len(cells_list),
+            'creation_method': 'from_cells'
         })
         
         return petri

@@ -128,8 +128,17 @@ def generate_step23_output_dir(args, sim_params: Dict) -> str:
         # Truncate if too long to avoid filesystem issues
         if len(rate_str) > 50:
             rate_str = rate_str[:47] + "..."
-    else:
+    elif hasattr(args, 'rate') and args.rate:
         rate_str = f"rate_{args.rate:.5f}"
+    else:
+        # No rate specified - must have been inferred from simulation
+        # Extract from simulation path
+        import re
+        match = re.search(r'(gene_rates_[^/]+|rate_[\d.]+)', args.simulation)
+        if match:
+            rate_str = match.group(1)
+        else:
+            rate_str = "rate_inferred"
     
     level1 = (f"{rate_str}-"
               f"grow{sim_params['growth_phase']}-"

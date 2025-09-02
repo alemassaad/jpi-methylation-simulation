@@ -5,9 +5,10 @@
 # Pipeline input configuration
 input:
   simulation: null               # Path to phase1 simulation file (REQUIRED - no default)
-  # Rate configuration - must match the simulation (use one)
+  # Rate configuration - optional (auto-inferred from simulation if not specified)
+  # If specified, must match the simulation exactly
   rate: null                     # Uniform methylation rate 
-  gene_rate_groups: null       # Alternative: gene-specific rates string
+  gene_rate_groups: null          # Alternative: gene-specific rates string (e.g., "5:0.004,5:0.005")
 
 # Snapshot configuration
 snapshots:

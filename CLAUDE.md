@@ -371,13 +371,18 @@ python run_simulation.py --rate 0.005 --no-jsds       # Skip ALL JSDs (maximum s
 ### Run Analysis Pipeline (Phase 2)
 
 ```bash
-# Using config file
+# Auto-infer rates from simulation (NEW - no rate needed!)
+python run_pipeline.py \
+    --simulation ../phase1/data/.../simulation.json.gz \
+    --first-snapshot 50 \
+    --second-snapshot 60
+
+# Using config file (rate optional)
 python run_pipeline.py \
     --config configs/quick_test.yaml \
-    --simulation ../phase1/data/.../simulation.json.gz \
-    --rate 0.005
+    --simulation ../phase1/data/.../simulation.json.gz
 
-# Standard run
+# Explicit rate specification (must match simulation)
 python run_pipeline.py \
     --rate 0.005 \
     --simulation ../phase1/data/.../simulation.json.gz \
@@ -385,9 +390,15 @@ python run_pipeline.py \
     --second-snapshot 60 \
     --seed 42
 
+# With gene-specific rates
+python run_pipeline.py \
+    --gene-rate-groups "5:0.004,5:0.005,5:0.006,5:0.007" \
+    --simulation ../phase1/data/.../simulation.json.gz \
+    --first-snapshot 50 \
+    --second-snapshot 60
+
 # With options
 python run_pipeline.py \
-    --rate 0.005 \
     --simulation ../phase1/data/.../simulation.json.gz \
     --first-snapshot 50 \
     --second-snapshot 60 \
@@ -396,6 +407,11 @@ python run_pipeline.py \
     --plot-individuals \        # Generate growth trajectories
     --no-compress              # Uncompressed output
 ```
+
+**Auto-Inference Feature (NEW):**
+- Phase 2 now automatically infers gene_rate_groups from the simulation file
+- No need to specify `--rate` or `--gene-rate-groups` if you want to use the same configuration as the simulation
+- If you do specify rates, they must match the simulation exactly (validation enforced)
 
 ### Run Tests
 ```bash

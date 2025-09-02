@@ -1,0 +1,13 @@
+# Test configuration for rate/gene_rate_groups interaction
+simulation:
+  # Test with gene-specific rates in config
+  gene_rate_groups: "10:0.003,10:0.007"
+  sites: 100
+  years: 5
+  gene_size: 5
+  growth_phase: 2
+
+output:
+  compress: false
+
+seed: 42

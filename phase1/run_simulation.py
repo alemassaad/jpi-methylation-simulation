@@ -16,7 +16,7 @@ import os
 import sys
 import copy
 from typing import Dict, Any, Optional
-from cell import PetriDish, RATE, N, GENE_SIZE, DEFAULT_GROWTH_PHASE, T_MAX
+from cell import PetriDish, RATE, N, GENE_SIZE, DEFAULT_GROWTH_PHASE, T_MAX, rate_to_gene_rate_groups
 
 # Try to import yaml, provide helpful error if not available
 try:
@@ -160,9 +160,6 @@ def validate_config(config: Dict[str, Any]) -> None:
     
     if has_rate and has_gene_rates:
         raise ValueError("Cannot specify both 'rate' and 'gene_rate_groups'")
-    
-    if not has_rate and not has_gene_rates:
-        raise ValueError("Must specify either 'rate' or 'gene_rate_groups'")
     
     # Validate growth phase
     growth_phase = sim.get('growth_phase', DEFAULT_GROWTH_PHASE)
@@ -317,8 +314,7 @@ def main():
     rate = sim_config.get('rate')
     gene_rate_groups_str = sim_config.get('gene_rate_groups')
     
-    # Parse gene rate groups if specified
-    gene_rate_groups = None
+    # Parse gene rate groups if specified as string
     if gene_rate_groups_str:
         try:
             gene_rate_groups = parse_gene_rate_groups(
@@ -327,6 +323,11 @@ def main():
         except ValueError as e:
             print(f"Error: {e}")
             return 1
+    # Convert rate to gene_rate_groups if specified
+    elif rate is not None:
+        gene_rate_groups = rate_to_gene_rate_groups(rate, n, gene_size)
+    else:
+        gene_rate_groups = None  # Will use default in PetriDish
     
     # Start timing
     start_time = time.time()
@@ -338,24 +339,15 @@ def main():
     calculate_cell_jsds = perf_config.get('calculate_cell_jsds', True)
     track_gene_jsd = perf_config.get('track_gene_jsd', True)
     
-    if rate is not None:
-        petri_dish = PetriDish(
-            rate=rate,
-            n=n,
-            gene_size=gene_size,
-            seed=seed,
-            growth_phase=growth_phase,
-            calculate_cell_jsds=calculate_cell_jsds
-        )
-    else:
-        petri_dish = PetriDish(
-            gene_rate_groups=gene_rate_groups,
-            n=n,
-            gene_size=gene_size,
-            seed=seed,
-            growth_phase=growth_phase,
-            calculate_cell_jsds=calculate_cell_jsds
-        )
+    # Create PetriDish with unified interface
+    petri_dish = PetriDish(
+        gene_rate_groups=gene_rate_groups,  # Always use this
+        n=n,
+        gene_size=gene_size,
+        seed=seed,
+        growth_phase=growth_phase,
+        calculate_cell_jsds=calculate_cell_jsds
+    )
     
     # Enable history tracking with gene JSD based on config
     if track_gene_jsd:

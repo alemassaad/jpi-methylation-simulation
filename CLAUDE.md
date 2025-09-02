@@ -4,6 +4,9 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Important Guidelines
 
+### Dictation Note
+**When the user says "jean" or "gin" via dictation, they mean "gene".**
+
 ### Python Command Convention
 **ALWAYS use `python` instead of `python3` for all commands in this repository.**
 
@@ -265,6 +268,20 @@ phase2/data/rate_0.00500-grow13-sites1000-years100/snap50to60-growth7-quant10x3-
 
 ## Commands
 
+### Installation
+
+```bash
+# Install required dependencies
+pip install -r requirements.txt
+
+# Core dependencies:
+# - pyyaml>=6.0 (for configuration files)
+# - plotly>=5.0.0,<6.0.0 (for visualization)
+# - kaleido==0.2.1 (for PNG export)
+# - scipy (included in most Python distributions)
+# - numpy (included in most Python distributions)
+```
+
 ### Configuration Files
 
 Both phases support YAML configuration files with CLI override capability:
@@ -399,11 +416,37 @@ cd phase2/tests
 python test_reproducibility_robust.py
 python test_gene_rate_support.py
 python test_final_integration.py
+python verify_compression_fix.py
+python verify_determinism.py
 
 # Test phase2 config
-cd phase2
+cd phase2/tests/config
 python test_config_simple.py
 python test_config_phase2.py
+```
+
+## Rate Consistency Validation
+
+### Important Requirement
+All cells in a PetriDish must have identical `gene_rate_groups` configuration. This ensures:
+- Consistent methylation dynamics across the population
+- Valid statistical comparisons
+- Accurate JSD calculations
+
+### Validation Methods
+- `PetriDish.validate_cell_consistency()`: Instance method that validates all cells in the PetriDish
+- `PetriDish.validate_cells_compatible(cells)`: Static method to pre-check cell compatibility before creating PetriDish
+
+### When Validation Occurs
+- Automatically when creating PetriDish with existing cells
+- Cell division maintains consistency (daughters inherit parent's gene_rate_groups)
+- No validation needed for internal operations (division, methylation, culling)
+
+### Testing
+Run comprehensive rate consistency tests:
+```bash
+cd phase1/tests
+python test_rate_consistency.py
 ```
 
 ## Key Implementation Details
@@ -455,11 +498,18 @@ Output: simulation.json (human-readable)
 
 ## Development Guidelines
 
+### Code Quality
+- No linting or type checking tools are currently configured
+- Follow existing code style and patterns in neighboring files
+- Use descriptive variable names and clear function signatures
+- Python 3.7+ required (uses standard library features)
+
 ### Testing Philosophy
 - Tests are standalone Python scripts, not using pytest framework
 - Each test file can be run directly: `python test_name.py`
 - Tests include comprehensive output with ✓ marks for passed checks
 - Return exit code 0 for success, 1 for failure
+- Always test with both compressed and uncompressed output formats
 
 ### Config Priority
 Configuration follows this priority (highest to lowest):
@@ -508,6 +558,23 @@ Phase 2 saves individuals with different structures depending on their type:
 3. **Unnecessary History Storage**: All individuals are saved with `include_cell_history=True` even though control2 doesn't need history
 
 4. **Inconsistent Metadata**: Control1/mutant lack creation_method field that control2 has
+
+## Visualization and Analysis Tools
+
+### Standalone Visualization Scripts
+```bash
+# Phase 1 - Plot simulation history
+cd phase1
+python plot_history.py ../data/rate_0.00500/.../simulation.json.gz
+
+# Phase 2 - Generate individual plots for existing run
+cd phase2
+python plot_individuals.py data/.../results
+
+# Phase 2 - Analyze individual population sizes
+cd phase2/visualization
+python analyze_individual_sizes.py ../../data/.../individuals
+```
 
 ## Common Troubleshooting
 

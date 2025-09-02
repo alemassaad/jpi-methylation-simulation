@@ -1,0 +1,12 @@
+# Test configuration with uniform rate
+simulation:
+  rate: 0.006  # Uniform rate
+  sites: 100
+  years: 5
+  gene_size: 5
+  growth_phase: 2
+
+output:
+  compress: false
+
+seed: 42

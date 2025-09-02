@@ -48,6 +48,22 @@ T_MAX = 100
 DEFAULT_GROWTH_PHASE = 13  # Default growth phase duration in years
 
 
+def rate_to_gene_rate_groups(rate: float, n: int, gene_size: int) -> List[Tuple[int, float]]:
+    """
+    Convert uniform methylation rate to gene_rate_groups format.
+    
+    Args:
+        rate: Uniform methylation rate
+        n: Number of CpG sites
+        gene_size: Sites per gene
+    
+    Returns:
+        List with single tuple: [(n_genes, rate)]
+    """
+    n_genes = n // gene_size
+    return [(n_genes, rate)]
+
+
 class Cell:
     """
     Represents a cell with methylation sites.
@@ -62,23 +78,24 @@ class Cell:
                  baseline_methylation_distribution: List[float] = None,
                  gene_rate_groups: List[Tuple[int, float]] = None) -> None:
         
-        # Validation: Can't specify both rate types
-        if rate is not None and gene_rate_groups is not None:
-            raise ValueError(
-                "Cannot specify both 'rate' and 'gene_rate_groups'. "
-                "Use 'rate' for uniform methylation or 'gene_rate_groups' for gene-specific rates."
-            )
+        # Convert rate to gene_rate_groups if provided
+        if rate is not None:
+            if gene_rate_groups is not None:
+                raise ValueError(
+                    "Cannot specify both 'rate' and 'gene_rate_groups'. "
+                    "Use 'rate' for uniform methylation or 'gene_rate_groups' for gene-specific rates."
+                )
+            gene_rate_groups = rate_to_gene_rate_groups(rate, n, gene_size)
         
-        # Validation: Must specify at least one
-        if rate is None and gene_rate_groups is None:
+        # Must have gene_rate_groups by now
+        if gene_rate_groups is None:
             raise ValueError(
                 "Must specify either 'rate' (uniform) or 'gene_rate_groups' (gene-specific)"
             )
         
         self.n = n
         self.gene_size = gene_size
-        self.rate = rate  # Keep for backward compatibility
-        self.gene_rate_groups = gene_rate_groups  # NEW attribute
+        self.gene_rate_groups = gene_rate_groups  # Only store this
         
         # Validate gene_rate_groups if provided
         if gene_rate_groups is not None:
@@ -120,24 +137,16 @@ class Cell:
         self.cell_JSD = JS_div(self.methylation_distribution, self.baseline_methylation_distribution)
     
     def _build_site_rates(self) -> None:
-        """Build array of per-site methylation rates based on configuration."""
-        if self.rate is not None:
-            # Uniform rate (backward compatible)
-            if HAS_NUMPY:
-                self.site_rates = np.full(self.n, self.rate, dtype=np.float64)
-            else:
-                self.site_rates = [self.rate] * self.n
+        """Build array of per-site methylation rates from gene_rate_groups."""
+        site_rates_list = []
+        for n_genes, rate_val in self.gene_rate_groups:
+            sites_for_group = n_genes * self.gene_size
+            site_rates_list.extend([rate_val] * sites_for_group)
+        
+        if HAS_NUMPY:
+            self.site_rates = np.array(site_rates_list, dtype=np.float64)
         else:
-            # Gene-specific rates
-            site_rates_list = []
-            for n_genes, rate_val in self.gene_rate_groups:
-                sites_for_group = n_genes * self.gene_size
-                site_rates_list.extend([rate_val] * sites_for_group)
-            
-            if HAS_NUMPY:
-                self.site_rates = np.array(site_rates_list, dtype=np.float64)
-            else:
-                self.site_rates = site_rates_list
+            self.site_rates = site_rates_list
         
     def methylate(self) -> None:
         """
@@ -201,6 +210,18 @@ class Cell:
         
         self.methylation_distribution = distribution
     
+    @property
+    def rate(self) -> Optional[float]:
+        """
+        Get uniform rate if applicable (backward compatibility).
+        Returns None if gene-specific rates are used.
+        """
+        # Check if all rates are the same
+        rates = set(rate for _, rate in self.gene_rate_groups)
+        if len(rates) == 1:
+            return rates.pop()
+        return None
+    
     def to_dict(self) -> Dict[str, Any]:
         """
         Convert cell state to dictionary for serialization.
@@ -225,7 +246,7 @@ class Cell:
         
         Args:
             data: Dictionary with 'methylated' and 'cell_JSD' keys
-            rate: Uniform methylation rate
+            rate: Uniform methylation rate (will be converted to gene_rate_groups)
             gene_rate_groups: Gene-specific rates
             gene_size: Sites per gene
             
@@ -233,13 +254,12 @@ class Cell:
             Reconstructed Cell object
         """
         n = len(data['methylated'])
+        
+        # Let __init__ handle the conversion
         cell = cls(n=n, rate=rate, gene_rate_groups=gene_rate_groups, gene_size=gene_size)
         cell.cpg_sites = data['methylated'][:]
-        cell.methylated = data['methylated'][:]  # For compatibility
         cell.cell_JSD = data.get('cell_JSD', 0.0)
         cell.age = data.get('age', 0)  # Restore age (default to 0 for old data)
-        
-        # Properties are automatically calculated via @property decorators
         
         return cell
 
@@ -258,6 +278,12 @@ class PetriDish:
         random_cull_cells(): Randomly remove ~50% of cells
         simulate_year(): Run one year of simulation
         run_simulation(): Run complete simulation
+        validate_cell_consistency(): Ensure all cells have same rate configuration
+        validate_cells_compatible(): Static method to pre-check cell compatibility
+    
+    Important:
+        All cells in a PetriDish must have identical gene_rate_groups configuration.
+        This is validated automatically when creating a PetriDish with existing cells.
     """
     
     def __init__(self, rate: float = None, gene_rate_groups: List[Tuple[int, float]] = None,
@@ -268,25 +294,31 @@ class PetriDish:
         Initialize petri dish with a single unmethylated cell or provided cells.
         
         Args:
-            rate: Uniform methylation rate per site per year
+            rate: Uniform methylation rate per site per year (will be converted to gene_rate_groups)
             gene_rate_groups: Gene-specific rates as [(n_genes, rate), ...]
             n: Number of CpG sites per cell
             gene_size: Number of sites per gene
             seed: Random seed for reproducibility
             growth_phase: Duration of growth phase in years (target = 2^growth_phase cells)
-            cells: Optional list of cells to start with (for phase2 compatibility)
+            cells: Optional list of cells to start with (for phase2 compatibility).
+                   All cells must have identical gene_rate_groups configuration.
             calculate_cell_jsds: Whether to calculate cell JSDs (for performance)
+            
+        Raises:
+            ValueError: If provided cells have different gene_rate_groups configurations
         """
-        # Validate rate specification
-        if rate is not None and gene_rate_groups is not None:
-            raise ValueError(
-                "Cannot specify both 'rate' and 'gene_rate_groups'. "
-                "Use 'rate' for uniform methylation or 'gene_rate_groups' for gene-specific rates."
-            )
+        # Convert rate to gene_rate_groups if provided
+        if rate is not None:
+            if gene_rate_groups is not None:
+                raise ValueError(
+                    "Cannot specify both 'rate' and 'gene_rate_groups'. "
+                    "Use 'rate' for uniform methylation or 'gene_rate_groups' for gene-specific rates."
+                )
+            gene_rate_groups = rate_to_gene_rate_groups(rate, n, gene_size)
         
-        if rate is None and gene_rate_groups is None:
-            # Use default RATE if neither specified
-            rate = RATE
+        # Use default if neither specified
+        if gene_rate_groups is None:
+            gene_rate_groups = rate_to_gene_rate_groups(RATE, n, gene_size)
         
         # Validate gene_size divides n evenly
         if n % gene_size != 0:
@@ -300,9 +332,8 @@ class PetriDish:
         
         if seed is not None:
             random.seed(seed)
-            
-        self.rate = rate
-        self.gene_rate_groups = gene_rate_groups
+        
+        self.gene_rate_groups = gene_rate_groups  # Only store this
         self.n = n
         self.gene_size = gene_size
         self.n_genes = n // gene_size
@@ -315,13 +346,10 @@ class PetriDish:
         if cells is not None:
             self.cells = cells
             # Validate all cells have same rate configuration
-            self._validate_cell_rate_consistency()
+            self.validate_cell_consistency()
         else:
-            # Create initial cell with appropriate rate structure
-            if self.rate is not None:
-                self.cells = [Cell(n=n, rate=self.rate, gene_size=gene_size)]
-            else:
-                self.cells = [Cell(n=n, gene_rate_groups=self.gene_rate_groups, gene_size=gene_size)]
+            # Create initial cell - single path now
+            self.cells = [Cell(n=n, gene_rate_groups=gene_rate_groups, gene_size=gene_size)]
         
         self.year = 0
         
@@ -347,37 +375,78 @@ class PetriDish:
         else:
             self.cell_history = {}
         
-    def _validate_cell_rate_consistency(self) -> None:
-        """Ensure all cells have the same rate configuration."""
+    @property
+    def rate(self) -> Optional[float]:
+        """
+        Get uniform rate if applicable (backward compatibility).
+        Returns None if gene-specific rates are used.
+        """
+        # Check if all rates are the same
+        rates = set(rate for _, rate in self.gene_rate_groups)
+        if len(rates) == 1:
+            return rates.pop()
+        return None
+    
+    @staticmethod
+    def validate_cells_compatible(cells: List['Cell']) -> None:
+        """
+        Validate that a list of cells have identical gene_rate_groups.
+        
+        This static method can be called before creating a PetriDish to ensure
+        cell compatibility. Useful for pre-validation in phase2 or when combining
+        cells from different sources.
+        
+        Args:
+            cells: List of Cell objects to validate
+            
+        Raises:
+            ValueError: If cells have different gene_rate_groups configurations
+            
+        Example:
+            >>> cells = [cell1, cell2, cell3]
+            >>> PetriDish.validate_cells_compatible(cells)  # Raises if incompatible
+            >>> petri = PetriDish(cells=cells, ...)  # Safe to create
+        """
+        if not cells:
+            return
+        
+        first_groups = cells[0].gene_rate_groups
+        
+        for i, cell in enumerate(cells[1:], 1):
+            if cell.gene_rate_groups != first_groups:
+                raise ValueError(
+                    f"Rate configuration mismatch: All cells must have "
+                    f"identical gene_rate_groups.\n"
+                    f"  Cell 0: gene_rate_groups={first_groups}\n"
+                    f"  Cell {i}: gene_rate_groups={cell.gene_rate_groups}\n"
+                    f"Ensure all cells are created with the same rate configuration."
+                )
+    
+    def validate_cell_consistency(self) -> None:
+        """
+        Validate that all cells have identical gene_rate_groups configuration.
+        
+        This ensures rate consistency across the population, which is required
+        for accurate simulation and analysis. Called automatically during
+        PetriDish initialization when cells are provided.
+        
+        Raises:
+            ValueError: If cells have different gene_rate_groups configurations
+        """
         if not self.cells:
             return
         
-        first_cell = self.cells[0]
-        has_uniform = first_cell.rate is not None
-        first_groups = first_cell.gene_rate_groups
+        first_groups = self.cells[0].gene_rate_groups
         
         for i, cell in enumerate(self.cells[1:], 1):
-            cell_has_uniform = cell.rate is not None
-            
-            if has_uniform != cell_has_uniform:
+            if cell.gene_rate_groups != first_groups:
                 raise ValueError(
-                    f"Cell rate configuration mismatch: cell 0 has {'uniform' if has_uniform else 'gene-specific'} "
-                    f"rates, but cell {i} has {'uniform' if cell_has_uniform else 'gene-specific'} rates. "
-                    f"All cells must use the same rate configuration."
+                    f"Rate configuration mismatch: All cells in a PetriDish must have "
+                    f"identical gene_rate_groups.\n"
+                    f"  Cell 0: gene_rate_groups={first_groups}\n"
+                    f"  Cell {i}: gene_rate_groups={cell.gene_rate_groups}\n"
+                    f"Ensure all cells are created with the same rate configuration."
                 )
-            
-            if has_uniform:
-                if cell.rate != first_cell.rate:
-                    raise ValueError(
-                        f"Cell rate mismatch: cell 0 has rate={first_cell.rate}, "
-                        f"but cell {i} has rate={cell.rate}"
-                    )
-            else:
-                if cell.gene_rate_groups != first_groups:
-                    raise ValueError(
-                        f"Cell gene_rate_groups mismatch: cell 0 has {first_groups}, "
-                        f"but cell {i} has {cell.gene_rate_groups}"
-                    )
     
     def divide_cells(self) -> None:
         """
@@ -491,12 +560,10 @@ class PetriDish:
         print("PHASE 1 SIMULATION")
         print("="*60)
         print(f"Parameters:")
-        if self.rate is not None:
-            print(f"  Methylation rate: {self.rate:.3%}")
-        else:
-            print(f"  Gene-specific rates: {len(self.gene_rate_groups)} groups")
-            for i, (n_genes, rate) in enumerate(self.gene_rate_groups):
-                print(f"    Group {i+1}: {n_genes} genes at {rate:.3%}")
+        # Always show as gene groups (even if uniform)
+        print(f"  Gene-specific rates: {len(self.gene_rate_groups)} group(s)")
+        for i, (n_genes, rate) in enumerate(self.gene_rate_groups):
+            print(f"    Group {i+1}: {n_genes} genes at {rate:.3%}")
         print(f"  CpG sites per cell: {self.n}")
         print(f"  Gene size: {self.gene_size}")
         print(f"  Growth phase: {self.growth_phase} years")
@@ -530,15 +597,9 @@ class PetriDish:
         from datetime import datetime
         
         # Generate hierarchical path
-        # Level 1: Rate with 5 decimal places or gene rate groups
-        if self.rate is not None:
-            level1 = f"rate_{self.rate:.5f}"
-            rate_str = f"{self.rate:.5f}"
-        else:
-            # For gene rate groups, create a descriptive name
-            groups_str = "_".join([f"{n}x{rate:.5f}" for n, rate in self.gene_rate_groups])
-            level1 = f"gene_rates_{groups_str}"[:50]  # Limit length
-            rate_str = groups_str
+        # Always use gene_rates format for consistency
+        groups_str = "_".join([f"{n}x{rate:.5f}" for n, rate in self.gene_rate_groups])
+        level1 = f"gene_rates_{groups_str}"[:50]  # Limit length
         
         # Level 2: Parameters with hyphen separators
         seed_str = f"seed{self.seed}" if self.seed is not None else "noseed"
@@ -567,8 +628,7 @@ class PetriDish:
         # Prepare data to save with new format
         save_data = {
             'parameters': {
-                'rate': self.rate,
-                'gene_rate_groups': self.gene_rate_groups,  # Keep as is (None or list)
+                'gene_rate_groups': self.gene_rate_groups,  # Only store this
                 'n': self.n,
                 'gene_size': self.gene_size,
                 'growth_phase': self.growth_phase,
@@ -1094,7 +1154,6 @@ class PetriDish:
             save_data['metadata']['n_genes'] = self.n_genes
         
         # Add rate configuration and parameters
-        save_data['metadata']['rate'] = self.rate
         save_data['metadata']['gene_rate_groups'] = self.gene_rate_groups
         save_data['metadata']['gene_size'] = self.gene_size
         save_data['metadata']['n'] = self.n

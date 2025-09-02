@@ -45,8 +45,8 @@ def test_small_simulation():
     
     print("\nPopulation verification:")
     for year in range(11):
-        if str(year) in petri_dish.history:
-            actual = len(petri_dish.history[str(year)])
+        if str(year) in petri_dish.cell_history:
+            actual = len(petri_dish.cell_history[str(year)])
             if year in expected_pops:
                 expected = expected_pops[year]
                 status = "✓" if actual == expected else "✗"
@@ -59,14 +59,15 @@ def test_small_simulation():
     
     # Test methylation is happening
     print("\nMethylation verification:")
-    year_10_cells = petri_dish.history.get('10', [])
+    year_10_cells = petri_dish.cell_history.get('10', [])
     if year_10_cells:
-        methylated_cells = sum(1 for cell in year_10_cells if cell['methylation_proportion'] > 0)
+        # In lean format, check if any sites are methylated
+        methylated_cells = sum(1 for cell in year_10_cells if any(cell['methylated']))
         print(f"  Cells with methylation at year 10: {methylated_cells}/{len(year_10_cells)}")
         
         # Check JSD is increasing
-        mean_jsd_year_0 = petri_dish.history['0'][0]['cell_jsd']
-        mean_jsd_year_10 = sum(c['cell_jsd'] for c in year_10_cells) / len(year_10_cells)
+        mean_jsd_year_0 = petri_dish.cell_history['0'][0]['cell_JSD']
+        mean_jsd_year_10 = sum(c['cell_JSD'] for c in year_10_cells) / len(year_10_cells)
         print(f"  Mean JSD year 0: {mean_jsd_year_0:.4f}")
         print(f"  Mean JSD year 10: {mean_jsd_year_10:.4f}")
         

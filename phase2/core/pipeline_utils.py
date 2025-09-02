@@ -17,7 +17,7 @@ from typing import List, Dict, Tuple, Optional, Any, Union, TextIO
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 sys.path.append(os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'phase1'))
-from cell import Cell, PetriDish, GENE_SIZE, BASELINE_METHYLATION_DISTRIBUTION, RATE
+from cell import Cell, PetriDish, GENE_SIZE, BASELINE_METHYLATION_DISTRIBUTION, RATE, rate_to_gene_rate_groups
 
 
 def smart_open(filepath: str, mode: str = 'r') -> Union[TextIO, gzip.GzipFile]:
@@ -44,45 +44,56 @@ def smart_open(filepath: str, mode: str = 'r') -> Union[TextIO, gzip.GzipFile]:
         raise ValueError(f"Unsupported file extension: {filepath}. Expected .json or .json.gz")
 
 
-def dict_to_cell(cell_dict: Dict[str, Any], rate: Optional[float] = None) -> Cell:
+def dict_to_cell(cell_dict: Dict[str, Any]) -> Cell:
     """
     Convert dictionary from JSON to Cell object.
+    Now expects gene_rate_groups in each cell (new format from Phase 1).
     
     Args:
         cell_dict: Dictionary with cell data
-        rate: Optional rate override (deprecated, use cell's own rate)
     
     Returns:
         Cell: Initialized Cell object
     """
-    # Determine rate configuration
-    if 'gene_rate_groups' in cell_dict:
-        # Gene-specific rates
-        gene_rate_groups = [tuple(group) for group in cell_dict['gene_rate_groups']]
-        cell = Cell(
-            n=len(cell_dict['cpg_sites']),
-            gene_rate_groups=gene_rate_groups,
-            gene_size=cell_dict.get('gene_size', GENE_SIZE)
-        )
-    else:
-        # Uniform rate (backward compatible)
-        cell_rate = cell_dict.get('rate', rate or RATE)
-        cell = Cell(
-            n=len(cell_dict['cpg_sites']),
-            rate=cell_rate,
-            gene_size=cell_dict.get('gene_size', GENE_SIZE)
+    # Extract gene_rate_groups from the cell itself (required)
+    gene_rate_groups = cell_dict.get('gene_rate_groups')
+    if not gene_rate_groups:
+        raise ValueError(
+            "Cell data missing gene_rate_groups! "
+            "This cell appears to be from an old simulation. "
+            "Please re-run Phase 1 with the latest code."
         )
     
-    # Set attributes directly
-    cell.cpg_sites = cell_dict['cpg_sites']
-    cell.age = cell_dict['age']
-    cell.methylation_proportion = cell_dict['methylation_proportion']
-    cell.methylation_distribution = cell_dict['methylation_distribution']
-    cell.cell_JSD = cell_dict.get('cell_jsd', cell_dict.get('jsd', 0.0))  # Support old format for compatibility
+    # Convert to tuples
+    gene_rate_groups = [tuple(group) for group in gene_rate_groups]
+    
+    # Handle both 'methylated' (new) and 'cpg_sites' (old) keys
+    sites = cell_dict.get('methylated', cell_dict.get('cpg_sites', []))
+    
+    # Create cell with gene_rate_groups only
+    cell = Cell(
+        n=len(sites),
+        gene_rate_groups=gene_rate_groups,
+        gene_size=cell_dict.get('gene_size', GENE_SIZE)
+    )
+    
+    # Set the sites
+    cell.cpg_sites = sites
+    
+    # Set all enhanced attributes from Phase 1
+    cell.age = cell_dict.get('age', 0)
+    cell.cell_JSD = cell_dict.get('cell_JSD', cell_dict.get('cell_jsd', 0.0))
+    
+    # Use stored methylation stats if available (more efficient)
+    if 'n_methylated' in cell_dict:
+        cell.methylation_proportion = cell_dict.get('methylation_proportion', 0.0)
+    else:
+        # Recalculate if missing
+        n_methylated = sum(1 for site in sites if site == 1)
+        cell.methylation_proportion = n_methylated / len(sites) if sites else 0.0
     
     # Restore site_rates if available (faster) or rebuild
     if 'site_rates' in cell_dict:
-        # Try to import numpy for efficiency
         try:
             import numpy as np
             cell.site_rates = np.array(cell_dict['site_rates'], dtype=np.float64)
@@ -94,14 +105,16 @@ def dict_to_cell(cell_dict: Dict[str, Any], rate: Optional[float] = None) -> Cel
     return cell
 
 
-def load_snapshot_as_cells(simulation_file: str, year: int) -> List[Cell]:
+def load_snapshot_as_cells(simulation_file: str, year: int, 
+                          expected_gene_rate_groups: List[Tuple[int, float]] = None) -> List[Cell]:
     """
     Load a year from simulation and convert to Cell objects.
-    Expects new format with 'parameters' and 'history' sections.
+    Now validates gene_rate_groups consistency.
     
     Args:
         simulation_file: Path to phase1 simulation
         year: Year to extract (50 or 60)
+        expected_gene_rate_groups: Expected gene rate groups for validation
     
     Returns:
         List[Cell]: List of Cell objects
@@ -109,16 +122,12 @@ def load_snapshot_as_cells(simulation_file: str, year: int) -> List[Cell]:
     print(f"Loading year {year} snapshot from {simulation_file}...")
     
     # Handle both compressed and uncompressed files
-    if simulation_file.endswith('.gz'):
-        with smart_open(simulation_file, 'r') as f:
-            data = json.load(f)
-    else:
-        with open(simulation_file, 'r') as f:
-            data = json.load(f)
+    with smart_open(simulation_file, 'r') as f:
+        data = json.load(f)
     
     year_str = str(year)
     
-    # Extract parameters and history (new format)
+    # Extract parameters and history
     params = data['parameters']
     history = data['history']
     
@@ -126,32 +135,74 @@ def load_snapshot_as_cells(simulation_file: str, year: int) -> List[Cell]:
         available_years = sorted([int(y) for y in history.keys()])
         raise ValueError(f"Year {year} not found. Available: {available_years}")
     
+    # Get gene_rate_groups from parameters
+    gene_rate_groups = params.get('gene_rate_groups')
+    if not gene_rate_groups:
+        # Handle old format files (convert rate to gene_rate_groups)
+        rate = params.get('rate')
+        if rate:
+            n = params.get('n', 1000)
+            gene_size = params.get('gene_size', GENE_SIZE)
+            gene_rate_groups = rate_to_gene_rate_groups(rate, n, gene_size)
+        else:
+            raise ValueError("Simulation has neither gene_rate_groups nor rate!")
+    
+    # Convert to tuples
+    gene_rate_groups = [tuple(group) for group in gene_rate_groups]
+    
+    # Validate against expected if provided
+    if expected_gene_rate_groups and gene_rate_groups != expected_gene_rate_groups:
+        raise ValueError(
+            f"Gene rate groups mismatch in snapshot!\n"
+            f"  Expected: {expected_gene_rate_groups}\n"
+            f"  Found in simulation: {gene_rate_groups}"
+        )
+    
+    # Load cells
     year_data = history[year_str]
     cell_dicts = year_data['cells']
+    cells = []
     
-    # Extract rate configuration from parameters
-    rate = params.get('rate')
-    gene_rate_groups = params.get('gene_rate_groups')
-    gene_size = params.get('gene_size', GENE_SIZE)
+    for i, cd in enumerate(cell_dicts):
+        # Check if new format (has gene_rate_groups in cell)
+        if 'gene_rate_groups' in cd:
+            cell = dict_to_cell(cd)
+        else:
+            # Old format - use Cell.from_dict with parameters
+            gene_size = params.get('gene_size', GENE_SIZE)
+            cell = Cell.from_dict(cd, gene_rate_groups=gene_rate_groups, gene_size=gene_size)
+        
+        # Validate each cell's gene_rate_groups
+        if cell.gene_rate_groups != gene_rate_groups:
+            raise ValueError(
+                f"Cell {i} from year {year} has inconsistent gene_rate_groups!\n"
+                f"  Expected: {gene_rate_groups}\n"
+                f"  Cell has: {cell.gene_rate_groups}"
+            )
+        
+        cells.append(cell)
     
-    # Use Cell.from_dict with parameters
-    cells = [Cell.from_dict(cd, rate=rate, gene_rate_groups=gene_rate_groups, 
-                           gene_size=gene_size) for cd in cell_dicts]
-    
-    print(f"  Loaded {len(cells)} cells from year {year}")
+    print(f"  ✓ Loaded {len(cells)} cells with gene_rate_groups: {gene_rate_groups}")
     return cells
 
 
 def save_snapshot_cells(cells: List[Cell], filepath: str, compress: bool = True) -> None:
     """
     Save a list of Cell objects as a snapshot.
+    Now validates gene_rate_groups consistency.
     
     Args:
         cells: List of Cell objects
         filepath: Output path for JSON file
         compress: If True, save as .json.gz; if False, save as .json
     """
+    if not cells:
+        raise ValueError("Cannot save empty cell list")
+    
     os.makedirs(os.path.dirname(filepath), exist_ok=True)
+    
+    # Validate all cells have same gene_rate_groups
+    PetriDish.validate_cells_compatible(cells)
     
     # Adjust filepath based on compress flag
     if compress and not filepath.endswith('.gz'):
@@ -162,30 +213,26 @@ def save_snapshot_cells(cells: List[Cell], filepath: str, compress: bool = True)
     elif not compress and filepath.endswith('.gz'):
         filepath = filepath[:-3]  # Remove .gz extension
     
-    # Extract rate configuration from first cell
+    # Get gene_rate_groups from first cell (all should be same)
+    gene_rate_groups = cells[0].gene_rate_groups
+    
     metadata = {
         "num_cells": len(cells),
-        "year": cells[0].age if cells else 0
+        "year": cells[0].age,
+        "gene_rate_groups": gene_rate_groups,  # Store for reference
+        "gene_size": cells[0].gene_size
     }
-    
-    if cells:
-        first_cell = cells[0]
-        if hasattr(first_cell, 'rate') and first_cell.rate is not None:
-            metadata['rate'] = first_cell.rate
-        if hasattr(first_cell, 'gene_rate_groups') and first_cell.gene_rate_groups:
-            metadata['gene_rate_groups'] = first_cell.gene_rate_groups
-        metadata['gene_size'] = getattr(first_cell, 'gene_size', GENE_SIZE)
     
     snapshot_data = {
         "metadata": metadata,
-        "cells": [cell.to_dict() for cell in cells]
+        "cells": [cell.to_dict() for cell in cells]  # Each has gene_rate_groups
     }
     
     # Use smart_open which handles compression based on file extension
     with smart_open(filepath, 'w') as f:
         json.dump(snapshot_data, f, indent=2)
     
-    print(f"  Saved {len(cells)} cells to {filepath}")
+    print(f"  ✓ Saved {len(cells)} cells with gene_rate_groups: {gene_rate_groups}")
 
 
 def load_snapshot_cells(filepath: str) -> List[Cell]:
@@ -204,19 +251,34 @@ def load_snapshot_cells(filepath: str) -> List[Cell]:
         data = json.load(f)
     
     cell_dicts = data['cells']
+    cells = []
     
-    # Detect format based on first cell
-    if cell_dicts and 'methylated' in cell_dicts[0] and 'cpg_sites' not in cell_dicts[0]:
-        # New lean format - use Cell.from_dict
-        metadata = data.get('metadata', {})
-        rate = metadata.get('rate')
-        gene_rate_groups = metadata.get('gene_rate_groups')
-        gene_size = metadata.get('gene_size', GENE_SIZE)
-        cells = [Cell.from_dict(cd, rate=rate, gene_rate_groups=gene_rate_groups, 
-                               gene_size=gene_size) for cd in cell_dicts]
-    else:
-        # Old format - use dict_to_cell
-        cells = [dict_to_cell(cd) for cd in cell_dicts]
+    # Check if cells have gene_rate_groups (new format)
+    for cd in cell_dicts:
+        if 'gene_rate_groups' in cd:
+            # New format with gene_rate_groups in each cell
+            cells.append(dict_to_cell(cd))
+        else:
+            # Old format - need to get from metadata
+            metadata = data.get('metadata', {})
+            gene_rate_groups = metadata.get('gene_rate_groups')
+            if not gene_rate_groups:
+                # Try to convert from rate
+                rate = metadata.get('rate')
+                if rate:
+                    n = len(cd.get('methylated', cd.get('cpg_sites', [])))
+                    gene_size = metadata.get('gene_size', GENE_SIZE)
+                    gene_rate_groups = rate_to_gene_rate_groups(rate, n, gene_size)
+                else:
+                    raise ValueError("Snapshot has no rate configuration!")
+            
+            gene_size = metadata.get('gene_size', GENE_SIZE)
+            cell = Cell.from_dict(cd, gene_rate_groups=gene_rate_groups, gene_size=gene_size)
+            cells.append(cell)
+    
+    # Validate all cells have same gene_rate_groups
+    if cells:
+        PetriDish.validate_cells_compatible(cells)
     
     return cells
 
@@ -285,74 +347,76 @@ def load_petri_dish(filepath: str, include_cell_history: bool = False, include_g
     with smart_open(filepath, 'r') as f:
         data = json.load(f)
     
-    # Get first cell to extract parameters and determine rate configuration
+    # Load cells first
+    cells = []
     if data['cells']:
-        first_cell_dict = data['cells'][0]
-        # Handle both old format (cpg_sites) and new format (methylated)
-        if 'cpg_sites' in first_cell_dict:
-            n = len(first_cell_dict['cpg_sites'])
-        elif 'methylated' in first_cell_dict:
-            n = len(first_cell_dict['methylated'])
-        else:
-            raise ValueError("Cell dict has neither 'cpg_sites' nor 'methylated' field")
+        for cd in data['cells']:
+            if 'gene_rate_groups' in cd:
+                # New format with gene_rate_groups in each cell
+                cells.append(dict_to_cell(cd))
+            else:
+                # Old format - get from metadata
+                metadata = data.get('metadata', {})
+                gene_rate_groups = metadata.get('gene_rate_groups')
+                if not gene_rate_groups:
+                    # Convert from rate if available
+                    rate = metadata.get('rate')
+                    if rate:
+                        n = len(cd.get('methylated', cd.get('cpg_sites', [])))
+                        gene_size = metadata.get('gene_size', GENE_SIZE)
+                        gene_rate_groups = rate_to_gene_rate_groups(rate, n, gene_size)
+                    else:
+                        raise ValueError("PetriDish data has no rate configuration!")
+                
+                gene_size = metadata.get('gene_size', GENE_SIZE)
+                cell = Cell.from_dict(cd, gene_rate_groups=gene_rate_groups, gene_size=gene_size)
+                cells.append(cell)
+    
+    # Validate all cells have same gene_rate_groups
+    if cells:
+        PetriDish.validate_cells_compatible(cells)
         
-        # Get gene_size from metadata or first cell
-        gene_size = data.get('metadata', {}).get('gene_size', first_cell_dict.get('gene_size', GENE_SIZE))
+        # Create PetriDish with gene_rate_groups from cells
+        gene_rate_groups = cells[0].gene_rate_groups
+        n = cells[0].n
+        gene_size = cells[0].gene_size
         
-        # Determine rate configuration from METADATA (not cell dict - cells don't store rate info in lean format!)
-        metadata = data.get('metadata', {})
-        if 'gene_rate_groups' in metadata and metadata['gene_rate_groups'] is not None:
-            gene_rate_groups = [tuple(group) for group in metadata['gene_rate_groups']]
-            petri = PetriDish(
-                gene_rate_groups=gene_rate_groups,
-                n=n,
-                gene_size=gene_size,
-                seed=None
-            )
-        else:
-            # Use rate from metadata, fallback to old cell format, then default
-            rate = metadata.get('rate') or first_cell_dict.get('rate', 0.005)
-            petri = PetriDish(
-                rate=rate,
-                n=n,
-                gene_size=gene_size,
-                seed=None
-            )
-    else:
-        # Defaults if no cells
         petri = PetriDish(
-            rate=0.005,
-            n=1000,
-            gene_size=GENE_SIZE,
+            cells=cells,
+            gene_rate_groups=gene_rate_groups,
+            n=n,
+            gene_size=gene_size,
+            seed=None
+        )
+    else:
+        # No cells - create empty PetriDish with metadata info
+        metadata = data.get('metadata', {})
+        gene_rate_groups = metadata.get('gene_rate_groups')
+        if not gene_rate_groups:
+            # Convert from rate if available
+            rate = metadata.get('rate', 0.005)
+            n = metadata.get('n', 1000)
+            gene_size = metadata.get('gene_size', GENE_SIZE)
+            gene_rate_groups = rate_to_gene_rate_groups(rate, n, gene_size)
+        else:
+            gene_rate_groups = [tuple(group) for group in gene_rate_groups]
+            n = metadata.get('n', 1000)
+            gene_size = metadata.get('gene_size', GENE_SIZE)
+        
+        petri = PetriDish(
+            gene_rate_groups=gene_rate_groups,
+            n=n,
+            gene_size=gene_size,
             seed=None
         )
     
-    # Replace cells with loaded cells
-    # Detect format based on first cell
-    if data['cells'] and 'methylated' in data['cells'][0] and 'cpg_sites' not in data['cells'][0]:
-        # New lean format - use Cell.from_dict
-        rate = data.get('metadata', {}).get('rate')
-        gene_rate_groups = data.get('metadata', {}).get('gene_rate_groups')
-        gene_size = data.get('metadata', {}).get('gene_size', GENE_SIZE)
-        petri.cells = [Cell.from_dict(cd, rate=rate, gene_rate_groups=gene_rate_groups, 
-                                     gene_size=gene_size) for cd in data['cells']]
-    else:
-        # Old format or phase2 format - use dict_to_cell
-        petri.cells = [dict_to_cell(cd) for cd in data['cells']]
-    
-    # Validate consistency
-    petri._validate_cell_rate_consistency()
-    
     # Restore year if available
-    if 'year' in data['metadata']:
-        petri.year = data['metadata']['year']
-    
-    # Add metadata attribute if not exists
-    if not hasattr(petri, 'metadata'):
-        petri.metadata = {}
+    metadata = data.get('metadata', {})
+    if 'year' in metadata:
+        petri.year = metadata['year']
     
     # Restore metadata
-    petri.metadata = data.get('metadata', {})
+    petri.metadata = metadata
     
     # Restore cell history if requested and available
     if include_cell_history and 'cell_history' in data:
@@ -546,15 +610,14 @@ def mix_petri_with_snapshot(petri: PetriDish, snapshot_cells: List[Cell],
 
 
 def create_pure_snapshot_petri(snapshot_cells: List[Cell], n_cells: int = 5120, 
-                              rate: float = 0.005, seed: Optional[int] = None) -> PetriDish:
+                              seed: Optional[int] = None) -> PetriDish:
     """
     Create a PetriDish with pure snapshot cells (for control2).
-    Uses professional approach with proper initialization.
+    Uses gene_rate_groups from the cells themselves.
     
     Args:
         snapshot_cells: Cells to sample from
         n_cells: Number of cells to sample
-        rate: Methylation rate for the PetriDish
         seed: Random seed
     
     Returns:
@@ -574,27 +637,18 @@ def create_pure_snapshot_petri(snapshot_cells: List[Cell], n_cells: int = 5120,
     if not sampled_cells:
         raise ValueError("No cells sampled")
     
-    # Get first cell as template for rate configuration
+    # Validate all cells have same gene_rate_groups
+    PetriDish.validate_cells_compatible(sampled_cells)
+    
+    # Get configuration from first cell (all should be the same)
     first_cell = sampled_cells[0]
     
-    # Create PetriDish directly with all cells - simple and clean!
-    if first_cell.rate is not None:
-        # Uniform rate
-        petri = PetriDish(
-            cells=sampled_cells,  # Pass ALL cells directly - no bogus history!
-            rate=first_cell.rate,
-            n=first_cell.n,
-            gene_size=first_cell.gene_size,
-            growth_phase=7,  # Default for control2
-            calculate_cell_jsds=True
-        )
-    else:
-        # Gene-specific rates
-        petri = PetriDish(
-            cells=sampled_cells,  # Pass ALL cells directly - no bogus history!
-            gene_rate_groups=first_cell.gene_rate_groups,
-            n=first_cell.n,
-            gene_size=first_cell.gene_size,
+    # Create PetriDish with gene_rate_groups from cells
+    petri = PetriDish(
+        cells=sampled_cells,  # Pass ALL cells directly - no bogus history!
+        gene_rate_groups=first_cell.gene_rate_groups,
+        n=first_cell.n,
+        gene_size=first_cell.gene_size,
             growth_phase=7,  # Default for control2
             calculate_cell_jsds=True
         )
@@ -614,7 +668,6 @@ def create_control2_with_uniform_base(
     uniform_pool: List[Cell],
     uniform_indices: List[int],
     target_size: int,
-    rate: float = 0.005,
     seed: Optional[int] = None
 ) -> PetriDish:
     """
@@ -622,13 +675,13 @@ def create_control2_with_uniform_base(
     
     When using --uniform-mixing, Control2 shares the same 80% base cells as
     mutant and control1, plus additional random snapshot cells for the remaining 20%.
+    Uses gene_rate_groups from the cells themselves.
     
     Args:
         snapshot_cells: Full second snapshot cells to sample additional from
         uniform_pool: The shared cells used in all individuals (e.g., 80%)
         uniform_indices: Indices of cells already used in uniform pool
         target_size: Total number of cells needed
-        rate: Methylation rate for PetriDish
         seed: Random seed for additional sampling
     
     Returns:
@@ -668,33 +721,24 @@ def create_control2_with_uniform_base(
         # Just use subset of uniform pool
         combined_cells = combined_cells[:target_size]
     
-    # Get first cell as template for rate configuration
+    # Validate all cells have same gene_rate_groups
     if not combined_cells:
         raise ValueError("No cells in combined pool")
     
+    PetriDish.validate_cells_compatible(combined_cells)
+    
+    # Get configuration from first cell (all should be the same)
     first_cell = combined_cells[0]
     
-    # Create PetriDish directly with all cells - simple and clean!
-    if first_cell.rate is not None:
-        # Uniform rate
-        petri = PetriDish(
-            cells=combined_cells,  # Pass ALL cells directly - no bogus history!
-            rate=first_cell.rate,
-            n=first_cell.n,
-            gene_size=first_cell.gene_size,
-            growth_phase=7,  # Default for control2
-            calculate_cell_jsds=True
-        )
-    else:
-        # Gene-specific rates
-        petri = PetriDish(
-            cells=combined_cells,  # Pass ALL cells directly - no bogus history!
-            gene_rate_groups=first_cell.gene_rate_groups,
-            n=first_cell.n,
-            gene_size=first_cell.gene_size,
-            growth_phase=7,  # Default for control2
-            calculate_cell_jsds=True
-        )
+    # Create PetriDish with gene_rate_groups from cells
+    petri = PetriDish(
+        cells=combined_cells,  # Pass ALL cells directly - no bogus history!
+        gene_rate_groups=first_cell.gene_rate_groups,
+        n=first_cell.n,
+        gene_size=first_cell.gene_size,
+        growth_phase=7,  # Default for control2
+        calculate_cell_jsds=True
+    )
     
     # Set metadata
     petri.metadata = {

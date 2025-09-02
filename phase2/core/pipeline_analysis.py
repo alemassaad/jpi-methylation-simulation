@@ -23,7 +23,8 @@ from .pipeline_utils import load_petri_dish, load_all_petri_dishes, get_cell_jsd
 
 
 def plot_cell_jsd_distribution(cells: List[Cell], bins: int, output_path: str, 
-                              rate: Optional[float] = None, year: Optional[int] = None) -> None:
+                              gene_rate_groups: Optional[List[Tuple[int, float]]] = None, 
+                              year: Optional[int] = None) -> None:
     """
     Create histogram of cell JSD distribution from Cell objects.
     
@@ -31,7 +32,7 @@ def plot_cell_jsd_distribution(cells: List[Cell], bins: int, output_path: str,
         cells: List of Cell objects
         bins: Number of bins for histogram
         output_path: Path to save plot
-        rate: Methylation rate (optional, for display)
+        gene_rate_groups: Gene rate groups (optional, for display)
         year: Year to display in title (optional, otherwise uses cell.age)
     """
     print(f"\nPlotting Cell JSD distribution...")
@@ -118,11 +119,17 @@ def plot_cell_jsd_distribution(cells: List[Cell], bins: int, output_path: str,
     else:
         display_year = cells[0].age if cells else 'unknown'
     
-    # Format rate as percentage if provided
+    # Format gene rate groups for display if provided
     rate_text = ""
-    if rate is not None:
-        rate_percentage = rate * 100
-        rate_text = f" | {rate_percentage:.1f}% methylation rate"
+    if gene_rate_groups is not None:
+        # Check if uniform rate (all groups have same rate)
+        rates = set(rate for _, rate in gene_rate_groups)
+        if len(rates) == 1:
+            rate_percentage = list(rates)[0] * 100
+            rate_text = f" | {rate_percentage:.1f}% methylation rate"
+        else:
+            # Show gene groups summary
+            rate_text = f" | {len(gene_rate_groups)} gene rate groups"
     
     fig.update_layout(
         title=dict(

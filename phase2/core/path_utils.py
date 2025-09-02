@@ -5,6 +5,7 @@ Utilities for parsing and generating hierarchical paths for phase1 and phase2.
 
 import os
 import re
+import numpy as np
 from datetime import datetime
 from typing import Dict, Optional
 
@@ -13,9 +14,10 @@ def parse_step1_simulation_path(filepath: str) -> Optional[Dict]:
     """
     Parse parameters from phase1 simulation path.
     
-    Handles both old and new formats:
+    Handles multiple formats:
     - Old: simulation_rate_0.005000_g13_n100_m957_t100_seed42.json.gz
-    - New: data/rate_0.00500/grow13-sites100-years100-seed42-a3f2/simulation.json.gz
+    - Newer: data/rate_0.00500/grow13-sites100-years100-seed42-a3f2/simulation.json.gz
+    - Newest: data/gene_rates_200x0.00500/size8192-sites1000-genesize5-years100-seed42-YYYYMMDD-HHMMSS/simulation.json.gz
     
     Returns:
         Dictionary with rate, growth_phase, n_sites, sim_years, sim_seed
@@ -23,6 +25,26 @@ def parse_step1_simulation_path(filepath: str) -> Optional[Dict]:
     # Try new hierarchical format first (both compressed and uncompressed)
     if 'simulation.json' in filepath:
         # Extract from directory structure
+        
+        # Pattern for newest format with size instead of grow
+        # .../gene_rates_.../size8192-sites1000-genesize5-years100-seed42-YYYYMMDD-HHMMSS/simulation.json.gz
+        pattern = r"gene_rates_[^/]+/size(\d+)-sites(\d+)-genesize(\d+)-years(\d+)-(seed\d+|noseed)-"
+        match = re.search(pattern, filepath)
+        if match:
+            size = int(match.group(1))
+            growth_phase = int(np.log2(size)) if size > 0 else 0
+            seed_str = match.group(5)
+            seed = int(seed_str.replace('seed', '')) if seed_str != 'noseed' else None
+            return {
+                'rate': None,  # Gene-specific rates, not a single rate
+                'growth_phase': growth_phase,
+                'n_sites': int(match.group(2)),
+                'gene_size': int(match.group(3)),
+                'sim_years': int(match.group(4)),
+                'sim_seed': seed
+            }
+        
+        # Pattern for older format with grow
         # Pattern for uniform rate: .../rate_X.XXXXX/growG-sitesN-yearsT-seedS-HASH/simulation.json.gz
         pattern = r"rate_([\d.]+)/grow(\d+)-sites(\d+)-years(\d+)-(seed\d+|noseed)-"
         match = re.search(pattern, filepath)
@@ -37,7 +59,7 @@ def parse_step1_simulation_path(filepath: str) -> Optional[Dict]:
                 'sim_seed': seed
             }
         
-        # Pattern for gene-specific rates: .../gene_rates_.../growG-sitesN-yearsT-seedS-HASH/simulation.json.gz
+        # Pattern for gene-specific rates with grow: .../gene_rates_.../growG-sitesN-yearsT-seedS-HASH/simulation.json.gz
         pattern = r"gene_rates_[^/]+/grow(\d+)-sites(\d+)-years(\d+)-(seed\d+|noseed)-"
         match = re.search(pattern, filepath)
         if match:

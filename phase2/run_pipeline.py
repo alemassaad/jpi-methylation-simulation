@@ -32,7 +32,7 @@ except ImportError:
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 sys.path.append(os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'phase1'))
-from cell import PetriDish, Cell, PetriDishPlotter
+from cell import PetriDish, Cell, PetriDishPlotter, rate_to_gene_rate_groups
 from core.individual_helpers import (
     create_individual, process_batch_growth, process_batch_mixing
 )
@@ -276,6 +276,51 @@ def validate_gene_rate_groups(groups: List[Tuple[int, float]], n_sites: int, gen
             raise ValueError(f"Rate must be between 0 and 1, got {rate}")
 
 
+def validate_all_gene_rate_groups(
+    expected: List[Tuple[int, float]], 
+    petri_dishes: List[PetriDish] = None,
+    cells: List[Cell] = None,
+    label: str = ""
+) -> None:
+    """Validate all objects have expected gene_rate_groups.
+    
+    Args:
+        expected: Expected gene rate groups
+        petri_dishes: Optional list of PetriDish objects to validate
+        cells: Optional list of Cell objects to validate
+        label: Description for error messages
+    """
+    if petri_dishes:
+        for i, petri in enumerate(petri_dishes):
+            # Check PetriDish itself
+            if petri.gene_rate_groups != expected:
+                raise ValueError(
+                    f"{label} PetriDish {i} has wrong gene_rate_groups!\n"
+                    f"  Expected: {expected}\n"
+                    f"  Found: {petri.gene_rate_groups}"
+                )
+            
+            # Check all cells in the dish
+            for j, cell in enumerate(petri.cells):
+                if cell.gene_rate_groups != expected:
+                    raise ValueError(
+                        f"{label} PetriDish {i}, Cell {j} has wrong gene_rate_groups!\n"
+                        f"  Expected: {expected}\n"
+                        f"  Found: {cell.gene_rate_groups}"
+                    )
+    
+    if cells:
+        for i, cell in enumerate(cells):
+            if cell.gene_rate_groups != expected:
+                raise ValueError(
+                    f"{label} Cell {i} has wrong gene_rate_groups!\n"
+                    f"  Expected: {expected}\n"
+                    f"  Found: {cell.gene_rate_groups}"
+                )
+    
+    print(f"✓ {label}: All gene_rate_groups verified as {expected}")
+
+
 def calculate_timeline_metrics(first_snapshot: int, second_snapshot: int, individual_growth_phase: int) -> dict:
     """Calculate all timeline-related metrics."""
     timeline_duration = second_snapshot - first_snapshot
@@ -384,13 +429,13 @@ def print_timeline_breakdown(metrics: dict, first_snapshot: int, second_snapshot
     print(f"   Target population: {target_cells:,} cells (2^{exponential_years})")
 
 
-def run_pipeline(args, rate_config):
+def run_pipeline(args):
     """
     Main pipeline orchestrator using PetriDish objects.
+    Now uses gene_rate_groups as the single internal representation.
     
     Args:
         args: Command-line arguments
-        rate_config: Dictionary with rate configuration (uniform or gene-specific)
     """
     # Calculate derived values and validate using new helper functions
     metrics = validate_timeline_parameters(args.first_snapshot, args.second_snapshot, args.individual_growth_phase)
@@ -446,15 +491,58 @@ def run_pipeline(args, rate_config):
         args.use_compression = True
         print(f"Compression strategy: compressed (.json.gz) [default]")
     
-    # Parse simulation parameters from input file
+    # Load simulation and get its parameters
+    print("Loading simulation parameters...")
+    with gzip.open(args.simulation, 'rt') if args.simulation.endswith('.gz') else open(args.simulation, 'r') as f:
+        sim_data = json.load(f)
+    
+    sim_params_raw = sim_data['parameters']
+    n_sites = sim_params_raw.get('n', 1000)
+    gene_size = sim_params_raw.get('gene_size', 5)
+    
+    # Get gene_rate_groups from simulation
+    sim_gene_rate_groups = sim_params_raw.get('gene_rate_groups')
+    if not sim_gene_rate_groups:
+        # Convert rate to gene_rate_groups for old simulations
+        if 'rate' in sim_params_raw:
+            sim_gene_rate_groups = rate_to_gene_rate_groups(
+                sim_params_raw['rate'], n_sites, gene_size
+            )
+        else:
+            raise ValueError("Simulation has no rate configuration!")
+    
+    # Convert to tuples
+    sim_gene_rate_groups = [tuple(group) for group in sim_gene_rate_groups]
+    
+    # Get gene_rate_groups from arguments
+    if args.gene_rate_groups:
+        args_gene_rate_groups = parse_gene_rate_groups(args.gene_rate_groups)
+        # Validate they're valid for the n_sites
+        validate_gene_rate_groups(args_gene_rate_groups, n_sites, gene_size)
+    elif args.rate:
+        args_gene_rate_groups = rate_to_gene_rate_groups(args.rate, n_sites, gene_size)
+    else:
+        raise ValueError("Either --rate or --gene-rate-groups required")
+    
+    # Verify simulation matches arguments
+    if sim_gene_rate_groups != args_gene_rate_groups:
+        raise ValueError(
+            f"FATAL: Rate configuration mismatch!\n"
+            f"  Simulation has: gene_rate_groups={sim_gene_rate_groups}\n"
+            f"  You specified: gene_rate_groups={args_gene_rate_groups}\n"
+            f"  These must match exactly.\n"
+            f"  Please use the same rate configuration as the simulation."
+        )
+    
+    # This is THE gene_rate_groups for the entire pipeline
+    gene_rate_groups = sim_gene_rate_groups
+    print(f"✓ Pipeline gene_rate_groups: {gene_rate_groups}")
+    
+    # Parse simulation parameters from input file (for path generation)
     sim_params = parse_step1_simulation_path(args.simulation)
     if not sim_params:
         print(f"Error: Could not parse simulation parameters from {args.simulation}")
         sys.exit(1)
-    
-    # Validate gene rate groups if using them
-    if rate_config['type'] == 'gene_specific':
-        validate_gene_rate_groups(rate_config['gene_rate_groups'], sim_params['n_sites'], args.gene_size)
     
     # Calculate total expected individuals
     expected_individuals = args.n_quantiles * args.cells_per_quantile
@@ -476,7 +564,7 @@ def run_pipeline(args, rate_config):
     print("=" * 80)
     print("PHASE 2 PIPELINE")
     print("=" * 80)
-    print(f"Rate: {args.rate}")
+    print(f"Gene rate groups: {gene_rate_groups}")
     print(f"Simulation: {args.simulation}")
     print(f"Output: {base_dir}")
     print(f"Quantiles: {args.n_quantiles} ({'quartiles' if args.n_quantiles == 4 else 'deciles' if args.n_quantiles == 10 else f'{args.n_quantiles}-tiles'})")
@@ -507,7 +595,10 @@ def run_pipeline(args, rate_config):
         print(f"  Loaded {len(first_snapshot_cells)} Cell objects")
     else:
         print(f"  ✓ Extracting year {args.first_snapshot} from simulation...")
-        first_snapshot_cells = load_snapshot_as_cells(args.simulation, args.first_snapshot)
+        first_snapshot_cells = load_snapshot_as_cells(
+            args.simulation, args.first_snapshot, 
+            expected_gene_rate_groups=gene_rate_groups
+        )
         save_snapshot_cells(first_snapshot_cells, first_snapshot_path, compress=args.use_compression)
         print(f"  Cached {len(first_snapshot_cells)} cells for future use")
     
@@ -519,10 +610,9 @@ def run_pipeline(args, rate_config):
     print(f"{'='*60}")
     
     plot_path = os.path.join(results_dir, f"year{args.first_snapshot}_jsd_distribution_{args.bins}bins.png")
-    # Use args.rate if available, otherwise None (for gene-specific rates)
-    plot_rate = args.rate if hasattr(args, 'rate') and args.rate is not None else None
+    # Pass gene_rate_groups for plot labeling
     plot_cell_jsd_distribution(first_snapshot_cells, args.bins, plot_path, 
-                                    rate=plot_rate, year=args.first_snapshot)
+                                    gene_rate_groups=gene_rate_groups, year=args.first_snapshot)
     
     # ========================================================================
     # STAGE 3: Create Initial Individuals (as PetriDish objects)
@@ -608,6 +698,18 @@ def run_pipeline(args, rate_config):
         
         print(f"  Created and saved {len(control1_dishes)} control1 individuals")
     
+    # Validate all initial individuals have correct gene_rate_groups
+    validate_all_gene_rate_groups(
+        expected=gene_rate_groups,
+        petri_dishes=mutant_dishes,
+        label="Mutant individuals"
+    )
+    validate_all_gene_rate_groups(
+        expected=gene_rate_groups,
+        petri_dishes=control1_dishes,
+        label="Control1 individuals"
+    )
+    
     # ========================================================================
     # STAGE 4: Grow Individuals (using PetriDish methods with homeostasis)
     # ========================================================================
@@ -678,7 +780,10 @@ def run_pipeline(args, rate_config):
         print(f"  Loaded {len(second_snapshot_cells)} Cell objects")
     else:
         print(f"  ✓ Extracting year {args.second_snapshot} from simulation...")
-        second_snapshot_cells = load_snapshot_as_cells(args.simulation, args.second_snapshot)
+        second_snapshot_cells = load_snapshot_as_cells(
+            args.simulation, args.second_snapshot,
+            expected_gene_rate_groups=gene_rate_groups
+        )
         save_snapshot_cells(second_snapshot_cells, second_snapshot_path, compress=args.use_compression)
         print(f"  Cached {len(second_snapshot_cells)} cells for future use")
     
@@ -690,10 +795,9 @@ def run_pipeline(args, rate_config):
     print(f"{'='*60}")
     
     second_plot_path = os.path.join(results_dir, f"year{args.second_snapshot}_jsd_distribution_{args.bins}bins.png")
-    # Use args.rate if available, otherwise None (for gene-specific rates)
-    plot_rate = args.rate if hasattr(args, 'rate') and args.rate is not None else None
+    # Pass gene_rate_groups for plot labeling
     plot_cell_jsd_distribution(second_snapshot_cells, args.bins, second_plot_path, 
-                                    rate=plot_rate, year=args.second_snapshot)
+                                    gene_rate_groups=gene_rate_groups, year=args.second_snapshot)
     
     # ========================================================================
     # STAGE 6: Mix Populations
@@ -705,6 +809,14 @@ def run_pipeline(args, rate_config):
     # Reload current dishes for mixing (with history if tracking)
     mutant_dishes = load_all_petri_dishes(mutant_dir, include_cell_history=True)
     control1_dishes = load_all_petri_dishes(control1_dir, include_cell_history=True)
+    
+    # Validate compatibility before mixing
+    print("  Validating cell compatibility for mixing...")
+    if mutant_dishes and second_snapshot_cells:
+        sample_grown = mutant_dishes[0].cells[:5]
+        sample_snapshot = second_snapshot_cells[:5]
+        PetriDish.validate_cells_compatible(sample_grown + sample_snapshot)
+        print("  ✓ Grown and snapshot cells are compatible")
     
     # Apply normalization if requested
     normalization_threshold = None
@@ -979,7 +1091,6 @@ def run_pipeline(args, rate_config):
                     uniform_pool_for_control2,
                     uniform_indices_for_control2,
                     actual_control2_size,
-                    rate=args.rate,
                     seed=args.seed + 300 + i
                 )
                 
@@ -996,7 +1107,7 @@ def run_pipeline(args, rate_config):
             else:
                 # Original random sampling
                 petri = create_pure_snapshot_petri(second_snapshot_cells, n_cells=actual_control2_size,
-                                                  rate=args.rate, seed=args.seed + 300 + i)
+                                                  seed=args.seed + 300 + i)
                 
                 # Add metadata
                 if not hasattr(petri, 'metadata'):
@@ -1016,6 +1127,13 @@ def run_pipeline(args, rate_config):
                           include_gene_metrics=True, compress=args.use_compression)
         
         print(f"  Created and saved {len(control2_dishes)} control2 individuals")
+    
+    # Validate control2 has correct gene_rate_groups
+    validate_all_gene_rate_groups(
+        expected=gene_rate_groups,
+        petri_dishes=control2_dishes,
+        label="Control2 individuals"
+    )
     
         # ========================================================================
         # Generate Individual Growth Trajectories
@@ -1391,25 +1509,6 @@ def run_pipeline(args, rate_config):
         return summary_stats
 
 
-    def create_petri_with_rate_config(rate_config: dict, growth_phase: int, n: int = 1000) -> PetriDish:
-        """Create PetriDish with proper rate configuration.
-
-        Args:
-            rate_config: Dictionary with rate configuration
-            growth_phase: Years of exponential growth
-            n: Number of CpG sites (default 1000)
-        """
-        if rate_config['type'] == 'uniform':
-            return PetriDish(rate=rate_config['rate'], growth_phase=growth_phase, n=n)
-        else:
-            return PetriDish(
-                gene_rate_groups=rate_config['gene_rate_groups'],
-                gene_size=rate_config['gene_size'],
-                growth_phase=growth_phase,
-                n=n
-            )
-
-
 def main():
     parser = argparse.ArgumentParser(
         description="Phase 2 Pipeline using PetriDish and Cell classes",
@@ -1488,20 +1587,8 @@ def main():
     # Validate final configuration
     validate_pipeline_config(args)
     
-    # Parse rate configuration
-    if args.gene_rate_groups:
-        gene_rate_groups = parse_gene_rate_groups(args.gene_rate_groups)
-        # Note: Gene rate group validation will happen in run_pipeline after we parse sim_params
-        rate_config = {
-            'type': 'gene_specific',
-            'gene_rate_groups': gene_rate_groups,
-            'gene_size': args.gene_size
-        }
-    else:
-        rate_config = {
-            'type': 'uniform',
-            'rate': args.rate
-        }
+    # Validate rate configuration (rate or gene_rate_groups must be specified)
+    # Actual parsing and validation happens in run_pipeline()
     
     # Handle glob patterns in simulation file path
     import glob
@@ -1525,8 +1612,8 @@ def main():
         print(f"Error: Simulation file must be .json or .json.gz, got: {args.simulation}")
         sys.exit(1)
     
-    # Run pipeline
-    run_pipeline(args, rate_config)
+    # Run pipeline (no rate_config needed anymore)
+    run_pipeline(args)
 
 
 if __name__ == "__main__":

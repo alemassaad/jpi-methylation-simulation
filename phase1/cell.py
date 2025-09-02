@@ -603,10 +603,12 @@ class PetriDish:
         
         # Level 2: Parameters with hyphen separators
         seed_str = f"seed{self.seed}" if self.seed is not None else "noseed"
-        params_str = f"grow{self.growth_phase}-sites{self.n}-years{self.year}-{seed_str}"
+        # Use size instead of grow for clarity (size = 2^growth_phase)
+        population_size = 2 ** self.growth_phase
+        params_str = f"size{population_size}-sites{self.n}-genesize{self.gene_size}-years{self.year}-{seed_str}"
         
-        # Add timestamp for uniqueness (YYYYMMDDHHMMSS format)
-        timestamp = datetime.now().strftime("%Y%m%d%H%M%S")
+        # Add timestamp for uniqueness (YYYYMMDD-HHMMSS format)
+        timestamp = datetime.now().strftime("%Y%m%d-%H%M%S")
         level2 = f"{params_str}-{timestamp}"
         
         # Create full directory path

@@ -249,7 +249,7 @@ Key methods:
 ### Directory Structure
 ```
 # Phase 1 output:
-phase1/data/rate_0.00500/grow13-sites1000-years100-seed42-XXXX/
+phase1/data/gene_rates_200x0.00500/size8192-sites1000-genesize5-years100-seed42-YYYYMMDD-HHMMSS/
   ├── simulation.json.gz      # Full history (lean format)
   ├── simulation.json         # If --no-compress used
   ├── jsd_history.png         # Cell JSD trajectory plot

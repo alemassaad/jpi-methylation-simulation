@@ -18,7 +18,7 @@ simulation:
 output:
   directory: "data"              # Base directory for output
   filename: null                 # Output filename (auto-generated if null)
-  compress: false                 # Save as .json.gz if true, .json if false
+  compress: false                # Save as .json.gz if true, .json if false
   save: true                     # Whether to save results
 
 # Performance options

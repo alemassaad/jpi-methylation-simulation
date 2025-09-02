@@ -71,8 +71,8 @@ python run_simulation.py --gene-rate-groups "50:0.004,50:0.005,50:0.006,50:0.007
 python run_simulation.py --rate 0.005 --no-compress
 
 # Output will be in hierarchical structure:
-# data/rate_0.00500/grow13-sites1000-years100-seed42-XXXX/simulation.json.gz
-# Or: data/gene_rates_50x0.004_50x0.005.../simulation.json.gz
+# data/gene_rates_200x0.00500/size8192-sites1000-genesize5-years100-seed42-YYYYMMDD-HHMMSS/simulation.json.gz
+# Or: data/gene_rates_50x0.004_50x0.005.../size8192-sites1000-genesize5-years100-seed42-YYYYMMDD-HHMMSS/simulation.json.gz
 ```
 
 ### Phase 2: Analysis Pipeline
@@ -84,7 +84,7 @@ python run_pipeline.py --config configs/standard.yaml
 
 # Standard analysis (30 individuals from 10 deciles)
 python run_pipeline.py --rate 0.005 \
-    --simulation ../phase1/data/rate_0.00500/grow13-*/simulation.json.gz \
+    --simulation ../phase1/data/gene_rates_*/size8192-*/simulation.json.gz \
     --first-snapshot 50 --second-snapshot 60 \
     --individual-growth-phase 7 --seed 42
 
@@ -95,13 +95,13 @@ python run_pipeline.py --gene-rate-groups "50:0.004,50:0.005,50:0.006,50:0.007" 
 
 # Quick test (4 individuals from quartiles, short growth)
 python run_pipeline.py --rate 0.005 \
-    --simulation ../phase1/data/rate_0.00500/grow13-*/simulation.json.gz \
+    --simulation ../phase1/data/gene_rates_*/size8192-*/simulation.json.gz \
     --first-snapshot 10 --second-snapshot 15 \
     --individual-growth-phase 3 \
     --n-quantiles 4 --cells-per-quantile 1
 
 # Output structure:
-# data/rate_0.00500-grow13-sites1000-years100/
+# data/gene_rates_200x0.00500-size8192-sites1000-years100/
 #   └── snap50to60-growth7-quant10x3-mix80-seed42-XXXX/
 #       ├── snapshots/     # Cached year 50 and 60 extracts
 #       ├── individuals/   # Mutant, Control1, Control2 populations
@@ -173,7 +173,7 @@ cd phase2
 # Full run with all parameters
 python run_pipeline.py \
     --rate 0.005 \
-    --simulation ../phase1/data/rate_0.00500/grow13-*/simulation.json.gz \
+    --simulation ../phase1/data/gene_rates_*/size8192-*/simulation.json.gz \
     --first-snapshot 50 \           # First snapshot year
     --second-snapshot 60 \          # Second snapshot year  
     --individual-growth-phase 7 \   # Growth before homeostasis (2^7=128 cells)
@@ -225,10 +225,10 @@ python run_pipeline.py \
 ### Hierarchical Directory Structure
 ```
 phase1 output:
-data/rate_0.00500/grow13-sites1000-years100-seed42-XXXX/simulation.json.gz
+data/gene_rates_200x0.00500/size8192-sites1000-genesize5-years100-seed42-YYYYMMDD-HHMMSS/simulation.json.gz
 
 phase2 output:
-data/rate_0.00500-grow13-sites1000-years100/
+data/gene_rates_200x0.00500-size8192-sites1000-years100/
   └── snap50to60-growth7-quant10x3-mix80[u][n]-seed42-XXXX/
       ├── snapshots/
       ├── individuals/

@@ -186,10 +186,13 @@ def plot_cell_methylation_histogram(cells: List[Cell], bins: int, output_path: s
     # Calculate methylation proportion for each cell
     methylation_props = []
     for cell in cells:
-        if hasattr(cell, 'methylated'):
+        if hasattr(cell, 'cpg_sites'):
+            prop = np.sum(cell.cpg_sites) / len(cell.cpg_sites)
+        elif hasattr(cell, 'methylated'):
+            # Fallback for old format
             prop = np.sum(cell.methylated) / len(cell.methylated)
         else:
-            # Fallback if cell doesn't have methylated array
+            # Last resort fallback
             prop = 0.0
         methylation_props.append(prop)
     
@@ -463,7 +466,10 @@ def analyze_cell_methylation_comparison(mutant_dishes: List[PetriDish],
             # Calculate methylation proportion for each cell
             cell_methylations = []
             for cell in petri.cells:
-                if hasattr(cell, 'methylated'):
+                if hasattr(cell, 'cpg_sites'):
+                    prop = np.sum(cell.cpg_sites) / len(cell.cpg_sites)
+                elif hasattr(cell, 'methylated'):
+                    # Fallback for old format
                     prop = np.sum(cell.methylated) / len(cell.methylated)
                 else:
                     prop = 0.0

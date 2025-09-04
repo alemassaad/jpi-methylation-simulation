@@ -168,6 +168,415 @@ def plot_cell_jsd_distribution(cells: List[Cell], bins: int, output_path: str,
     print(f"  Saved plot to {output_path}")
 
 
+def plot_cell_methylation_histogram(cells: List[Cell], bins: int, output_path: str,
+                                   gene_rate_groups: Optional[List[Tuple[int, float]]] = None,
+                                   year: Optional[int] = None) -> None:
+    """
+    Create histogram of cell methylation proportion distribution from Cell objects.
+    
+    Args:
+        cells: List of Cell objects
+        bins: Number of bins for histogram
+        output_path: Path to save plot
+        gene_rate_groups: Gene rate groups (optional, for display)
+        year: Year to display in title (optional, otherwise uses cell.age)
+    """
+    print(f"\nPlotting Cell Methylation distribution...")
+    
+    # Calculate methylation proportion for each cell
+    methylation_props = []
+    for cell in cells:
+        if hasattr(cell, 'methylated'):
+            prop = np.sum(cell.methylated) / len(cell.methylated)
+        else:
+            # Fallback if cell doesn't have methylated array
+            prop = 0.0
+        methylation_props.append(prop)
+    
+    methylation_props = np.array(methylation_props)
+    
+    # Calculate statistics
+    mean_meth = np.mean(methylation_props)
+    std_meth = np.std(methylation_props)
+    median_meth = np.median(methylation_props)
+    cv_meth = std_meth / mean_meth if mean_meth > 0 else 0
+    mad_meth = np.median(np.abs(methylation_props - median_meth))
+    p5_meth = np.percentile(methylation_props, 5)
+    p25_meth = np.percentile(methylation_props, 25)
+    p75_meth = np.percentile(methylation_props, 75)
+    p95_meth = np.percentile(methylation_props, 95)
+    
+    # Create figure
+    fig = go.Figure()
+    
+    # Calculate histogram data for step plot
+    counts, bin_edges = np.histogram(methylation_props, bins=bins)
+    
+    # Create step plot data
+    x_step = []
+    y_step = []
+    for i in range(len(counts)):
+        x_step.extend([bin_edges[i], bin_edges[i+1]])
+        y_step.extend([counts[i], counts[i]])
+    
+    # Add step histogram with fill (use different color - red/orange theme)
+    fig.add_trace(go.Scatter(
+        x=x_step,
+        y=y_step,
+        mode='lines',
+        name='Cell Methylation Distribution',
+        line=dict(color='#d62728', width=2),  # Red color for methylation
+        fill='tozeroy',
+        fillcolor='rgba(214, 39, 40, 0.3)',
+        showlegend=False,
+        hovertemplate='Methylation: %{x:.4f}<br>Count: %{y}<extra></extra>'
+    ))
+    
+    # Add mean line
+    fig.add_vline(
+        x=mean_meth,
+        line_dash="solid",
+        line_color="darkblue",
+        line_width=2,
+        annotation_text=f"Mean: {mean_meth:.4f}",
+        annotation_position="top right"
+    )
+    
+    # Add statistics box in top right corner
+    stats_text = (f"<b>Statistics</b><br>"
+                  f"Mean: {mean_meth:.4f}<br>"
+                  f"Median: {median_meth:.4f}<br>"
+                  f"SD: {std_meth:.4f}<br>"
+                  f"CV: {cv_meth:.3f}<br>"
+                  f"MAD: {mad_meth:.4f}<br>"
+                  f"5%: {p5_meth:.4f}<br>"
+                  f"95%: {p95_meth:.4f}")
+    
+    fig.add_annotation(
+        text=stats_text,
+        xref="paper", yref="paper",
+        x=0.98,
+        y=0.97,
+        showarrow=False,
+        font=dict(size=11, family="Arial"),
+        align="right",
+        xanchor="right",
+        yanchor="top",
+        bgcolor="rgba(255, 255, 255, 0.9)",
+        bordercolor="#333333",
+        borderwidth=1
+    )
+    
+    # Update layout
+    if year is not None:
+        display_year = year
+    else:
+        display_year = cells[0].age if cells else 'unknown'
+    
+    # Format gene rate groups for display if provided
+    rate_text = ""
+    if gene_rate_groups is not None:
+        rates = set(rate for _, rate in gene_rate_groups)
+        if len(rates) == 1:
+            rate_percentage = list(rates)[0] * 100
+            rate_text = f" | {rate_percentage:.1f}% methylation rate"
+        else:
+            rate_text = f" | {len(gene_rate_groups)} gene rate groups"
+    
+    fig.update_layout(
+        title=dict(
+            text=f"Cell Methylation Distribution at Year {display_year}<br>"
+                 f"<sub>{len(cells)} cells{rate_text}</sub>",
+            font=dict(size=16)
+        ),
+        xaxis_title="Methylation Proportion",
+        yaxis_title="Count",
+        template="plotly_white",
+        width=1200,
+        height=600,
+        showlegend=False
+    )
+    
+    # Update axes with grid
+    fig.update_xaxes(
+        showgrid=True,
+        gridwidth=1,
+        gridcolor='lightgray',
+        zeroline=True,
+        zerolinewidth=1,
+        zerolinecolor='gray'
+    )
+    
+    fig.update_yaxes(
+        showgrid=True,
+        gridwidth=1,
+        gridcolor='lightgray'
+    )
+    
+    # Save
+    if os.path.dirname(output_path):
+        os.makedirs(os.path.dirname(output_path), exist_ok=True)
+    fig.write_image(output_path, width=1200, height=600, scale=2)
+    print(f"  Saved plot to {output_path}")
+
+
+def plot_gene_jsd_snapshot_histogram(snapshot_cells: List[Cell], output_path: str,
+                                    gene_rate_groups: Optional[List[Tuple[int, float]]] = None,
+                                    year: Optional[int] = None, bins: int = 20) -> None:
+    """
+    Plot histogram of gene-level JSD values calculated from snapshot cells.
+    
+    Args:
+        snapshot_cells: List of Cell objects from snapshot
+        output_path: Path to save the histogram
+        gene_rate_groups: Optional gene rate groups for display
+        year: Optional year for title
+        bins: Number of bins for histogram (default 20 for 20 genes)
+    """
+    print(f"\nPlotting Gene-level JSD histogram...")
+    
+    # Get parameters from the first cell
+    if snapshot_cells:
+        first_cell = snapshot_cells[0]
+        if not gene_rate_groups:
+            gene_rate_groups = first_cell.gene_rate_groups
+        n = len(first_cell.cpg_sites)
+        gene_size = first_cell.gene_size
+    else:
+        # Defaults if no cells
+        n = 1000
+        gene_size = 5
+    
+    # Create temporary PetriDish with provided cells
+    temp_petri = PetriDish(
+        gene_rate_groups=gene_rate_groups,
+        n=n,  # Use n from the cells
+        gene_size=gene_size,  # Use gene_size from the cells
+        growth_phase=None,  # Static population (no aging)
+        calculate_cell_jsds=False,  # We don't need cell JSDs for this
+        cells=snapshot_cells  # Use provided cells directly
+    )
+    
+    # Calculate gene-level JSD values (one per gene)
+    gene_jsds = temp_petri.calculate_gene_jsd()
+    
+    print(f"  Calculated JSD for {len(gene_jsds)} genes")
+    print(f"  Mean gene JSD: {np.mean(gene_jsds):.4f}")
+    print(f"  Median gene JSD: {np.median(gene_jsds):.4f}")
+    print(f"  Std gene JSD: {np.std(gene_jsds):.4f}")
+    
+    # Create histogram
+    fig = go.Figure()
+    
+    # Add histogram
+    fig.add_trace(go.Histogram(
+        x=gene_jsds,
+        nbinsx=bins,
+        marker=dict(
+            color='blue',
+            line=dict(color='black', width=1)
+        ),
+        opacity=0.7
+    ))
+    
+    # Add statistics box
+    stats_text = (
+        f"<b>Statistics:</b><br>"
+        f"N genes: {len(gene_jsds)}<br>"
+        f"Mean: {np.mean(gene_jsds):.4f}<br>"
+        f"Median: {np.median(gene_jsds):.4f}<br>"
+        f"Std Dev: {np.std(gene_jsds):.4f}<br>"
+        f"Min: {np.min(gene_jsds):.4f}<br>"
+        f"Max: {np.max(gene_jsds):.4f}"
+    )
+    
+    # Add annotation with statistics
+    fig.add_annotation(
+        text=stats_text,
+        xref="paper", yref="paper",
+        x=0.98, y=0.98,
+        showarrow=False,
+        bordercolor="gray",
+        borderwidth=1,
+        bgcolor="rgba(255, 255, 255, 0.9)",
+        align="left",
+        font=dict(size=11)
+    )
+    
+    # Format title
+    display_year = f" {year}" if year is not None else ""
+    rate_text = ""
+    if gene_rate_groups:
+        if len(gene_rate_groups) == 1:
+            rate_text = f" | {gene_rate_groups[0][0]} genes at {gene_rate_groups[0][1]:.1%}"
+        else:
+            rate_text = f" | {len(gene_rate_groups)} gene rate groups"
+    
+    fig.update_layout(
+        title=dict(
+            text=f"Gene-level JSD Distribution at Year{display_year}<br>"
+                 f"<sub>{len(gene_jsds)} genes{rate_text}</sub>",
+            font=dict(size=16)
+        ),
+        xaxis_title="Gene-level JSD Score",
+        yaxis_title="Count",
+        template="plotly_white",
+        width=1200,
+        height=600,
+        showlegend=False
+    )
+    
+    # Update axes with grid
+    fig.update_xaxes(showgrid=True, gridcolor='rgba(0,0,0,0.1)')
+    fig.update_yaxes(showgrid=True, gridcolor='rgba(0,0,0,0.1)')
+    
+    # Save
+    if os.path.dirname(output_path):
+        os.makedirs(os.path.dirname(output_path), exist_ok=True)
+    fig.write_image(output_path, width=1200, height=600, scale=2)
+    print(f"  Saved plot to {output_path}")
+
+
+def analyze_cell_methylation_comparison(mutant_dishes: List[PetriDish],
+                                       control1_dishes: List[PetriDish],
+                                       control2_dishes: List[PetriDish],
+                                       output_dir: str) -> Dict[str, Any]:
+    """
+    Analyze and compare cell methylation proportions across three population groups.
+    
+    Args:
+        mutant_dishes: List of mutant PetriDish objects
+        control1_dishes: List of control1 PetriDish objects
+        control2_dishes: List of control2 PetriDish objects
+        output_dir: Directory to save results
+    
+    Returns:
+        Dictionary with results and plot paths
+    """
+    print(f"\nAnalyzing cell methylation proportions from PetriDish objects...")
+    
+    # Helper function to get mean methylation proportion for each dish
+    def get_mean_methylation_from_dishes(dishes: List[PetriDish]) -> np.ndarray:
+        """Get mean methylation proportion for each PetriDish."""
+        mean_methylations = []
+        for petri in dishes:
+            # Calculate methylation proportion for each cell
+            cell_methylations = []
+            for cell in petri.cells:
+                if hasattr(cell, 'methylated'):
+                    prop = np.sum(cell.methylated) / len(cell.methylated)
+                else:
+                    prop = 0.0
+                cell_methylations.append(prop)
+            # Average across all cells in the dish
+            mean_methylation = np.mean(cell_methylations) if cell_methylations else 0.0
+            mean_methylations.append(mean_methylation)
+        
+        return np.array(mean_methylations)
+    
+    # Get mean methylation values for each group
+    mutant_methylations = get_mean_methylation_from_dishes(mutant_dishes)
+    control1_methylations = get_mean_methylation_from_dishes(control1_dishes)
+    control2_methylations = get_mean_methylation_from_dishes(control2_dishes)
+    
+    print(f"  Mutant: {len(mutant_methylations)} individuals")
+    print(f"  Control1: {len(control1_methylations)} individuals")
+    print(f"  Control2: {len(control2_methylations)} individuals")
+    
+    # Create methylation analysis structure
+    methylation_analysis = {
+        "summary_statistics": {
+            "mutant": {
+                "mean": float(np.mean(mutant_methylations)),
+                "std": float(np.std(mutant_methylations)),
+                "median": float(np.median(mutant_methylations)),
+                "min": float(np.min(mutant_methylations)),
+                "max": float(np.max(mutant_methylations)),
+                "n_individuals": len(mutant_methylations)
+            },
+            "control1": {
+                "mean": float(np.mean(control1_methylations)),
+                "std": float(np.std(control1_methylations)),
+                "median": float(np.median(control1_methylations)),
+                "min": float(np.min(control1_methylations)),
+                "max": float(np.max(control1_methylations)),
+                "n_individuals": len(control1_methylations)
+            },
+            "control2": {
+                "mean": float(np.mean(control2_methylations)),
+                "std": float(np.std(control2_methylations)),
+                "median": float(np.median(control2_methylations)),
+                "min": float(np.min(control2_methylations)),
+                "max": float(np.max(control2_methylations)),
+                "n_individuals": len(control2_methylations)
+            }
+        }
+    }
+    
+    # Statistical tests
+    print("\n  Statistical comparisons (methylation proportions):")
+    
+    # Mutant vs Control1
+    t_stat_mc1, p_value_mc1 = stats.ttest_ind(mutant_methylations, control1_methylations)
+    print(f"    Mutant vs Control1: t={t_stat_mc1:.3f}, p={p_value_mc1:.6f}")
+    
+    # Mutant vs Control2
+    t_stat_mc2, p_value_mc2 = stats.ttest_ind(mutant_methylations, control2_methylations)
+    print(f"    Mutant vs Control2: t={t_stat_mc2:.3f}, p={p_value_mc2:.6f}")
+    
+    # Control1 vs Control2
+    t_stat_c1c2, p_value_c1c2 = stats.ttest_ind(control1_methylations, control2_methylations)
+    print(f"    Control1 vs Control2: t={t_stat_c1c2:.3f}, p={p_value_c1c2:.6f}")
+    
+    methylation_analysis["statistical_tests"] = {
+        "mutant_vs_control1": {
+            "t_statistic": float(t_stat_mc1),
+            "p_value": float(p_value_mc1)
+        },
+        "mutant_vs_control2": {
+            "t_statistic": float(t_stat_mc2),
+            "p_value": float(p_value_mc2)
+        },
+        "control1_vs_control2": {
+            "t_statistic": float(t_stat_c1c2),
+            "p_value": float(p_value_c1c2)
+        }
+    }
+    
+    # Add individual means
+    methylation_analysis["individual_means"] = {
+        "mutant": mutant_methylations.tolist(),
+        "control1": control1_methylations.tolist(),
+        "control2": control2_methylations.tolist()
+    }
+    
+    # Create comparison plot for methylations
+    plot_path = os.path.join(output_dir, "cell_methylation_comparison.png")
+    
+    # Use the existing comparison plot function but with methylation data
+    create_comparison_plot_from_jsds(
+        mutant_methylations, 
+        control1_methylations, 
+        control2_methylations, 
+        plot_path,
+        ylabel="Mean Methylation Proportion",
+        title="Cell Methylation Proportion Comparison"
+    )
+    
+    # Save methylation analysis
+    analysis_path = os.path.join(output_dir, "cell_methylation_analysis.json")
+    os.makedirs(output_dir, exist_ok=True)
+    with open(analysis_path, 'w') as f:
+        json.dump(methylation_analysis, f, indent=2)
+    print(f"  Saved methylation analysis to {analysis_path}")
+    
+    return {
+        "methylation_analysis": methylation_analysis,
+        "plot_path": plot_path,
+        "analysis_path": analysis_path
+    }
+
+
 def get_mean_cell_jsds_from_petri_dishes(dishes: List[PetriDish]) -> np.ndarray:
     """
     Extract mean cell JSD values from a list of PetriDish objects.
@@ -445,15 +854,19 @@ def analyze_populations_from_dishes(mutant_dishes: List[PetriDish],
 def create_comparison_plot_from_jsds(mutant_jsds: np.ndarray, 
                                     control1_jsds: np.ndarray, 
                                     control2_jsds: np.ndarray, 
-                                    output_path: str) -> None:
+                                    output_path: str,
+                                    ylabel: str = "Mean Cell JSD",
+                                    title: str = "Cell JSD Comparison Across Batches") -> None:
     """
     Create a clean scatter plot comparing all three distributions.
     
     Args:
-        mutant_jsds: Array of mean JSD values for mutant group
-        control1_jsds: Array of mean JSD values for control1 group
-        control2_jsds: Array of mean JSD values for control2 group
+        mutant_jsds: Array of mean values for mutant group
+        control1_jsds: Array of mean values for control1 group
+        control2_jsds: Array of mean values for control2 group
         output_path: Path to save the plot
+        ylabel: Y-axis label (default: "Mean Cell JSD")
+        title: Plot title (default: "Cell JSD Comparison Across Batches")
     """
     print(f"\n  Creating comparison plot...")
     
@@ -633,7 +1046,7 @@ def create_comparison_plot_from_jsds(mutant_jsds: np.ndarray,
     # Clean layout with proper spacing
     fig.update_layout(
         title=dict(
-            text="Mean Cell JSD per Individual",
+            text=title,  # Use the provided title parameter
             font=dict(size=16),
             x=0.5,
             xanchor='center',
@@ -649,7 +1062,7 @@ def create_comparison_plot_from_jsds(mutant_jsds: np.ndarray,
             title=""
         ),
         yaxis=dict(
-            title='Mean Cell JSD per Individual',
+            title=ylabel,  # Use the provided ylabel parameter
             showgrid=True,
             gridcolor='lightgray',
             range=[y_min - 0.01, y_max + 0.01]  # Simple range without annotation adjustment

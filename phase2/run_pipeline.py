@@ -49,6 +49,9 @@ from core.pipeline_utils import (
 )
 from core.pipeline_analysis import (
     plot_cell_jsd_distribution,
+    plot_cell_methylation_histogram,
+    plot_gene_jsd_snapshot_histogram,
+    analyze_cell_methylation_comparison,
     analyze_populations_from_dishes,
     plot_gene_jsd_distribution_comparison,
     plot_gene_jsd_distributions,
@@ -641,6 +644,16 @@ def run_pipeline(args):
     plot_cell_jsd_distribution(first_snapshot_cells, args.bins, plot_path, 
                                     gene_rate_groups=gene_rate_groups, year=args.first_snapshot)
     
+    # Add cell methylation histogram for year 30 snapshot
+    methylation_plot_path = os.path.join(results_dir, f"year{args.first_snapshot}_methylation_histogram.png")
+    plot_cell_methylation_histogram(first_snapshot_cells, args.bins, methylation_plot_path,
+                                   gene_rate_groups=gene_rate_groups, year=args.first_snapshot)
+    
+    # Add gene-level JSD histogram for year 30 snapshot
+    gene_jsd_plot_path = os.path.join(results_dir, f"year{args.first_snapshot}_gene_jsd_histogram.png")
+    plot_gene_jsd_snapshot_histogram(first_snapshot_cells, gene_jsd_plot_path,
+                                    gene_rate_groups=gene_rate_groups, year=args.first_snapshot)
+    
     # ========================================================================
     # STAGE 3: Create Initial Individuals (as PetriDish objects)
     # ========================================================================
@@ -812,6 +825,16 @@ def run_pipeline(args):
     second_plot_path = os.path.join(results_dir, f"year{args.second_snapshot}_jsd_distribution_{args.bins}bins.png")
     # Pass gene_rate_groups for plot labeling
     plot_cell_jsd_distribution(second_snapshot_cells, args.bins, second_plot_path, 
+                                    gene_rate_groups=gene_rate_groups, year=args.second_snapshot)
+    
+    # Add cell methylation histogram for year 50 snapshot
+    methylation_plot_path_50 = os.path.join(results_dir, f"year{args.second_snapshot}_methylation_histogram.png")
+    plot_cell_methylation_histogram(second_snapshot_cells, args.bins, methylation_plot_path_50,
+                                   gene_rate_groups=gene_rate_groups, year=args.second_snapshot)
+    
+    # Add gene-level JSD histogram for year 50 snapshot
+    gene_jsd_plot_path_50 = os.path.join(results_dir, f"year{args.second_snapshot}_gene_jsd_histogram.png")
+    plot_gene_jsd_snapshot_histogram(second_snapshot_cells, gene_jsd_plot_path_50,
                                     gene_rate_groups=gene_rate_groups, year=args.second_snapshot)
     
     # ========================================================================
@@ -1209,12 +1232,14 @@ def run_pipeline(args):
                     # Generate plots
                     jsd_path = os.path.join(individual_trajectories_dir, f"mutant_{i:02d}_jsd.png")
                     meth_path = os.path.join(individual_trajectories_dir, f"mutant_{i:02d}_methylation.png")
+                    gene_jsd_path = os.path.join(individual_trajectories_dir, f"mutant_{i:02d}_gene_jsd.png")
                 
                     plotter.plot_jsd(f"Mutant Individual {i:02d}", jsd_path)
                     plotter.plot_methylation(f"Mutant Individual {i:02d}", meth_path)
+                    plotter.plot_gene_jsd_trajectory(f"Mutant Individual {i:02d} Gene JSD", gene_jsd_path)
                 
                     mutant_plot_count += 1
-                    print(f"    ✓ Plotted mutant_{i:02d} trajectories")
+                    print(f"    ✓ Plotted mutant_{i:02d} trajectories (JSD, methylation, gene JSD)")
             except Exception as e:
                 print(f"    ⚠️  Could not plot mutant_{i:02d}: {str(e)}")
     
@@ -1236,17 +1261,19 @@ def run_pipeline(args):
                     # Generate plots
                     jsd_path = os.path.join(individual_trajectories_dir, f"control1_{i:02d}_jsd.png")
                     meth_path = os.path.join(individual_trajectories_dir, f"control1_{i:02d}_methylation.png")
+                    gene_jsd_path = os.path.join(individual_trajectories_dir, f"control1_{i:02d}_gene_jsd.png")
                 
                     plotter.plot_jsd(f"Control1 Individual {i:02d}", jsd_path)
                     plotter.plot_methylation(f"Control1 Individual {i:02d}", meth_path)
+                    plotter.plot_gene_jsd_trajectory(f"Control1 Individual {i:02d} Gene JSD", gene_jsd_path)
                 
                     control1_plot_count += 1
-                    print(f"    ✓ Plotted control1_{i:02d} trajectories")
+                    print(f"    ✓ Plotted control1_{i:02d} trajectories (JSD, methylation, gene JSD)")
             except Exception as e:
                 print(f"    ⚠️  Could not plot control1_{i:02d}: {str(e)}")
     
     print(f"\n  Skipping control2 (pure snapshots, no growth trajectories)")
-    print(f"  ✓ Generated {(mutant_plot_count + control1_plot_count) * 2} trajectory plots in {individual_trajectories_dir}")
+    print(f"  ✓ Generated {(mutant_plot_count + control1_plot_count) * 3} trajectory plots in {individual_trajectories_dir}")
     
     # ========================================================================
     # STAGE 8: Analysis
@@ -1267,6 +1294,11 @@ def run_pipeline(args):
     
     # Use the enhanced analysis function for cell-level JSD
     analysis_results = analyze_populations_from_dishes(
+        mutant_dishes, control1_dishes, control2_dishes, results_dir
+    )
+    
+    # Generate cell methylation comparison analysis
+    methylation_results = analyze_cell_methylation_comparison(
         mutant_dishes, control1_dishes, control2_dishes, results_dir
     )
     
@@ -1467,6 +1499,11 @@ def run_pipeline(args):
             combined_timeline_path = os.path.join(results_dir, "original_simulation_combined_timeline.png")
             plotter.plot_combined("Original Simulation Combined Timeline", combined_timeline_path)
             print(f"  ✓ Generated original_simulation_combined_timeline.png")
+            
+            # Gene-level JSD timeline
+            gene_jsd_timeline_path = os.path.join(results_dir, "original_simulation_gene_jsd_timeline.png")
+            plotter.plot_gene_jsd_timeline("Original Simulation Gene JSD Timeline", gene_jsd_timeline_path)
+            print(f"  ✓ Generated original_simulation_gene_jsd_timeline.png")
         
         else:
             print(f"  ⚠️  No history found in simulation file")

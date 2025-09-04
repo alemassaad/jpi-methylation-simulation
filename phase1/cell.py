@@ -2401,3 +2401,255 @@ class PetriDishPlotter:
             fig.show()
         
         return fig
+    
+    def plot_gene_jsd_trajectory(self, title: str = None, output_path: str = None,
+                                width: int = 1200, height: int = 600):
+        """
+        Plot gene-level JSD trajectory showing mean and median of gene JSDs over time.
+        
+        For each timepoint in cell_history, calculates gene-level JSD values
+        (one per gene) and plots both mean and median.
+        
+        Args:
+            title: Optional title for the plot
+            output_path: Optional path to save the plot
+            width: Plot width in pixels
+            height: Plot height in pixels
+        """
+        try:
+            import plotly.graph_objects as go
+        except ImportError:
+            print("Warning: Plotly not installed. Skipping gene JSD trajectory plot.")
+            return
+        
+        # Check if cell history exists
+        if not hasattr(self.petri, 'cell_history') or not self.petri.cell_history:
+            print("No cell history available for gene JSD trajectory.")
+            return
+        
+        print("Calculating gene-level JSD trajectory...")
+        
+        # Extract years and calculate gene JSDs for each year
+        years = sorted([int(y) for y in self.petri.cell_history.keys()])
+        mean_values = []
+        median_values = []
+        
+        for year in years:
+            # Get cells for this year
+            cells = self.petri.cell_history[str(year)]
+            
+            # Create temporary PetriDish to calculate gene JSDs
+            temp_petri = PetriDish(
+                gene_rate_groups=self.petri.gene_rate_groups,
+                growth_phase=1,  # Not used for calculation
+                calculate_cell_jsds=False
+            )
+            temp_petri.cells = cells
+            
+            # Calculate gene-level JSD values (one per gene)
+            gene_jsds = temp_petri.calculate_gene_jsd()
+            
+            # Calculate mean and median of the gene JSDs
+            mean_values.append(np.mean(gene_jsds))
+            median_values.append(np.median(gene_jsds))
+        
+        # Create plot
+        fig = go.Figure()
+        
+        # Add mean line (blue, solid)
+        fig.add_trace(go.Scatter(
+            x=years,
+            y=mean_values,
+            mode='lines+markers',
+            name='Mean',
+            line=dict(color='blue', width=2),
+            marker=dict(size=6),
+            hovertemplate='Year %{x}<br>Mean Gene JSD: %{y:.4f}<extra></extra>'
+        ))
+        
+        # Add median line (red, dashed)
+        fig.add_trace(go.Scatter(
+            x=years,
+            y=median_values,
+            mode='lines+markers',
+            name='Median',
+            line=dict(color='red', width=2, dash='dash'),
+            marker=dict(size=6),
+            hovertemplate='Year %{x}<br>Median Gene JSD: %{y:.4f}<extra></extra>'
+        ))
+        
+        # Update layout
+        default_title = "Gene-level JSD Trajectory"
+        fig.update_layout(
+            title=dict(
+                text=title or default_title,
+                font=dict(size=16)
+            ),
+            xaxis=dict(
+                title='Year',
+                showgrid=True,
+                gridcolor='rgba(0,0,0,0.1)'
+            ),
+            yaxis=dict(
+                title='Gene-level JSD',
+                showgrid=True,
+                gridcolor='rgba(0,0,0,0.1)',
+                range=[0, max(max(mean_values), max(median_values)) * 1.1]
+            ),
+            template='plotly_white',
+            width=width,
+            height=height,
+            showlegend=True,
+            legend=dict(
+                x=0.02,
+                y=0.98,
+                bgcolor="rgba(255, 255, 255, 0.8)",
+                bordercolor="rgba(0, 0, 0, 0.2)",
+                borderwidth=1
+            ),
+            hovermode='x unified'
+        )
+        
+        # Save if path provided
+        if output_path:
+            os.makedirs(os.path.dirname(output_path) or '.', exist_ok=True)
+            fig.write_image(output_path, width=width, height=height, scale=2)
+            print(f"Gene JSD trajectory saved to {output_path}")
+        else:
+            fig.show()
+        
+        return fig
+    
+    def plot_gene_jsd_timeline(self, title: str = None, output_path: str = None,
+                              width: int = 1200, height: int = 600):
+        """
+        Plot gene-level JSD timeline for original simulation data.
+        
+        Shows mean and median of gene JSDs over the entire simulation period.
+        Uses pre-calculated gene_jsd_history if available, otherwise calculates
+        from cell_history.
+        
+        Args:
+            title: Optional title for the plot
+            output_path: Optional path to save the plot
+            width: Plot width in pixels
+            height: Plot height in pixels
+        """
+        try:
+            import plotly.graph_objects as go
+        except ImportError:
+            print("Warning: Plotly not installed. Skipping gene JSD timeline plot.")
+            return
+        
+        print("Creating gene-level JSD timeline...")
+        
+        mean_values = []
+        median_values = []
+        years = []
+        
+        # Check if pre-calculated gene_jsd_history exists
+        if hasattr(self.petri, 'gene_jsd_history') and self.petri.gene_jsd_history:
+            print("  Using pre-calculated gene JSD history")
+            # Use pre-calculated values
+            years = sorted([int(y) for y in self.petri.gene_jsd_history.keys()])
+            
+            for year in years:
+                gene_jsds = self.petri.gene_jsd_history[str(year)]
+                mean_values.append(np.mean(gene_jsds))
+                median_values.append(np.median(gene_jsds))
+        
+        elif hasattr(self.petri, 'cell_history') and self.petri.cell_history:
+            print("  Calculating gene JSDs from cell history")
+            # Calculate from cell history
+            years = sorted([int(y) for y in self.petri.cell_history.keys()])
+            
+            for year in years:
+                # Get cells for this year
+                cells = self.petri.cell_history[str(year)]
+                
+                # Create temporary PetriDish to calculate gene JSDs
+                temp_petri = PetriDish(
+                    gene_rate_groups=self.petri.gene_rate_groups,
+                    growth_phase=1,  # Not used for calculation
+                    calculate_cell_jsds=False,
+                    track_gene_jsd=False
+                )
+                temp_petri.cells = cells
+                
+                # Calculate gene-level JSD values (one per gene)
+                gene_jsds = temp_petri.calculate_gene_jsd()
+                
+                # Store mean and median
+                mean_values.append(np.mean(gene_jsds))
+                median_values.append(np.median(gene_jsds))
+        
+        else:
+            print("No history available for gene JSD timeline.")
+            return
+        
+        # Create plot
+        fig = go.Figure()
+        
+        # Add mean line (blue, solid)
+        fig.add_trace(go.Scatter(
+            x=years,
+            y=mean_values,
+            mode='lines+markers',
+            name='Mean',
+            line=dict(color='blue', width=2),
+            marker=dict(size=4),
+            hovertemplate='Year %{x}<br>Mean Gene JSD: %{y:.4f}<extra></extra>'
+        ))
+        
+        # Add median line (red, dashed)
+        fig.add_trace(go.Scatter(
+            x=years,
+            y=median_values,
+            mode='lines+markers',
+            name='Median',
+            line=dict(color='red', width=2, dash='dash'),
+            marker=dict(size=4),
+            hovertemplate='Year %{x}<br>Median Gene JSD: %{y:.4f}<extra></extra>'
+        ))
+        
+        # Update layout
+        default_title = "Original Simulation Gene-level JSD Timeline"
+        fig.update_layout(
+            title=dict(
+                text=title or default_title,
+                font=dict(size=16)
+            ),
+            xaxis=dict(
+                title='Year',
+                showgrid=True,
+                gridcolor='rgba(0,0,0,0.1)'
+            ),
+            yaxis=dict(
+                title='Gene-level JSD',
+                showgrid=True,
+                gridcolor='rgba(0,0,0,0.1)',
+                range=[0, max(max(mean_values), max(median_values)) * 1.1] if mean_values else [0, 1]
+            ),
+            template='plotly_white',
+            width=width,
+            height=height,
+            showlegend=True,
+            legend=dict(
+                x=0.02,
+                y=0.98,
+                bgcolor="rgba(255, 255, 255, 0.8)",
+                bordercolor="rgba(0, 0, 0, 0.2)",
+                borderwidth=1
+            ),
+            hovermode='x unified'
+        )
+        
+        # Save if path provided
+        if output_path:
+            os.makedirs(os.path.dirname(output_path) or '.', exist_ok=True)
+            fig.write_image(output_path, width=width, height=height, scale=2)
+            print(f"Gene JSD timeline saved to {output_path}")
+        else:
+            fig.show()
+        
+        return fig

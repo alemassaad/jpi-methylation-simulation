@@ -4,6 +4,9 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Important Guidelines
 
+### Critical Documentation
+**PLOT_DOCUMENTATION.md in the root directory is a critical document that should NEVER be deleted. It explains all output plots from the simulation and must be updated whenever new plots are added.**
+
 ### Dictation Note
 **When the user says "jean" or "gin" via dictation, they mean "gene".**
 

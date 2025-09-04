@@ -40,10 +40,10 @@ from core.pipeline_utils import (
     load_snapshot_as_cells, save_snapshot_cells, load_snapshot_cells,
     save_petri_dish, load_petri_dish, load_all_petri_dishes,
     sample_by_quantiles, sample_uniform,
-    mix_petri_with_snapshot, create_pure_snapshot_petri,
+    create_pure_snapshot_petri,
     create_control2_with_uniform_base,
-    grow_petri_for_years, get_petri_statistics, check_petri_files_state,
-    get_cell_jsd_array, calculate_population_statistics, print_mixing_statistics,
+    check_petri_files_state,
+    calculate_population_statistics, print_mixing_statistics,
     create_uniform_mixing_pool, mix_petri_uniform, normalize_populations,
     normalize_individuals_for_uniform_mixing
 )

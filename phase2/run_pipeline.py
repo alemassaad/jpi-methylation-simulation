@@ -613,6 +613,24 @@ def run_pipeline(args):
         print(f"  Cached {len(first_snapshot_cells)} cells for future use")
     
     # ========================================================================
+    # VALIDATION: Snapshot cells
+    # ========================================================================
+    from core.validation import PipelineValidator, ValidationError
+    validator = PipelineValidator(verbose=not args.quiet if hasattr(args, 'quiet') else True)
+    
+    try:
+        min_cells_needed = args.n_quantiles * args.cells_per_quantile * 2  # Need enough for sampling
+        validator.validate_snapshot(
+            cells=first_snapshot_cells,
+            expected_year=args.first_snapshot,
+            expected_gene_rate_groups=gene_rate_groups,
+            min_cells=min_cells_needed
+        )
+    except ValidationError as e:
+        print(f"\n❌ Snapshot validation failed: {e}")
+        sys.exit(1)
+    
+    # ========================================================================
     # STAGE 2: Plot JSD Distribution
     # ========================================================================
     print(f"\n{'='*60}")
@@ -703,6 +721,21 @@ def run_pipeline(args):
     )
     
     # ========================================================================
+    # VALIDATION: Initial individuals
+    # ========================================================================
+    try:
+        validator.validate_initial_individuals(
+            mutant_dishes=mutant_dishes,
+            control1_dishes=control1_dishes,
+            expected_count=expected_individuals,
+            expected_gene_rate_groups=gene_rate_groups,
+            snapshot_year=args.first_snapshot
+        )
+    except ValidationError as e:
+        print(f"\n❌ Initial individuals validation failed: {e}")
+        sys.exit(1)
+    
+    # ========================================================================
     # STAGE 4: Grow Individuals (using PetriDish methods with homeostasis)
     # ========================================================================
     print(f"\n{'='*60}")
@@ -730,6 +763,23 @@ def run_pipeline(args):
         start_year=args.first_snapshot,
         verbose=True
     )
+    
+    # ========================================================================
+    # VALIDATION: Grown individuals
+    # ========================================================================
+    extinction_report = validator.validate_grown_individuals(
+        mutant_dishes=mutant_dishes,
+        control1_dishes=control1_dishes,
+        expected_population=expected_population,
+        growth_years=timeline_duration,
+        allow_extinction=True  # Allow but track extinction
+    )
+    
+    if extinction_report['total_extinct'] > 0:
+        print(f"\n  ⚠️  Warning: {extinction_report['total_extinct']} individuals went extinct during growth")
+        if extinction_report['complete_batch_extinction']:
+            print("\n❌ Fatal: Entire batch extinct. Consider different parameters.")
+            sys.exit(1)
     
     # ========================================================================
     # STAGE 5: Extract Second Snapshot
@@ -808,6 +858,17 @@ def run_pipeline(args):
             dish.metadata['normalization_threshold'] = normalization_threshold
         
         print(f"  Normalized all individuals to {normalization_threshold} cells (in memory)")
+        
+        # Validate normalization
+        try:
+            validator.validate_normalized_populations(
+                mutant_after=mutant_dishes,
+                control1_after=control1_dishes,
+                threshold=normalization_threshold
+            )
+        except ValidationError as e:
+            print(f"\n❌ Normalization validation failed: {e}")
+            sys.exit(1)
     
     if args.uniform_mixing:
         print("\n  === UNIFORM MIXING MODE (Fixed Normalization) ===")
@@ -934,6 +995,33 @@ def run_pipeline(args):
     if args.uniform_mixing:
         uniform_pool_for_control2 = uniform_pool
         uniform_indices_for_control2 = uniform_indices
+    
+    # ========================================================================
+    # VALIDATION: Mixed populations
+    # ========================================================================
+    try:
+        validator.validate_mixed_populations(
+            mutant_dishes=mutant_dishes,
+            control1_dishes=control1_dishes,
+            mix_ratio=args.mix_ratio,
+            uniform_mixing=args.uniform_mixing,
+            second_snapshot_year=args.second_snapshot
+        )
+    except ValidationError as e:
+        print(f"\n❌ Mixing validation failed: {e}")
+        sys.exit(1)
+    
+    # ========================================================================
+    # VALIDATION: Pre-save check
+    # ========================================================================
+    try:
+        validator.validate_before_save(
+            mutant_dishes=mutant_dishes,
+            control1_dishes=control1_dishes
+        )
+    except ValidationError as e:
+        print(f"\n❌ Pre-save validation failed: {e}")
+        sys.exit(1)
     
     # ========================================================================
     # SINGLE SAVE AT END OF STAGE 6 - Save all mutant and control1 individuals
@@ -1079,6 +1167,19 @@ def run_pipeline(args):
         petri_dishes=control2_dishes,
         label="Control2 individuals"
     )
+    
+    # ========================================================================
+    # VALIDATION: Control2 individuals
+    # ========================================================================
+    try:
+        validator.validate_control2(
+            control2_dishes=control2_dishes,
+            second_snapshot_year=args.second_snapshot,
+            expected_count=num_control2
+        )
+    except ValidationError as e:
+        print(f"\n❌ Control2 validation failed: {e}")
+        sys.exit(1)
     
     # ========================================================================
     # Generate Individual Growth Trajectories
@@ -1394,6 +1495,21 @@ def run_pipeline(args):
     # Summary
     # ========================================================================
     elapsed_time = time.time() - start_time
+    
+    # Print validation summary
+    validation_summary = validator.get_summary()
+    if validation_summary['warnings_count'] > 0:
+        print(f"\n{'='*80}")
+        print("VALIDATION SUMMARY")
+        print(f"{'='*80}")
+        print(f"Total warnings: {validation_summary['warnings_count']}")
+        if validation_summary['warnings_count'] <= 10:
+            for warning in validation_summary['warnings']:
+                print(f"  ⚠️  {warning}")
+        else:
+            print(f"  (Showing first 10 of {validation_summary['warnings_count']} warnings)")
+            for warning in validation_summary['warnings'][:10]:
+                print(f"  ⚠️  {warning}")
     
     print(f"\n{'='*80}")
     print("PIPELINE COMPLETE")

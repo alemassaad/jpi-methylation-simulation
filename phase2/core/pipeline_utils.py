@@ -649,9 +649,9 @@ def create_pure_snapshot_petri(snapshot_cells: List[Cell], n_cells: int = 5120,
         gene_rate_groups=first_cell.gene_rate_groups,
         n=first_cell.n,
         gene_size=first_cell.gene_size,
-            growth_phase=7,  # Default for control2
-            calculate_cell_jsds=True
-        )
+        growth_phase=None,  # Static population - won't be aged
+        calculate_cell_jsds=True
+    )
     
     # Set metadata
     petri.metadata = {
@@ -736,7 +736,7 @@ def create_control2_with_uniform_base(
         gene_rate_groups=first_cell.gene_rate_groups,
         n=first_cell.n,
         gene_size=first_cell.gene_size,
-        growth_phase=7,  # Default for control2
+        growth_phase=None,  # Static population - won't be aged
         calculate_cell_jsds=True
     )
     
@@ -1053,6 +1053,10 @@ def normalize_individuals_for_uniform_mixing(
         normalized_dish.cells = normalized_cells
         normalized_dish.year = dish.year
         
+        # CRITICAL: Preserve metadata (includes individual_id)
+        if hasattr(dish, 'metadata'):
+            normalized_dish.metadata = copy.deepcopy(dish.metadata)
+        
         # Preserve history if it exists
         if hasattr(dish, 'cell_history'):
             normalized_dish.cell_history = dish.cell_history
@@ -1304,3 +1308,44 @@ def normalize_populations(mutant_dishes: List[PetriDish],
         print("\n  WARNING: All control1 individuals were excluded!")
     
     return normalized_mutant, normalized_control1, threshold_size
+
+
+def save_all_individuals(
+    dishes: List[PetriDish],
+    output_dir: str,
+    batch_name: str,
+    compress: bool = True,
+    include_cell_history: bool = True,
+    include_gene_metrics: bool = True
+) -> None:
+    """
+    Save all individuals to disk after all processing complete.
+    
+    Args:
+        dishes: List of PetriDish objects to save
+        output_dir: Directory to save individuals
+        batch_name: Name for logging ('mutant', 'control1', 'control2')
+        compress: Whether to compress output files
+        include_cell_history: Whether to include cell history in save
+        include_gene_metrics: Whether to include gene metrics
+    """
+    if not dishes:
+        print(f"  No {batch_name} individuals to save")
+        return
+        
+    os.makedirs(output_dir, exist_ok=True)
+    
+    for petri in dishes:
+        individual_id = petri.metadata.get('individual_id', 1)
+        filepath = os.path.join(output_dir, f"individual_{individual_id:02d}.json")
+        if compress:
+            filepath += '.gz'
+        
+        save_petri_dish(
+            petri, filepath,
+            include_cell_history=include_cell_history,
+            include_gene_metrics=include_gene_metrics,
+            compress=compress
+        )
+    
+    print(f"  Saved {len(dishes)} {batch_name} individuals to disk")

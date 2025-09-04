@@ -309,7 +309,7 @@ class PetriDish:
     
     def __init__(self, rate: float = None, gene_rate_groups: List[Tuple[int, float]] = None,
                  n: int = N, gene_size: int = GENE_SIZE, 
-                 seed: int = None, growth_phase: int = DEFAULT_GROWTH_PHASE, 
+                 seed: int = None, growth_phase: Optional[int] = DEFAULT_GROWTH_PHASE, 
                  cells: List['Cell'] = None, calculate_cell_jsds: bool = True) -> None:
         """
         Initialize petri dish with a single unmethylated cell or provided cells.
@@ -320,13 +320,14 @@ class PetriDish:
             n: Number of CpG sites per cell
             gene_size: Number of sites per gene
             seed: Random seed for reproducibility
-            growth_phase: Duration of growth phase in years (target = 2^growth_phase cells)
+            growth_phase: Duration of growth phase in years (target = 2^growth_phase cells).
+                         Use None for static populations (e.g., snapshots) that won't be aged.
             cells: Optional list of cells to start with (for phase2 compatibility).
-                   All cells must have identical gene_rate_groups configuration.
+                   All cells must have identical gene_rate_groups configuration and ages.
             calculate_cell_jsds: Whether to calculate cell JSDs (for performance)
             
         Raises:
-            ValueError: If provided cells have different gene_rate_groups configurations
+            ValueError: If provided cells have different gene_rate_groups configurations or ages
         """
         # Convert rate to gene_rate_groups if provided
         if rate is not None:
@@ -345,11 +346,12 @@ class PetriDish:
         if n % gene_size != 0:
             raise ValueError(f"n ({n}) must be divisible by gene_size ({gene_size})")
         
-        # Validate growth_phase
-        if growth_phase < 1:
-            raise ValueError(f"growth_phase must be >= 1, got {growth_phase}")
-        if growth_phase > 20:
-            raise ValueError(f"growth_phase must be <= 20 (max 1M cells), got {growth_phase}")
+        # Validate growth_phase if provided
+        if growth_phase is not None:
+            if growth_phase < 1:
+                raise ValueError(f"growth_phase must be >= 1, got {growth_phase}")
+            if growth_phase > 20:
+                raise ValueError(f"growth_phase must be <= 20 (max 1M cells), got {growth_phase}")
         
         if seed is not None:
             random.seed(seed)
@@ -360,7 +362,7 @@ class PetriDish:
         self.n_genes = n // gene_size
         self.seed = seed
         self.growth_phase = growth_phase
-        self.target_population = 2 ** growth_phase  # Calculate from growth_phase
+        self.target_population = 2 ** growth_phase if growth_phase is not None else None
         self.calculate_cell_jsds = calculate_cell_jsds
         
         # Initialize cells - either provided or single unmethylated cell
@@ -368,11 +370,23 @@ class PetriDish:
             self.cells = cells
             # Validate all cells have same rate configuration
             self.validate_cell_consistency()
+            
+            # NEW: Validate and set year from cell ages
+            if self.cells:
+                ages = [cell.age for cell in self.cells]
+                unique_ages = set(ages)
+                if len(unique_ages) > 1:
+                    raise ValueError(
+                        f"All cells must have the same age. Found ages: {sorted(unique_ages)}"
+                    )
+                # Set PetriDish year to match cell age
+                self.year = ages[0] if ages else 0
+            else:
+                self.year = 0
         else:
             # Create initial cell - single path now
             self.cells = [Cell(n=n, gene_rate_groups=gene_rate_groups, gene_size=gene_size)]
-        
-        self.year = 0
+            self.year = 0  # Fresh cell starts at age 0
         
         # Cell history tracking (renamed for clarity)
         self.track_cell_history = True  # Renamed from history_enabled
@@ -387,12 +401,23 @@ class PetriDish:
         
         # Store initial state if we have cells (renamed for clarity)
         if self.cells:
-            self.cell_history = {'0': [cell.to_dict() for cell in self.cells]}
-            # Initialize gene JSD at year 0 if tracking
+            # Use actual year as key, not always '0'
+            year_key = str(self.year)
+            self.cell_history = {year_key: [cell.to_dict() for cell in self.cells]}
+            
+            # Initialize gene JSD at appropriate year if tracking
             if self.track_gene_jsd and self.calculate_cell_jsds:
-                self.gene_jsd_history['0'] = [0.0] * self.n_genes  # All zeros initially
-                self.mean_gene_jsd_history['0'] = 0.0
-                self.median_gene_jsd_history['0'] = 0.0
+                if self.year == 0:
+                    # Only initialize as zeros if truly year 0
+                    self.gene_jsd_history[year_key] = [0.0] * self.n_genes
+                    self.mean_gene_jsd_history[year_key] = 0.0
+                    self.median_gene_jsd_history[year_key] = 0.0
+                else:
+                    # Calculate actual gene JSDs for non-zero years
+                    gene_jsds = self.calculate_gene_jsd()
+                    self.gene_jsd_history[year_key] = gene_jsds
+                    self.mean_gene_jsd_history[year_key] = float(np.mean(gene_jsds)) if gene_jsds else 0.0
+                    self.median_gene_jsd_history[year_key] = float(np.median(gene_jsds)) if gene_jsds else 0.0
         else:
             self.cell_history = {}
         
@@ -536,7 +561,16 @@ class PetriDish:
         """
         Simulate one year of population dynamics.
         Chooses appropriate aging strategy based on current year.
+        
+        Raises:
+            ValueError: If growth_phase is None (static population)
         """
+        if self.growth_phase is None:
+            raise ValueError(
+                "Cannot age a static PetriDish (created with growth_phase=None). "
+                "Static PetriDishes are snapshots and cannot undergo growth or homeostasis."
+            )
+        
         self.year += 1
         print(f"\nYear {self.year}:")
         
@@ -576,7 +610,15 @@ class PetriDish:
         
         Args:
             t_max: Maximum simulation time in years
+            
+        Raises:
+            ValueError: If growth_phase is None (static population)
         """
+        if self.growth_phase is None:
+            raise ValueError(
+                "Cannot run simulation on a static PetriDish (created with growth_phase=None). "
+                "Static PetriDishes are snapshots and cannot be simulated."
+            )
         print("="*60)
         print("PHASE 1 SIMULATION")
         print("="*60)

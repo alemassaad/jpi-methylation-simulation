@@ -51,7 +51,6 @@ from core.pipeline_analysis import (
     plot_cell_jsd_distribution,
     analyze_populations_from_dishes,
     plot_gene_jsd_distribution_comparison,
-    plot_top_variable_genes,
     plot_gene_jsd_distributions,
     plot_gene_jsd_individual_comparison
 )
@@ -1315,14 +1314,7 @@ def run_pipeline(args):
     # Gene vs Cell JSD scatter plot - removed per user request
     # (This plot was not providing useful insights)
     
-    # Top variable genes plot
-    try:
-        # Combine all dishes for gene variability analysis
-        all_dishes = mutant_dishes + control1_dishes + control2_dishes
-        top_genes_path = os.path.join(results_dir, "top_variable_genes.png")
-        plot_top_variable_genes(all_dishes, n_top=20, output_path=top_genes_path)
-    except Exception as e:
-        print(f"  Skipping top variable genes plot: {e}")
+    # Top variable genes plot removed - not needed for analysis
     
     # Generate phase1-style gene JSD plots using original simulation data
     try:

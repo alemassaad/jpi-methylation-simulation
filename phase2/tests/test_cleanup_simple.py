@@ -42,7 +42,6 @@ def test_imports():
             plot_cell_jsd_distribution,
             analyze_populations_from_dishes,
             plot_gene_jsd_distribution_comparison,
-            plot_top_variable_genes,
             plot_gene_jsd_distributions,
             plot_gene_jsd_individual_comparison
         )

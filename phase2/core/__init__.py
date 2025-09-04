@@ -33,7 +33,6 @@ from .pipeline_analysis import (
     generate_gene_jsd_analysis,
     plot_gene_jsd_distributions,
     plot_gene_jsd_distribution_comparison,
-    plot_top_variable_genes,
     plot_gene_jsd_individual_comparison
 )
 
@@ -72,7 +71,6 @@ __all__ = [
     'generate_gene_jsd_analysis',
     'plot_gene_jsd_distributions',
     'plot_gene_jsd_distribution_comparison',
-    'plot_top_variable_genes',
     'plot_gene_jsd_individual_comparison',
     # path_utils
     'parse_step1_simulation_path',

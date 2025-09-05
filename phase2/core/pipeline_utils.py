@@ -82,7 +82,8 @@ def dict_to_cell(cell_dict: Dict[str, Any]) -> Cell:
     
     # Set all enhanced attributes from Phase 1
     cell.age = cell_dict.get('age', 0)
-    cell.cell_JSD = cell_dict.get('cell_JSD', cell_dict.get('cell_jsd', 0.0))
+    # Handle both old and new naming for backward compatibility
+    cell.cell_jsd = cell_dict.get('cell_jsd', cell_dict.get('cell_JSD', 0.0))
     
     # Use stored methylation stats if available (more efficient)
     if 'n_methylated' in cell_dict:
@@ -495,7 +496,7 @@ def sample_by_quantiles(cells: List[Cell], n_quantiles: int = 10,
     print(f"  Sampling {cells_per_quantile} cells from each of {n_quantiles} quantiles...")
     
     # Sort cells by JSD
-    sorted_cells = sorted(cells, key=lambda c: c.cell_JSD)
+    sorted_cells = sorted(cells, key=lambda c: c.cell_jsd)
     
     # Calculate quantile boundaries
     n_cells = len(sorted_cells)
@@ -840,7 +841,7 @@ def get_petri_statistics(petri: PetriDish) -> Dict[str, float]:
             'median_cell_jsd': 0.0
         }
     
-    cell_jsd_values = [cell.cell_JSD for cell in petri.cells]
+    cell_jsd_values = [cell.cell_jsd for cell in petri.cells]
     
     return {
         'n_cells': len(petri.cells),
@@ -913,7 +914,7 @@ def get_cell_jsd_array(petri: PetriDish) -> np.ndarray:
     Returns:
         numpy array of cell JSD values
     """
-    return np.array([cell.cell_JSD for cell in petri.cells])
+    return np.array([cell.cell_jsd for cell in petri.cells])
 
 
 def calculate_population_statistics(dishes: List[PetriDish], group_name: str) -> Dict:

@@ -38,7 +38,7 @@ def plot_cell_jsd_distribution(cells: List[Cell], bins: int, output_path: str,
     print(f"\nPlotting Cell JSD distribution...")
     
     # Extract cell JSD values directly from Cell objects
-    cell_jsd_values = np.array([cell.cell_JSD for cell in cells])
+    cell_jsd_values = np.array([cell.cell_jsd for cell in cells])
     
     # Calculate statistics
     mean_jsd = np.mean(cell_jsd_values)
@@ -358,7 +358,7 @@ def plot_gene_jsd_snapshot_histogram(snapshot_cells: List[Cell], output_path: st
     )
     
     # Calculate gene-level JSD values (one per gene)
-    gene_jsds = temp_petri.calculate_gene_jsd()
+    gene_jsds = temp_petri.calculate_gene_jsds()
     
     print(f"  Calculated JSD for {len(gene_jsds)} genes")
     print(f"  Mean gene JSD: {np.mean(gene_jsds):.4f}")
@@ -589,7 +589,7 @@ def get_mean_cell_jsds_from_petri_dishes(dishes: List[PetriDish]) -> np.ndarray:
     """
     mean_cell_jsds = []
     for petri in dishes:
-        cell_jsd_values = [cell.cell_JSD for cell in petri.cells]
+        cell_jsd_values = [cell.cell_jsd for cell in petri.cells]
         mean_cell_jsd = np.mean(cell_jsd_values) if cell_jsd_values else 0.0
         mean_cell_jsds.append(mean_cell_jsd)
     
@@ -630,7 +630,7 @@ def generate_gene_jsd_analysis(mutant_dishes: List[PetriDish],
         
         # Calculate gene JSD for each individual
         for petri in dishes:
-            individual_gene_jsds = petri.calculate_gene_jsd()
+            individual_gene_jsds = petri.calculate_gene_jsds()
             for gene_idx, jsd_value in enumerate(individual_gene_jsds):
                 gene_jsds[gene_idx].append(float(jsd_value))
         
@@ -1331,11 +1331,11 @@ def plot_gene_jsd_distribution_comparison(snapshot1_cells, snapshot2_cells,
     
     petri1 = PetriDish()
     petri1.cells = snapshot1_cells
-    gene_jsds1 = petri1.calculate_gene_jsd()
+    gene_jsds1 = petri1.calculate_gene_jsds()
     
     petri2 = PetriDish()
     petri2.cells = snapshot2_cells
-    gene_jsds2 = petri2.calculate_gene_jsd()
+    gene_jsds2 = petri2.calculate_gene_jsds()
     
     print(f"    Year {year1}: {len(gene_jsds1)} genes")
     print(f"    Year {year2}: {len(gene_jsds2)} genes")
@@ -1454,7 +1454,7 @@ def plot_top_variable_genes(petri_dishes, n_top=20, output_path=None):
     # Calculate gene JSD for all dishes and average across individuals
     all_gene_jsds = []
     for petri in petri_dishes:
-        gene_jsds = petri.calculate_gene_jsd()
+        gene_jsds = petri.calculate_gene_jsds()
         all_gene_jsds.append(gene_jsds)
     
     # Convert to numpy array and calculate mean across individuals

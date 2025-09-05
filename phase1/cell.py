@@ -134,7 +134,7 @@ class Cell:
         
         self.methylation_distribution = [0.0 for _ in range(0, self.gene_size + 1)]
         self.methylation_distribution[0] = 1.0  # initially all genes are unmethylated
-        self.cell_JSD = JS_div(self.methylation_distribution, self.baseline_methylation_distribution)
+        self.cell_jsd = JS_div(self.methylation_distribution, self.baseline_methylation_distribution)
     
     def _build_site_rates(self) -> None:
         """Build array of per-site methylation rates from gene_rate_groups."""
@@ -183,7 +183,7 @@ class Cell:
                 
         self.methylation_proportion = methylated_count / self.n
         self.compute_methylation_distribution()
-        self.cell_JSD = JS_div(self.methylation_distribution, self.baseline_methylation_distribution)
+        self.cell_jsd = JS_div(self.methylation_distribution, self.baseline_methylation_distribution)
     
     def create_daughter_cell(self) -> 'Cell':
         """
@@ -235,7 +235,7 @@ class Cell:
         
         return {
             'cpg_sites': self.cpg_sites[:],            # The methylation state (0s and 1s)
-            'cell_JSD': self.cell_JSD,                 # The JSD value
+            'cell_jsd': self.cell_jsd,                 # The JSD value
             'age': self.age,                            # Cell age in years
             'gene_rate_groups': self.gene_rate_groups, # Rate configuration (for verification)
             'methylation_proportion': n_methylated / self.n,  # Proportion methylated
@@ -274,7 +274,8 @@ class Cell:
         cell = cls(n=n, rate=rate, gene_rate_groups=gene_rate_groups, gene_size=gene_size)
         # Handle both 'cpg_sites' (new standard) and 'methylated' (backward compatibility)
         cell.cpg_sites = data.get('cpg_sites', data.get('methylated', []))[:]
-        cell.cell_JSD = data.get('cell_JSD', 0.0)
+        # Handle both old and new naming for backward compatibility
+        cell.cell_jsd = data.get('cell_jsd', data.get('cell_JSD', 0.0))
         cell.age = data.get('age', 0)  # Restore age (default to 0 for old data)
         
         # Verify stored stats if available (for validation)
@@ -522,7 +523,7 @@ class PetriDish:
             cell.methylate()
             # Only calculate JSD if enabled
             if not self.calculate_cell_jsds:
-                cell.cell_JSD = 0.0
+                cell.cell_jsd = 0.0
         print(f"  Methylation applied to {len(self.cells)} cells")
         
     def random_cull_cells(self) -> None:
@@ -602,7 +603,7 @@ class PetriDish:
             self.cell_history[str(self.year)] = [cell.to_dict() for cell in self.cells]
         
         # Report statistics
-        jsd_values = [cell.cell_JSD for cell in self.cells]
+        jsd_values = [cell.cell_jsd for cell in self.cells]
         mean_jsd = statistics.mean(jsd_values) if jsd_values else 0.0
         print(f"  Mean JSD: {mean_jsd:.4f}")
         
@@ -825,10 +826,21 @@ class PetriDish:
     
     def calculate_gene_jsd(self) -> List[float]:
         """
-        Calculate JSD for each gene across all cells.
+        DEPRECATED: Use calculate_gene_jsds() instead (with 's' at the end).
+        This method is kept for backward compatibility only.
         
         Returns:
             List of JSD values, one per gene
+        """
+        # Redirect to the new method
+        return self.calculate_gene_jsds()
+    
+    def calculate_gene_jsds(self) -> List[float]:
+        """
+        Calculate Jensen-Shannon Divergence for each gene across all cells.
+        
+        Returns:
+            List of JSD values, one per gene (0.0 to 1.0)
         """
         if not self.cells:
             return [0.0] * self.n_genes
@@ -874,16 +886,6 @@ class PetriDish:
                 gene_jsds.append(jsd)
         
         return gene_jsds
-    
-    def calculate_gene_jsds(self) -> List[float]:
-        """
-        Calculate Jensen-Shannon Divergence for each gene across all cells.
-        This is identical to calculate_gene_jsd but with a clearer name.
-        
-        Returns:
-            List of JSD values, one per gene
-        """
-        return self.calculate_gene_jsd()
     
     def calculate_gene_mean_methylation(self) -> List[float]:
         """
@@ -1140,7 +1142,7 @@ class PetriDish:
             'num_cells': len(self.cells),
             'year': self.year,
             'mean_methylation': self._calculate_mean_methylation_proportion(),
-            'mean_cell_jsd': statistics.mean([c.cell_JSD for c in self.cells]) if self.cells else 0.0
+            'mean_cell_jsd': statistics.mean([c.cell_jsd for c in self.cells]) if self.cells else 0.0
         }
         
         # Add gene metrics if we can calculate them
@@ -1297,7 +1299,7 @@ class PetriDishPlotter:
                             meth_values.append(0.0)
                 else:
                     # Handle Cell objects
-                    jsd_values.append(getattr(cell, 'cell_JSD', 0.0))
+                    jsd_values.append(getattr(cell, 'cell_jsd', 0.0))
                     meth_values.append(getattr(cell, 'methylation_proportion', 0.0) * 100)
             
             stats['years'].append(year)

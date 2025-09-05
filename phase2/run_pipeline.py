@@ -1465,8 +1465,7 @@ def run_pipeline(args):
                         if 'methylated' in cell_dict:
                             cell_data = {
                                 'methylated': cell_dict['methylated'],
-                                'cell_JSD': cell_dict.get('cell_JSD', 0.0),
-                                'cell_jsd': cell_dict.get('cell_JSD', 0.0),  # Include both naming conventions
+                                'cell_jsd': cell_dict.get('cell_jsd', cell_dict.get('cell_JSD', 0.0)),  # Handle both for backward compatibility
                                 'methylation_proportion': sum(cell_dict['methylated']) / len(cell_dict['methylated']),
                                 'age': cell_dict.get('age', int(year_str))
                             }

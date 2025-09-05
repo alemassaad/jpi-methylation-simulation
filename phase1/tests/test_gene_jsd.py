@@ -49,7 +49,7 @@ def test_gene_jsd_calculation():
     petri.grow_with_homeostasis(years=3, growth_phase=2, verbose=False)
     
     # Calculate gene JSD
-    gene_jsds = petri.calculate_gene_jsd()
+    gene_jsds = petri.calculate_gene_jsds()
     
     # Check results
     assert len(gene_jsds) == 20, f"Should have 20 gene JSDs, got {len(gene_jsds)}"
@@ -191,13 +191,13 @@ def test_edge_cases():
     # Test 2: Empty PetriDish
     petri = PetriDish(rate=0.01, n=100, gene_size=5)
     petri.cells = []  # Remove all cells
-    gene_jsds = petri.calculate_gene_jsd()
+    gene_jsds = petri.calculate_gene_jsds()
     assert all(jsd == 0.0 for jsd in gene_jsds), "Empty PetriDish should return all zeros"
     print("  ✓ Empty PetriDish handled correctly")
     
     # Test 3: Single cell
     petri = PetriDish(rate=0.01, n=100, gene_size=5)
-    gene_jsds = petri.calculate_gene_jsd()
+    gene_jsds = petri.calculate_gene_jsds()
     assert len(gene_jsds) == 20, "Single cell should still calculate 20 gene JSDs"
     assert all(jsd == 0.0 for jsd in gene_jsds), "Unmethylated cell should have zero JSDs"
     print("  ✓ Single cell handled correctly")
@@ -225,7 +225,7 @@ def test_gene_jsd_with_rate_groups():
     petri.grow_with_homeostasis(years=5, growth_phase=2, verbose=False)
     
     # Calculate gene JSDs
-    gene_jsds = petri.calculate_gene_jsd()
+    gene_jsds = petri.calculate_gene_jsds()
     
     # High-rate genes should have higher JSDs
     low_rate_jsds = gene_jsds[0:5]   # First 5 genes (rate 0.001)

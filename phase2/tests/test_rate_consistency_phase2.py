@@ -42,7 +42,7 @@ def create_mock_simulation(gene_rate_groups, n=100, gene_size=5, years=10):
                 if j < n:
                     cell.cpg_sites[j] = 1
             # Set JSD directly for test
-            cell.cell_JSD = year * 0.01
+            cell.cell_jsd = year * 0.01
             cells.append(cell.to_dict())
         
         history[str(year)] = {'cells': cells}
@@ -73,7 +73,7 @@ def test_dict_to_cell_requires_gene_rate_groups():
     cell_dict = {
         'methylated': [0, 1, 0, 1, 0],
         'age': 10,
-        'cell_JSD': 0.123
+        'cell_jsd': 0.123
     }
     
     try:
@@ -184,7 +184,7 @@ def test_control2_creation():
         for j in range(25):
             cell.cpg_sites[j] = 1
         # Set JSD directly for test
-        cell.cell_JSD = 0.25
+        cell.cell_jsd = 0.25
     
     # Create Control2 PetriDish
     try:

@@ -93,7 +93,7 @@ def test_zero_methylation():
     for cell in petri.cells:
         assert cell.methylation_proportion == 0.0, "Cell methylated with rate=0.0"
         assert all(site == 0 for site in cell.cpg_sites), "Some sites methylated"
-        assert cell.cell_JSD == 0.0, "cell_JSD should be 0 for unmethylated cells"
+        assert cell.cell_jsd == 0.0, "cell_JSD should be 0 for unmethylated cells"
     
     print("✓ 0% methylation rate works correctly")
 

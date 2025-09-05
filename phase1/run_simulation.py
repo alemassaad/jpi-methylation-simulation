@@ -380,7 +380,7 @@ def main():
     print(f"  Total cells: {len(petri_dish.cells)}")
     
     # Calculate JSD statistics
-    jsd_values = [cell.cell_JSD for cell in petri_dish.cells]
+    jsd_values = [cell.cell_jsd for cell in petri_dish.cells]
     if jsd_values:
         import statistics
         print(f"  Mean JSD: {statistics.mean(jsd_values):.4f}")

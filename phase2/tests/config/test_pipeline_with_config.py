@@ -35,7 +35,7 @@ def create_minimal_simulation(output_dir):
             'cells': [
                 {
                     'methylated': [0] * 100,
-                    'cell_JSD': 0.01,
+                    'cell_jsd': 0.01,
                     'id': f"cell_{i}_{year}"
                 }
                 for i in range(n_cells)

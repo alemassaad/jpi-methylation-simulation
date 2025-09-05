@@ -25,14 +25,14 @@ def test_cell_serialization():
     cell.cpg_sites[10] = 1
     # Properties are calculated automatically via @property decorators
     _ = cell.methylation_proportion  # Trigger calculation
-    _ = cell.cell_JSD  # Trigger JSD calculation
+    _ = cell.cell_jsd  # Trigger JSD calculation
     
     # Convert to dict (new format)
     cell_dict = cell.to_dict()
     
     # Check new format structure
     assert 'methylated' in cell_dict, "Missing 'methylated' key"
-    assert 'cell_JSD' in cell_dict, "Missing 'cell_JSD' key"
+    assert 'cell_jsd' in cell_dict, "Missing 'cell_jsd' key"
     assert len(cell_dict) == 2, f"Should only have 2 keys, got {len(cell_dict)}: {list(cell_dict.keys())}"
     assert len(cell_dict['methylated']) == 100, "Wrong methylated array size"
     
@@ -48,7 +48,7 @@ def test_cell_serialization():
     # Test from_dict
     cell2 = Cell.from_dict(cell_dict, rate=0.005)
     assert cell2.cpg_sites == cell.cpg_sites, "Methylation state not preserved"
-    assert abs(cell2.cell_JSD - cell.cell_JSD) < 0.0001, "JSD not preserved"
+    assert abs(cell2.cell_jsd - cell.cell_jsd) < 0.0001, "JSD not preserved"
     
     print("  ✓ Cell.from_dict() restores correctly")
     
@@ -104,7 +104,7 @@ def test_petri_dish_save():
         # Check cell format
         first_cell = year_data['cells'][0]
         assert 'methylated' in first_cell, "Missing 'methylated' in cell"
-        assert 'cell_JSD' in first_cell, "Missing 'cell_JSD' in cell"
+        assert 'cell_jsd' in first_cell, "Missing 'cell_jsd' in cell"
         assert 'cpg_sites' not in first_cell, "Legacy 'cpg_sites' present"
         assert 'rate' not in first_cell, "Redundant 'rate' in cell"
         

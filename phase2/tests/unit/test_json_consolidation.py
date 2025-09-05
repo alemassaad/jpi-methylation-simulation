@@ -33,7 +33,7 @@ def test_json_consolidation():
             # Add cells with varying JSD values
             for j in range(10):
                 cell = Cell(n=100, rate=0.005)
-                cell.cell_JSD = 0.2 + i * 0.01 + j * 0.001  # Varying values
+                cell.cell_jsd = 0.2 + i * 0.01 + j * 0.001  # Varying values
                 petri.cells.append(cell)
             mutant_dishes.append(petri)
         
@@ -43,7 +43,7 @@ def test_json_consolidation():
             petri = PetriDish()
             for j in range(10):
                 cell = Cell(n=100, rate=0.005)
-                cell.cell_JSD = 0.15 + i * 0.01 + j * 0.001
+                cell.cell_jsd = 0.15 + i * 0.01 + j * 0.001
                 petri.cells.append(cell)
             control1_dishes.append(petri)
         
@@ -53,7 +53,7 @@ def test_json_consolidation():
             petri = PetriDish()
             for j in range(10):
                 cell = Cell(n=100, rate=0.005)
-                cell.cell_JSD = 0.1 + i * 0.01 + j * 0.001
+                cell.cell_jsd = 0.1 + i * 0.01 + j * 0.001
                 petri.cells.append(cell)
             control2_dishes.append(petri)
         
@@ -171,7 +171,7 @@ def create_test_petri_dish(base_jsd):
     petri = PetriDish()
     for i in range(5):
         cell = Cell(n=100, rate=0.005)
-        cell.cell_JSD = base_jsd + i * 0.01
+        cell.cell_jsd = base_jsd + i * 0.01
         petri.cells.append(cell)
     return petri
 

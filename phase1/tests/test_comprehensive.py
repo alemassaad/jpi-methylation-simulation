@@ -128,7 +128,7 @@ def test_methylation_during_growth():
             if year > 0:
                 petri.simulate_year()
             # Calculate mean JSD
-            mean_jsd = sum(c.cell_JSD for c in petri.cells) / len(petri.cells)
+            mean_jsd = sum(c.cell_jsd for c in petri.cells) / len(petri.cells)
             jsd_values.append(mean_jsd)
         
         # Check JSD increases monotonically
@@ -285,8 +285,8 @@ def test_initial_state():
             return
         
         # Check initial JSD
-        if cell.cell_JSD != 0:
-            results.record(test_name, False, f"Initial cell_JSD = {cell.cell_JSD}")
+        if cell.cell_jsd != 0:
+            results.record(test_name, False, f"Initial cell_JSD = {cell.cell_jsd}")
             return
         
         results.record(test_name, True)

@@ -169,7 +169,7 @@ def test_gene_jsd_disabled():
     
     # Cell JSDs should also not be calculated
     for cell in petri.cells:
-        assert cell.cell_JSD == 0.0, "Cell JSDs should not be calculated when disabled"
+        assert cell.cell_jsd == 0.0, "Cell JSDs should not be calculated when disabled"
     
     print("  ✓ Gene JSD calculation properly disabled")
     print("  ✓ Cell JSD calculation also disabled")

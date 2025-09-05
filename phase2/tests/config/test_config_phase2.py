@@ -56,7 +56,7 @@ def create_test_simulation(sim_dir, years=20, growth_phase=4):
             'cells': [
                 {
                     'methylated': [0] * 1000,
-                    'cell_JSD': 0.01 * year / years,
+                    'cell_jsd': 0.01 * year / years,
                     'id': f"cell_{i}_{year}"
                 }
                 for i in range(min(n_cells, 10))  # Limit to 10 cells for test
@@ -283,7 +283,7 @@ def test_gene_rate_config():
             sim_data['history'][str(year)] = {
                 'cells': [{
                     'methylated': [0] * 100,
-                    'cell_JSD': 0.01,
+                    'cell_jsd': 0.01,
                     'id': f"cell_0_{year}"
                 }]
             }

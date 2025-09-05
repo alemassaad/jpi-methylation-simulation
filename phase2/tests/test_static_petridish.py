@@ -119,7 +119,7 @@ def test_control2_creation():
         cell.age = 50
         for j in range(30):
             cell.cpg_sites[j] = 1
-        cell.cell_JSD = 0.25
+        cell.cell_jsd = 0.25
         snapshot_cells.append(cell)
     
     # Create control2 using pure_snapshot_petri

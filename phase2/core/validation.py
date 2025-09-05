@@ -425,18 +425,26 @@ class PipelineValidator:
                         "warning"
                     )
                 
-                # Check age distribution (should have mixed ages)
-                if dish.cells:
-                    ages = [cell.age for cell in dish.cells[:10]]  # Sample first 10
-                    unique_ages = set(ages)
-                    
-                    # Should have cells from snapshot (older) and grown (younger)
-                    if len(unique_ages) < 2 and mix_ratio not in [0, 100]:
-                        self._log(
-                            f"{batch_name} {dish.metadata.get('individual_id')}: "
-                            f"Suspicious age distribution: {unique_ages}",
-                            "warning"
-                        )
+                # Check age distribution 
+                # NOTE: In the current experimental design, grown cells (aged from year 30 to 50)
+                # and snapshot cells (from year 50) both end up at age 50, so uniform age is expected.
+                # This validation is disabled as it produces false positives.
+                #
+                # TODO: Re-enable with smarter logic that accounts for experimental design:
+                # - If first_snapshot + growth_years == second_snapshot, expect uniform age
+                # - Otherwise, expect mixed ages
+                #
+                # if dish.cells:
+                #     ages = [cell.age for cell in dish.cells[:10]]  # Sample first 10
+                #     unique_ages = set(ages)
+                #     
+                #     # Should have cells from snapshot (older) and grown (younger)
+                #     if len(unique_ages) < 2 and mix_ratio not in [0, 100]:
+                #         self._log(
+                #             f"{batch_name} {dish.metadata.get('individual_id')}: "
+                #             f"Suspicious age distribution: {unique_ages}",
+                #             "warning"
+                #         )
             
             # Check uniform mixing consistency
             if uniform_mixing and len(set(cell_counts)) > 1:

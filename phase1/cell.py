@@ -2445,10 +2445,21 @@ class PetriDishPlotter:
             # Create temporary PetriDish to calculate gene JSDs
             temp_petri = PetriDish(
                 gene_rate_groups=self.petri.gene_rate_groups,
+                n=self.petri.n,  # Pass n to match actual cell sizes
+                gene_size=self.petri.gene_size,  # Pass gene_size to match configuration
                 growth_phase=1,  # Not used for calculation
                 calculate_cell_jsds=False
             )
-            temp_petri.cells = cells
+            
+            # Convert dictionary cells to Cell objects if needed
+            if cells and isinstance(cells[0], dict):
+                from_dict_cells = []
+                for cell_dict in cells:
+                    cell = Cell.from_dict(cell_dict, gene_rate_groups=self.petri.gene_rate_groups)
+                    from_dict_cells.append(cell)
+                temp_petri.cells = from_dict_cells
+            else:
+                temp_petri.cells = cells
             
             # Calculate gene-level JSD values (one per gene)
             gene_jsds = temp_petri.calculate_gene_jsd()
@@ -2574,10 +2585,21 @@ class PetriDishPlotter:
                 # Create temporary PetriDish to calculate gene JSDs
                 temp_petri = PetriDish(
                     gene_rate_groups=self.petri.gene_rate_groups,
+                    n=self.petri.n,  # Pass n to match actual cell sizes
+                    gene_size=self.petri.gene_size,  # Pass gene_size to match configuration
                     growth_phase=1,  # Not used for calculation
                     calculate_cell_jsds=False
                 )
-                temp_petri.cells = cells
+                
+                # Convert dictionary cells to Cell objects if needed
+                if cells and isinstance(cells[0], dict):
+                    from_dict_cells = []
+                    for cell_dict in cells:
+                        cell = Cell.from_dict(cell_dict, gene_rate_groups=self.petri.gene_rate_groups)
+                        from_dict_cells.append(cell)
+                    temp_petri.cells = from_dict_cells
+                else:
+                    temp_petri.cells = cells
                 
                 # Calculate gene-level JSD values (one per gene)
                 gene_jsds = temp_petri.calculate_gene_jsd()

@@ -234,7 +234,7 @@ class Cell:
         n_methylated = sum(self.cpg_sites)
         
         return {
-            'methylated': self.cpg_sites[:],           # The methylation state (0s and 1s)
+            'cpg_sites': self.cpg_sites[:],            # The methylation state (0s and 1s)
             'cell_JSD': self.cell_JSD,                 # The JSD value
             'age': self.age,                            # Cell age in years
             'gene_rate_groups': self.gene_rate_groups, # Rate configuration (for verification)
@@ -258,7 +258,8 @@ class Cell:
         Returns:
             Reconstructed Cell object
         """
-        n = len(data['methylated'])
+        # Get n from cpg_sites (new) or methylated (backward compatibility)
+        n = len(data.get('cpg_sites', data.get('methylated', [])))
         
         # Use gene_rate_groups from data if available (new format)
         # Otherwise fall back to provided parameters (backward compatibility)
@@ -271,7 +272,8 @@ class Cell:
         
         # Let __init__ handle the conversion
         cell = cls(n=n, rate=rate, gene_rate_groups=gene_rate_groups, gene_size=gene_size)
-        cell.cpg_sites = data['methylated'][:]
+        # Handle both 'cpg_sites' (new standard) and 'methylated' (backward compatibility)
+        cell.cpg_sites = data.get('cpg_sites', data.get('methylated', []))[:]
         cell.cell_JSD = data.get('cell_JSD', 0.0)
         cell.age = data.get('age', 0)  # Restore age (default to 0 for old data)
         

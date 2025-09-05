@@ -2575,8 +2575,7 @@ class PetriDishPlotter:
                 temp_petri = PetriDish(
                     gene_rate_groups=self.petri.gene_rate_groups,
                     growth_phase=1,  # Not used for calculation
-                    calculate_cell_jsds=False,
-                    track_gene_jsd=False
+                    calculate_cell_jsds=False
                 )
                 temp_petri.cells = cells
                 

@@ -220,7 +220,7 @@ Key methods:
     "0": {
       "cells": [
         {
-          "methylated": [0, 0, 1, 0, 1, ...],  // Only essential data
+          "cpg_sites": [0, 0, 1, 0, 1, ...],  // Methylation state (0s and 1s)
           "cell_JSD": 0.0                      // Cell's divergence
         }
       ],

@@ -36,7 +36,7 @@ def plot_cell_jsd_distribution(cells: List[Cell], bins: int, output_path: str,
         gene_rate_groups: Gene rate groups (optional, for display)
         year: Year to display in title (optional, otherwise uses cell.age)
     """
-    print(f"\nPlotting Cell JSD distribution...")
+    print(f"\nPlotting cell JSD distribution...")
     
     # Extract cell JSD values directly from Cell objects
     cell_jsd_values = np.array([cell.cell_jsd for cell in cells])
@@ -70,12 +70,12 @@ def plot_cell_jsd_distribution(cells: List[Cell], bins: int, output_path: str,
         x=x_step,
         y=y_step,
         mode='lines',
-        name='Cell JSD Distribution',
+        name='cell JSD Distribution',
         line=dict(color='#1f77b4', width=2),
         fill='tozeroy',
         fillcolor='rgba(31, 119, 180, 0.3)',
         showlegend=False,
-        hovertemplate='Cell JSD: %{x:.4f}<br>Count: %{y}<extra></extra>'
+        hovertemplate='cell JSD: %{x:.4f}<br>Count: %{y}<extra></extra>'
     ))
     
     # Add mean line
@@ -134,11 +134,11 @@ def plot_cell_jsd_distribution(cells: List[Cell], bins: int, output_path: str,
     
     fig.update_layout(
         title=dict(
-            text=f"Cell JSD Distribution at Year {display_year}<br>"
+            text=f"cell JSD Distribution at Year {display_year}<br>"
                  f"<sub>{len(cells)} cells{rate_text}</sub>",
             font=dict(size=16)
         ),
-        xaxis_title="Cell JSD Score",
+        xaxis_title="cell JSD Score",
         yaxis_title="Count",
         template="plotly_white",
         width=1200,
@@ -182,7 +182,7 @@ def plot_cell_methylation_proportion_histogram(cells: List[Cell], bins: int, out
         gene_rate_groups: Gene rate groups (optional, for display)
         year: Year to display in title (optional, otherwise uses cell.age)
     """
-    print(f"\nPlotting Cell Methylation distribution...")
+    print(f"\nPlotting cell methylation proportion distribution...")
     
     # Calculate methylation proportion for each cell
     cell_methylation_props = []
@@ -225,7 +225,7 @@ def plot_cell_methylation_proportion_histogram(cells: List[Cell], bins: int, out
         x=x_step,
         y=y_step,
         mode='lines',
-        name='Cell Methylation Distribution',
+        name='cell methylation proportion Distribution',
         line=dict(color='#d62728', width=2),  # Red color for methylation
         fill='tozeroy',
         fillcolor='rgba(214, 39, 40, 0.3)',
@@ -286,11 +286,11 @@ def plot_cell_methylation_proportion_histogram(cells: List[Cell], bins: int, out
     
     fig.update_layout(
         title=dict(
-            text=f"Cell Methylation Proportion Distribution at Year {display_year}<br>"
+            text=f"cell methylation proportion Distribution at Year {display_year}<br>"
                  f"<sub>{len(cells)} cells{rate_text}</sub>",
             font=dict(size=16)
         ),
-        xaxis_title="Cell Methylation Proportion",
+        xaxis_title="cell methylation proportion",
         yaxis_title="Count",
         template="plotly_white",
         width=1200,
@@ -560,8 +560,8 @@ def analyze_cell_methylation_proportion_comparison(mutant_dishes: List[PetriDish
         control1_methylations, 
         control2_methylations, 
         plot_path,
-        ylabel="Mean Methylation Proportion",
-        title="Cell Methylation Proportion Comparison"
+        ylabel="Mean cell methylation proportion",
+        title="cell methylation proportion Comparison"
     )
     
     # Save methylation analysis
@@ -856,8 +856,8 @@ def create_comparison_plot_from_jsds(mutant_jsds: np.ndarray,
                                     control1_jsds: np.ndarray, 
                                     control2_jsds: np.ndarray, 
                                     output_path: str,
-                                    ylabel: str = "Mean Cell JSD",
-                                    title: str = "Cell JSD Comparison Across Batches") -> None:
+                                    ylabel: str = "Mean cell JSD",
+                                    title: str = "cell JSD Comparison Across Batches") -> None:
     """
     Create a clean scatter plot comparing all three distributions.
     
@@ -866,8 +866,8 @@ def create_comparison_plot_from_jsds(mutant_jsds: np.ndarray,
         control1_jsds: Array of mean values for control1 group
         control2_jsds: Array of mean values for control2 group
         output_path: Path to save the plot
-        ylabel: Y-axis label (default: "Mean Cell JSD")
-        title: Plot title (default: "Cell JSD Comparison Across Batches")
+        ylabel: Y-axis label (default: "Mean cell JSD")
+        title: Plot title (default: "cell JSD Comparison Across Batches")
     """
     print(f"\n  Creating comparison plot...")
     

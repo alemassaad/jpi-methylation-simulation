@@ -306,10 +306,19 @@ class PipelineValidator:
                     for year_str in sorted(dish.cell_history.keys(), key=int):
                         cells_data = dish.cell_history[year_str]
                         if cells_data:  # Skip if no cells (extinction)
-                            year_meth = np.mean([
-                                np.mean(cell.get('methylated', [])) 
-                                for cell in cells_data if cell.get('methylated')
-                            ])
+                            # Get mean methylation, handling both empty lists and missing keys
+                            methylation_values = []
+                            for cell in cells_data:
+                                # Support both 'cpg_sites' (correct) and 'methylated' (legacy) keys
+                                cpg_sites = cell.get('cpg_sites') or cell.get('methylated', [])
+                                if cpg_sites:  # Only include if not empty
+                                    methylation_values.append(np.mean(cpg_sites))
+                            
+                            if methylation_values:
+                                year_meth = np.mean(methylation_values)
+                            else:
+                                year_meth = 0.0  # Default to 0 if no valid data
+                            
                             if year_meth < prev_meth * 0.95:  # 5% tolerance
                                 self._log(
                                     f"{batch_name} {ind_id}: Methylation decreased at year {year_str}",

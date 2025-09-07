@@ -383,11 +383,11 @@ def main():
     jsd_values = [cell.cell_jsd for cell in petri_dish.cells]
     if jsd_values:
         import statistics
-        print(f"  Mean JSD: {statistics.mean(jsd_values):.4f}")
-        print(f"  Median JSD: {statistics.median(jsd_values):.4f}")
-        print(f"  Std Dev JSD: {statistics.stdev(jsd_values):.4f}")
-        print(f"  Min JSD: {min(jsd_values):.4f}")
-        print(f"  Max JSD: {max(jsd_values):.4f}")
+        print(f"  Mean cell JSD: {statistics.mean(jsd_values):.4f}")
+        print(f"  Median cell JSD: {statistics.median(jsd_values):.4f}")
+        print(f"  Std Dev cell JSD: {statistics.stdev(jsd_values):.4f}")
+        print(f"  Min cell JSD: {min(jsd_values):.4f}")
+        print(f"  Max cell JSD: {max(jsd_values):.4f}")
     
     # Calculate methylation statistics
     meth_props = [cell.cell_methylation_proportion for cell in petri_dish.cells]

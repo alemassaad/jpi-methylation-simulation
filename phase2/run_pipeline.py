@@ -101,6 +101,16 @@ def load_config(config_path: Optional[str] = None) -> Dict[str, Any]:
     return config
 
 
+def open_json_file(filepath):
+    """Open JSON file, detecting if it's gzipped."""
+    if filepath.endswith('.gz'):
+        with gzip.open(filepath, 'rt') as f:
+            return json.load(f)
+    else:
+        with open(filepath, 'r') as f:
+            return json.load(f)
+
+
 def deep_merge(base: dict, update: dict) -> None:
     """
     Deep merge update dictionary into base dictionary.
@@ -641,7 +651,7 @@ def run_pipeline(args):
     # STAGE 2: Plot JSD Distribution
     # ========================================================================
     print(f"\n{'='*60}")
-    print("STAGE 2: Plot JSD Distribution")
+    print("STAGE 2: Plot cell JSD Distribution")
     print(f"{'='*60}")
     
     plot_path = plot_paths.get_cell_jsd_distribution_path(args.first_snapshot)
@@ -824,7 +834,7 @@ def run_pipeline(args):
     # STAGE 5.5: Plot Second Snapshot JSD Distribution
     # ========================================================================
     print(f"\n{'='*60}")
-    print(f"STAGE 5.5: Plot Year {args.second_snapshot} JSD Distribution")
+    print(f"STAGE 5.5: Plot Year {args.second_snapshot} cell JSD Distribution")
     print(f"{'='*60}")
     
     second_plot_path = plot_paths.get_cell_jsd_distribution_path(args.second_snapshot)
@@ -1215,9 +1225,7 @@ def run_pipeline(args):
     print("Generating Individual Growth Trajectories")
     print(f"{'='*60}")
     
-    # Create output directory for individual trajectories
-    individual_trajectories_dir = os.path.join(results_dir, 'individual_trajectories')
-    os.makedirs(individual_trajectories_dir, exist_ok=True)
+    # PlotPaths already creates all necessary directories
     
     # Plot mutant individuals
     print("\n  Creating plots for mutant individuals...")
@@ -1244,7 +1252,7 @@ def run_pipeline(args):
                     plotter.plot_gene_jsd_trajectory(f"Mutant Individual {i:02d} Gene JSD", gene_jsd_path)
                 
                     mutant_plot_count += 1
-                    print(f"    ✓ Plotted mutant_{i:02d} trajectories (JSD, methylation, gene JSD)")
+                    print(f"    ✓ Plotted mutant_{i:02d} trajectories (cell JSD, cell methylation proportion, gene JSD)")
             except Exception as e:
                 print(f"    ⚠️  Could not plot mutant_{i:02d}: {str(e)}")
     
@@ -1273,12 +1281,12 @@ def run_pipeline(args):
                     plotter.plot_gene_jsd_trajectory(f"Control1 Individual {i:02d} Gene JSD", gene_jsd_path)
                 
                     control1_plot_count += 1
-                    print(f"    ✓ Plotted control1_{i:02d} trajectories (JSD, methylation, gene JSD)")
+                    print(f"    ✓ Plotted control1_{i:02d} trajectories (cell JSD, cell methylation proportion, gene JSD)")
             except Exception as e:
                 print(f"    ⚠️  Could not plot control1_{i:02d}: {str(e)}")
     
     print(f"\n  Skipping control2 (pure snapshots, no growth trajectories)")
-    print(f"  ✓ Generated {(mutant_plot_count + control1_plot_count) * 3} trajectory plots in {individual_trajectories_dir}")
+    print(f"  ✓ Generated {(mutant_plot_count + control1_plot_count) * 3} trajectory plots")
     
     # ========================================================================
     # STAGE 8: Analysis
@@ -1333,8 +1341,8 @@ def run_pipeline(args):
     # Check if we have snapshots for gene JSD distribution comparison
     try:
         # Load snapshots for gene JSD comparison
-        snapshot1_path = os.path.join(snapshots_dir, f"year{args.first_snapshot}_snapshot.json.gz")
-        snapshot2_path = os.path.join(snapshots_dir, f"year{args.second_snapshot}_snapshot.json.gz")
+        snapshot1_path = os.path.join(snapshots_dir, f"year{args.first_snapshot}_snapshot{snapshot_ext}")
+        snapshot2_path = os.path.join(snapshots_dir, f"year{args.second_snapshot}_snapshot{snapshot_ext}")
         snapshot1_cells = load_snapshot_cells(snapshot1_path)
         snapshot2_cells = load_snapshot_cells(snapshot2_path)
     
@@ -1359,8 +1367,7 @@ def run_pipeline(args):
     
         # Load the original simulation data
         print(f"  Loading original simulation: {args.simulation}")
-        with gzip.open(args.simulation, 'rt') as f:
-            sim_data = json.load(f)
+        sim_data = open_json_file(args.simulation)
     
         # Check if gene_jsd_history exists in simulation
         if 'gene_jsd_history' in sim_data:
@@ -1492,17 +1499,17 @@ def run_pipeline(args):
             # JSD timeline
             jsd_timeline_path = plot_paths.get_cell_jsd_timeline_path()
             plotter.plot_jsd("Original Simulation JSD Timeline", jsd_timeline_path)
-            print(f"  ✓ Generated cell_jsd_timeline.png")
+            print(f"  ✓ Generated {os.path.basename(jsd_timeline_path)}")
         
             # Methylation timeline
             meth_timeline_path = plot_paths.get_cell_methylation_timeline_path()
             plotter.plot_cell_methylation_proportion("Original Simulation Cell Methylation Proportion Timeline", meth_timeline_path)
-            print(f"  ✓ Generated cell_methylation_proportion_timeline.png")
+            print(f"  ✓ Generated {os.path.basename(meth_timeline_path)}")
             
             # Gene-level JSD timeline
             gene_jsd_timeline_path = plot_paths.get_gene_jsd_timeline_path()
             plotter.plot_gene_jsd_timeline("Original Simulation Gene JSD Timeline", gene_jsd_timeline_path)
-            print(f"  ✓ Generated gene_jsd_timeline.png")
+            print(f"  ✓ Generated {os.path.basename(gene_jsd_timeline_path)}")
         
         else:
             print(f"  ⚠️  No history found in simulation file")
@@ -1546,9 +1553,9 @@ def run_pipeline(args):
     print(f"Output directory: {base_dir}")
     
     print("\nKey results:")
-    print(f"  Mutant mean JSD: {summary_stats['mutant']['mean']:.6f} ± {summary_stats['mutant']['std']:.6f}")
-    print(f"  Control1 mean JSD: {summary_stats['control1']['mean']:.6f} ± {summary_stats['control1']['std']:.6f}")
-    print(f"  Control2 mean JSD: {summary_stats['control2']['mean']:.6f} ± {summary_stats['control2']['std']:.6f}")
+    print(f"  Mutant mean cell JSD: {summary_stats['mutant']['mean']:.6f} ± {summary_stats['mutant']['std']:.6f}")
+    print(f"  Control1 mean cell JSD: {summary_stats['control1']['mean']:.6f} ± {summary_stats['control1']['std']:.6f}")
+    print(f"  Control2 mean cell JSD: {summary_stats['control2']['mean']:.6f} ± {summary_stats['control2']['std']:.6f}")
     
     print("\nStatistical tests:")
     for comparison, values in statistical_tests.items():

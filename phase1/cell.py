@@ -612,7 +612,7 @@ class PetriDish:
         # Report statistics
         jsd_values = [cell.cell_jsd for cell in self.cells]
         mean_jsd = statistics.mean(jsd_values) if jsd_values else 0.0
-        print(f"  Mean JSD: {mean_jsd:.4f}")
+        print(f"  Mean cell JSD: {mean_jsd:.4f}")
         
     def run_simulation(self, t_max: int = T_MAX) -> None:
         """

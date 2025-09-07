@@ -365,7 +365,7 @@ class PipelineValidator:
             if not allow_extinction:
                 raise ValidationError("Complete control1 batch extinction")
         
-        total_individuals = report['mutant']['total'] + report['control1']['total']
+        total_individuals = len(mutant_dishes) + len(control1_dishes)
         self._log(f"✓ Growth validation complete: {total_individuals} individuals, {report['total_extinct']} extinct")
         return report
     

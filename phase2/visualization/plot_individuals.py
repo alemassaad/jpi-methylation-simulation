@@ -50,12 +50,12 @@ def plot_individual(filepath: str, output_dir: str, group_name: str, individual_
         
         # Create plot paths
         jsd_path = os.path.join(output_dir, f"{group_name}_{individual_id:02d}_jsd.png")
-        meth_path = os.path.join(output_dir, f"{group_name}_{individual_id:02d}_methylation.png")
+        meth_path = os.path.join(output_dir, f"{group_name}_{individual_id:02d}_cell_methylation_proportion.png")
         combined_path = os.path.join(output_dir, f"{group_name}_{individual_id:02d}_combined.png")
         
         # Generate plots
         plotter.plot_jsd(title, jsd_path)
-        plotter.plot_methylation(title, meth_path)
+        plotter.plot_cell_methylation_proportion(title, meth_path)
         plotter.plot_combined(title, combined_path)
         
         print(f"    Generated plots for {group_name} individual {individual_id:02d}")

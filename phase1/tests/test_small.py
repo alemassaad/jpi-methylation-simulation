@@ -58,7 +58,7 @@ def test_small_simulation():
                 print(f"  Year {year}: {actual} cells (steady state ~16) {status}")
     
     # Test methylation is happening
-    print("\nMethylation verification:")
+    print("\nCell methylation proportion verification:")
     year_10_cells = petri_dish.cell_history.get('10', [])
     if year_10_cells:
         # In lean format, check if any sites are methylated

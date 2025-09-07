@@ -130,7 +130,7 @@ class Cell:
         # Initialize methylation pattern
         self.cpg_sites = [0 for _ in range(n)]  
         self.age = 0
-        self.methylation_proportion = 0.0
+        self.cell_methylation_proportion = 0.0
         
         self.methylation_distribution = [0.0 for _ in range(0, self.gene_size + 1)]
         self.methylation_distribution[0] = 1.0  # initially all genes are unmethylated
@@ -156,7 +156,7 @@ class Cell:
         self.age += 1
         
         # Early exit if already fully methylated
-        if self.methylation_proportion >= 1.0:
+        if self.cell_methylation_proportion >= 1.0:
             return
         
         methylated_count = 0
@@ -181,7 +181,7 @@ class Cell:
                 else:
                     methylated_count += 1
                 
-        self.methylation_proportion = methylated_count / self.n
+        self.cell_methylation_proportion = methylated_count / self.n
         self.compute_methylation_distribution()
         self.cell_jsd = JS_div(self.methylation_distribution, self.baseline_methylation_distribution)
     
@@ -238,7 +238,7 @@ class Cell:
             'cell_jsd': self.cell_jsd,                 # The JSD value
             'age': self.age,                            # Cell age in years
             'gene_rate_groups': self.gene_rate_groups, # Rate configuration (for verification)
-            'methylation_proportion': n_methylated / self.n,  # Proportion methylated
+            'cell_methylation_proportion': n_methylated / self.n,  # Proportion methylated
             'n_methylated': n_methylated               # Count of methylated sites
         }
     
@@ -279,11 +279,18 @@ class Cell:
         cell.age = data.get('age', 0)  # Restore age (default to 0 for old data)
         
         # Verify stored stats if available (for validation)
-        if 'methylation_proportion' in data:
+        # Handle both old and new keys for backward compatibility during transition
+        if 'cell_methylation_proportion' in data:
+            actual_prop = sum(cell.cpg_sites) / n
+            stored_prop = data['cell_methylation_proportion']
+            if abs(actual_prop - stored_prop) > 0.0001:
+                print(f"Warning: Cell methylation proportion mismatch: stored={stored_prop:.4f}, actual={actual_prop:.4f}")
+        elif 'methylation_proportion' in data:
+            # Legacy support - can remove after transition
             actual_prop = sum(cell.cpg_sites) / n
             stored_prop = data['methylation_proportion']
             if abs(actual_prop - stored_prop) > 0.0001:
-                print(f"Warning: Methylation proportion mismatch: stored={stored_prop:.4f}, actual={actual_prop:.4f}")
+                print(f"Warning: Cell methylation proportion mismatch: stored={stored_prop:.4f}, actual={actual_prop:.4f}")
         
         return cell
 
@@ -1116,9 +1123,9 @@ class PetriDish:
         
         return self
     
-    def _calculate_mean_methylation_proportion(self) -> float:
+    def _calculate_mean_cell_methylation_proportion(self) -> float:
         """
-        Calculate the mean methylation proportion across all cells.
+        Calculate the mean cell methylation proportion across all cells.
         
         Returns:
             Mean proportion of methylated sites (0.0 to 1.0)
@@ -1141,7 +1148,7 @@ class PetriDish:
         stats = {
             'num_cells': len(self.cells),
             'year': self.year,
-            'mean_methylation': self._calculate_mean_methylation_proportion(),
+            'mean_cell_methylation_proportion': self._calculate_mean_cell_methylation_proportion(),
             'mean_cell_jsd': statistics.mean([c.cell_jsd for c in self.cells]) if self.cells else 0.0
         }
         
@@ -1287,8 +1294,11 @@ class PetriDishPlotter:
                 if isinstance(cell, dict):
                     jsd = cell.get('cell_jsd', cell.get('cell_JSD', 0.0))
                     jsd_values.append(jsd)
-                    # Handle missing methylation_proportion
-                    if 'methylation_proportion' in cell:
+                    # Handle both old and new keys
+                    if 'cell_methylation_proportion' in cell:
+                        meth_values.append(cell['cell_methylation_proportion'] * 100)
+                    elif 'methylation_proportion' in cell:
+                        # Legacy support
                         meth_values.append(cell['methylation_proportion'] * 100)
                     else:
                         # Calculate from methylated array if available
@@ -1300,7 +1310,8 @@ class PetriDishPlotter:
                 else:
                     # Handle Cell objects
                     jsd_values.append(getattr(cell, 'cell_jsd', 0.0))
-                    meth_values.append(getattr(cell, 'methylation_proportion', 0.0) * 100)
+                    meth_values.append(getattr(cell, 'cell_methylation_proportion', 
+                                             getattr(cell, 'methylation_proportion', 0.0)) * 100)
             
             stats['years'].append(year)
             stats['population_size'].append(len(year_data))
@@ -1525,9 +1536,9 @@ class PetriDishPlotter:
             
         return fig
     
-    def plot_methylation(self, title: str = None, output_path: str = None,
+    def plot_cell_methylation_proportion(self, title: str = None, output_path: str = None,
                         width: int = 1200, height: int = 500):
-        """Create methylation plot with secondary y-axis for cell count."""
+        """Create cell methylation proportion plot with secondary y-axis for cell count."""
         try:
             import plotly.graph_objects as go
             from plotly.subplots import make_subplots
@@ -1590,9 +1601,9 @@ class PetriDishPlotter:
                 x=years,
                 y=self.stats['methylation']['mean'],
                 mode='lines',
-                name='Mean Methylation',
+                name='Mean Cell Methylation Proportion',
                 line=dict(color='rgb(239, 85, 59)', width=2.5),
-                hovertemplate='Year: %{x}<br>Mean Methylation: %{y:.2f}%<br>Population: %{customdata}<extra></extra>',
+                hovertemplate='Year: %{x}<br>Mean Cell Methylation Proportion: %{y:.2f}%<br>Population: %{customdata}<extra></extra>',
                 customdata=self.stats['population_size']
             ),
             secondary_y=False
@@ -1613,7 +1624,7 @@ class PetriDishPlotter:
         
         # Update layout
         if title is None:
-            title = f"Methylation Proportion vs Time"
+            title = f"Cell Methylation Proportion vs Time"
         
         fig.update_layout(
             title=dict(text=title, font=dict(size=16)),
@@ -1633,7 +1644,7 @@ class PetriDishPlotter:
         
         # Set axis titles
         fig.update_xaxes(showgrid=True, gridcolor='rgba(0,0,0,0.1)')
-        fig.update_yaxes(title_text="Methylation (%)", secondary_y=False, showgrid=True, gridcolor='rgba(0,0,0,0.1)')
+        fig.update_yaxes(title_text="Cell Methylation Proportion (%)", secondary_y=False, showgrid=True, gridcolor='rgba(0,0,0,0.1)')
         fig.update_yaxes(title_text="Cell Count", secondary_y=True, showgrid=False)
         
         # Add annotation
@@ -1911,7 +1922,7 @@ class PetriDishPlotter:
         title = title_prefix or "PetriDish Simulation"
         
         self.plot_jsd(title, f"{base_path}_jsd.png")
-        self.plot_methylation(title, f"{base_path}_methylation.png")
+        self.plot_cell_methylation_proportion(title, f"{base_path}_cell_methylation_proportion.png")
         self.plot_combined(title, f"{base_path}_combined.png")
         
         # If gene JSD history exists, plot basic gene JSD (keep the existing simple plot)

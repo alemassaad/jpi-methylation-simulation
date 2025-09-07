@@ -13,6 +13,7 @@ import sys
 import plotly.graph_objects as go
 from scipy import stats
 from typing import List, Dict, Any, Optional, Tuple
+from .plot_paths import PlotPaths
 
 # Add parent directory to path
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -168,7 +169,7 @@ def plot_cell_jsd_distribution(cells: List[Cell], bins: int, output_path: str,
     print(f"  Saved plot to {output_path}")
 
 
-def plot_cell_methylation_histogram(cells: List[Cell], bins: int, output_path: str,
+def plot_cell_methylation_proportion_histogram(cells: List[Cell], bins: int, output_path: str,
                                    gene_rate_groups: Optional[List[Tuple[int, float]]] = None,
                                    year: Optional[int] = None) -> None:
     """
@@ -184,33 +185,33 @@ def plot_cell_methylation_histogram(cells: List[Cell], bins: int, output_path: s
     print(f"\nPlotting Cell Methylation distribution...")
     
     # Calculate methylation proportion for each cell
-    methylation_props = []
+    cell_methylation_props = []
     for cell in cells:
         if hasattr(cell, 'cpg_sites') and cell.cpg_sites:
             prop = np.sum(cell.cpg_sites) / len(cell.cpg_sites)
         else:
             # Cell doesn't have cpg_sites or it's empty
             prop = 0.0
-        methylation_props.append(prop)
+        cell_methylation_props.append(prop)
     
-    methylation_props = np.array(methylation_props)
+    cell_methylation_props = np.array(cell_methylation_props)
     
     # Calculate statistics
-    mean_meth = np.mean(methylation_props)
-    std_meth = np.std(methylation_props)
-    median_meth = np.median(methylation_props)
+    mean_meth = np.mean(cell_methylation_props)
+    std_meth = np.std(cell_methylation_props)
+    median_meth = np.median(cell_methylation_props)
     cv_meth = std_meth / mean_meth if mean_meth > 0 else 0
-    mad_meth = np.median(np.abs(methylation_props - median_meth))
-    p5_meth = np.percentile(methylation_props, 5)
-    p25_meth = np.percentile(methylation_props, 25)
-    p75_meth = np.percentile(methylation_props, 75)
-    p95_meth = np.percentile(methylation_props, 95)
+    mad_meth = np.median(np.abs(cell_methylation_props - median_meth))
+    p5_meth = np.percentile(cell_methylation_props, 5)
+    p25_meth = np.percentile(cell_methylation_props, 25)
+    p75_meth = np.percentile(cell_methylation_props, 75)
+    p95_meth = np.percentile(cell_methylation_props, 95)
     
     # Create figure
     fig = go.Figure()
     
     # Calculate histogram data for step plot
-    counts, bin_edges = np.histogram(methylation_props, bins=bins)
+    counts, bin_edges = np.histogram(cell_methylation_props, bins=bins)
     
     # Create step plot data
     x_step = []
@@ -285,11 +286,11 @@ def plot_cell_methylation_histogram(cells: List[Cell], bins: int, output_path: s
     
     fig.update_layout(
         title=dict(
-            text=f"Cell Methylation Distribution at Year {display_year}<br>"
+            text=f"Cell Methylation Proportion Distribution at Year {display_year}<br>"
                  f"<sub>{len(cells)} cells{rate_text}</sub>",
             font=dict(size=16)
         ),
-        xaxis_title="Methylation Proportion",
+        xaxis_title="Cell Methylation Proportion",
         yaxis_title="Count",
         template="plotly_white",
         width=1200,
@@ -437,10 +438,10 @@ def plot_gene_jsd_snapshot_histogram(snapshot_cells: List[Cell], output_path: st
     print(f"  Saved plot to {output_path}")
 
 
-def analyze_cell_methylation_comparison(mutant_dishes: List[PetriDish],
+def analyze_cell_methylation_proportion_comparison(mutant_dishes: List[PetriDish],
                                        control1_dishes: List[PetriDish],
                                        control2_dishes: List[PetriDish],
-                                       output_dir: str) -> Dict[str, Any]:
+                                       plot_paths: PlotPaths) -> Dict[str, Any]:
     """
     Analyze and compare cell methylation proportions across three population groups.
     
@@ -448,7 +449,7 @@ def analyze_cell_methylation_comparison(mutant_dishes: List[PetriDish],
         mutant_dishes: List of mutant PetriDish objects
         control1_dishes: List of control1 PetriDish objects
         control2_dishes: List of control2 PetriDish objects
-        output_dir: Directory to save results
+        plot_paths: PlotPaths object for organized output
     
     Returns:
         Dictionary with results and plot paths
@@ -456,8 +457,8 @@ def analyze_cell_methylation_comparison(mutant_dishes: List[PetriDish],
     print(f"\nAnalyzing cell methylation proportions from PetriDish objects...")
     
     # Helper function to get mean methylation proportion for each dish
-    def get_mean_methylation_from_dishes(dishes: List[PetriDish]) -> np.ndarray:
-        """Get mean methylation proportion for each PetriDish."""
+    def get_mean_cell_methylation_proportion_from_dishes(dishes: List[PetriDish]) -> np.ndarray:
+        """Get mean cell methylation proportion for each PetriDish."""
         mean_methylations = []
         for petri in dishes:
             # Calculate methylation proportion for each cell
@@ -475,9 +476,9 @@ def analyze_cell_methylation_comparison(mutant_dishes: List[PetriDish],
         return np.array(mean_methylations)
     
     # Get mean methylation values for each group
-    mutant_methylations = get_mean_methylation_from_dishes(mutant_dishes)
-    control1_methylations = get_mean_methylation_from_dishes(control1_dishes)
-    control2_methylations = get_mean_methylation_from_dishes(control2_dishes)
+    mutant_methylations = get_mean_cell_methylation_proportion_from_dishes(mutant_dishes)
+    control1_methylations = get_mean_cell_methylation_proportion_from_dishes(control1_dishes)
+    control2_methylations = get_mean_cell_methylation_proportion_from_dishes(control2_dishes)
     
     print(f"  Mutant: {len(mutant_methylations)} individuals")
     print(f"  Control1: {len(control1_methylations)} individuals")
@@ -551,7 +552,7 @@ def analyze_cell_methylation_comparison(mutant_dishes: List[PetriDish],
     }
     
     # Create comparison plot for methylations
-    plot_path = os.path.join(output_dir, "cell_methylation_comparison.png")
+    plot_path = plot_paths.get_cell_methylation_comparison_path()
     
     # Use the existing comparison plot function but with methylation data
     create_comparison_plot_from_jsds(
@@ -564,8 +565,8 @@ def analyze_cell_methylation_comparison(mutant_dishes: List[PetriDish],
     )
     
     # Save methylation analysis
-    analysis_path = os.path.join(output_dir, "cell_methylation_analysis.json")
-    os.makedirs(output_dir, exist_ok=True)
+    analysis_path = plot_paths.get_cell_methylation_analysis_path()
+    os.makedirs(os.path.dirname(analysis_path), exist_ok=True)
     with open(analysis_path, 'w') as f:
         json.dump(methylation_analysis, f, indent=2)
     print(f"  Saved methylation analysis to {analysis_path}")
@@ -599,7 +600,7 @@ def get_mean_cell_jsds_from_petri_dishes(dishes: List[PetriDish]) -> np.ndarray:
 def generate_gene_jsd_analysis(mutant_dishes: List[PetriDish],
                                control1_dishes: List[PetriDish], 
                                control2_dishes: List[PetriDish],
-                               output_dir: str) -> Dict[str, Any]:
+                               plot_paths: PlotPaths) -> Dict[str, Any]:
     """
     Generate gene-level JSD analysis for all genes across all batches.
     
@@ -607,7 +608,7 @@ def generate_gene_jsd_analysis(mutant_dishes: List[PetriDish],
         mutant_dishes: List of mutant PetriDish objects
         control1_dishes: List of control1 PetriDish objects
         control2_dishes: List of control2 PetriDish objects
-        output_dir: Directory to save results
+        plot_paths: PlotPaths object for organized output
         
     Returns:
         Dictionary with gene JSD analysis
@@ -719,8 +720,8 @@ def generate_gene_jsd_analysis(mutant_dishes: List[PetriDish],
     }
     
     # Save to file
-    gene_jsd_path = os.path.join(output_dir, "gene_jsd_analysis.json")
-    os.makedirs(output_dir, exist_ok=True)
+    gene_jsd_path = plot_paths.get_gene_jsd_analysis_path()
+    os.makedirs(os.path.dirname(gene_jsd_path), exist_ok=True)
     with open(gene_jsd_path, 'w') as f:
         json.dump(gene_jsd_analysis, f, indent=2)
     
@@ -742,7 +743,7 @@ def generate_gene_jsd_analysis(mutant_dishes: List[PetriDish],
 def analyze_populations_from_dishes(mutant_dishes: List[PetriDish], 
                                    control1_dishes: List[PetriDish],
                                    control2_dishes: List[PetriDish],
-                                   output_dir: str) -> Dict[str, Any]:
+                                   plot_paths: PlotPaths) -> Dict[str, Any]:
     """
     Analyze and compare three population groups using PetriDish objects.
     
@@ -750,7 +751,7 @@ def analyze_populations_from_dishes(mutant_dishes: List[PetriDish],
         mutant_dishes: List of mutant PetriDish objects
         control1_dishes: List of control1 PetriDish objects
         control2_dishes: List of control2 PetriDish objects
-        output_dir: Directory to save results
+        plot_paths: PlotPaths object for organized output
     
     Returns:
         Dictionary with results and plot paths
@@ -834,12 +835,12 @@ def analyze_populations_from_dishes(mutant_dishes: List[PetriDish],
     }
     
     # Create comparison plot for cell JSDs
-    plot_path = os.path.join(output_dir, "cell_jsd_comparison.png")
+    plot_path = plot_paths.get_cell_jsd_comparison_path()
     create_comparison_plot_from_jsds(mutant_jsds, control1_jsds, control2_jsds, plot_path)
     
     # Save consolidated cell JSD analysis
-    cell_jsd_path = os.path.join(output_dir, "cell_jsd_analysis.json")
-    os.makedirs(output_dir, exist_ok=True)
+    cell_jsd_path = plot_paths.get_cell_jsd_analysis_path()
+    os.makedirs(os.path.dirname(cell_jsd_path), exist_ok=True)
     with open(cell_jsd_path, 'w') as f:
         json.dump(cell_jsd_analysis, f, indent=2)
     print(f"\n  Saved cell JSD analysis to {cell_jsd_path}")
@@ -1584,7 +1585,7 @@ def plot_top_variable_genes(petri_dishes, n_top=20, output_path=None):
     return fig
 
 
-def plot_gene_jsd_distributions(gene_jsd_data: Dict[str, Any], output_dir: str, max_genes: int = None) -> None:
+def plot_gene_jsd_distributions(gene_jsd_data: Dict[str, Any], plot_paths: PlotPaths, max_genes: int = None) -> None:
     """
     Create individual gene JSD plots with exact same design as cell-level JSD plot.
     
@@ -1603,9 +1604,8 @@ def plot_gene_jsd_distributions(gene_jsd_data: Dict[str, Any], output_dir: str, 
     # Determine how many genes to plot
     genes_to_plot = min(n_genes, max_genes) if max_genes else n_genes
     
-    # Create output directory
-    gene_plots_dir = os.path.join(output_dir, 'gene_jsd_plots')
-    os.makedirs(gene_plots_dir, exist_ok=True)
+    # Create output directory (already created by PlotPaths)
+    # Using plot_paths for per-gene plots
     
     print(f"  Creating plots for {genes_to_plot} genes...")
     
@@ -1627,7 +1627,7 @@ def plot_gene_jsd_distributions(gene_jsd_data: Dict[str, Any], output_dir: str, 
             continue
         
         # Create plot using EXACT same design as cell-level
-        plot_path = os.path.join(gene_plots_dir, f'gene_{gene_idx:03d}_jsd_comparison.png')
+        plot_path = plot_paths.get_per_gene_jsd_path(gene_idx)
         create_gene_comparison_plot(mutant_jsds, control1_jsds, control2_jsds, 
                                    plot_path, gene_idx, metadata)
         
@@ -1635,7 +1635,7 @@ def plot_gene_jsd_distributions(gene_jsd_data: Dict[str, Any], output_dir: str, 
         if (gene_idx + 1) % 10 == 0:
             print(f"    Processed {gene_idx + 1}/{genes_to_plot} genes...")
     
-    print(f"  ✓ Generated {genes_to_plot} gene JSD plots in {gene_plots_dir}")
+    print(f"  ✓ Generated {genes_to_plot} gene JSD plots")
 
 
 def create_gene_comparison_plot(mutant_jsds: np.ndarray, 
@@ -1893,7 +1893,7 @@ def create_gene_comparison_plot(mutant_jsds: np.ndarray,
     fig.write_image(output_path, width=700, height=800, scale=2)
 
 
-def plot_gene_jsd_individual_comparison(gene_jsd_path, output_dir, verbose=False):
+def plot_gene_jsd_individual_comparison(gene_jsd_path, plot_paths: PlotPaths, verbose=False):
     """
     Create scatter plot comparing individual-averaged gene JSDs across batches.
     Uses EXACT same design as cell-level JSD comparison.
@@ -1923,7 +1923,7 @@ def plot_gene_jsd_individual_comparison(gene_jsd_path, output_dir, verbose=False
     control2_jsds = np.array(individual_avgs.get('control2', []))
     
     # Create output path
-    output_path = os.path.join(output_dir, 'gene_jsd_individual_comparison.png')
+    output_path = plot_paths.get_gene_jsd_comparison_path()
     
     # Use the shared plotting function with exact same design as cell-level
     create_gene_individual_comparison_plot(

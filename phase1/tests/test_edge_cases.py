@@ -75,7 +75,7 @@ def test_100_percent_methylation():
     petri.simulate_year()
     
     for cell in petri.cells:
-        assert cell.methylation_proportion == 1.0, "Cell not fully methylated with rate=1.0"
+        assert cell.cell_methylation_proportion == 1.0, "Cell not fully methylated with rate=1.0"
         assert all(site == 1 for site in cell.cpg_sites), "Some sites unmethylated"
     
     print("✓ 100% methylation rate works correctly")
@@ -91,7 +91,7 @@ def test_zero_methylation():
     
     # All cells should remain unmethylated
     for cell in petri.cells:
-        assert cell.methylation_proportion == 0.0, "Cell methylated with rate=0.0"
+        assert cell.cell_methylation_proportion == 0.0, "Cell methylated with rate=0.0"
         assert all(site == 0 for site in cell.cpg_sites), "Some sites methylated"
         assert cell.cell_jsd == 0.0, "cell_JSD should be 0 for unmethylated cells"
     

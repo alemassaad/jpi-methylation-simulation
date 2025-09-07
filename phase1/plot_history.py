@@ -81,7 +81,16 @@ def calculate_statistics(history):
         
         # Extract values
         jsd_values = np.array([cell['cell_jsd'] for cell in year_data])
-        meth_values = np.array([cell['methylation_proportion'] for cell in year_data]) * 100  # Convert to percentage
+        # Handle both old and new keys
+        meth_values = []
+        for cell in year_data:
+            if 'cell_methylation_proportion' in cell:
+                meth_values.append(cell['cell_methylation_proportion'])
+            elif 'methylation_proportion' in cell:
+                meth_values.append(cell['methylation_proportion'])
+            else:
+                meth_values.append(0.0)
+        meth_values = np.array(meth_values) * 100  # Convert to percentage
         
         stats['years'].append(year)
         stats['population_size'].append(len(year_data))
@@ -257,8 +266,8 @@ def create_jsd_plot(stats, filename):
     
     return fig
 
-def create_methylation_plot(stats, filename):
-    """Create methylation-only plot with growth phase indicator and cell count."""
+def create_cell_methylation_proportion_plot(stats, filename):
+    """Create cell methylation proportion plot with growth phase indicator and cell count."""
     # Create figure with secondary y-axis
     fig = make_subplots(specs=[[{"secondary_y": True}]])
     
@@ -336,7 +345,7 @@ def create_methylation_plot(stats, filename):
     # Update layout
     fig.update_layout(
         title=dict(
-            text=f"Methylation Proportion vs Time<br><sub>{filename}</sub>",
+            text=f"Cell Methylation Proportion vs Time<br><sub>{filename}</sub>",
             font=dict(size=16)
         ),
         xaxis_title="Age (years)",
@@ -357,7 +366,7 @@ def create_methylation_plot(stats, filename):
     
     # Set axis titles and formatting
     fig.update_xaxes(showgrid=True, gridcolor='rgba(0,0,0,0.1)')
-    fig.update_yaxes(title_text="Methylation (%)", secondary_y=False, showgrid=True, gridcolor='rgba(0,0,0,0.1)')
+    fig.update_yaxes(title_text="Cell Methylation Proportion (%)", secondary_y=False, showgrid=True, gridcolor='rgba(0,0,0,0.1)')
     fig.update_yaxes(title_text="Cell Count", secondary_y=True, showgrid=False)
     
     # Add annotation with final statistics
@@ -704,8 +713,8 @@ def main():
         if not args.jsd_only:
             try:
                 print("Creating methylation plot...")
-                meth_output = os.path.join(plots_dir, f"{base_name}_methylation.png")
-                plotter.plot_methylation(filename, meth_output)
+                meth_output = os.path.join(plots_dir, f"{base_name}_cell_methylation_proportion.png")
+                plotter.plot_cell_methylation_proportion(filename, meth_output)
                 print(f"  Methylation plot saved to {meth_output}")
             except Exception as e:
                 print(f"Error creating methylation plot: {e}")

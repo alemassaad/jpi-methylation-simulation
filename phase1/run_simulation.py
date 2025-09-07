@@ -390,10 +390,10 @@ def main():
         print(f"  Max JSD: {max(jsd_values):.4f}")
     
     # Calculate methylation statistics
-    meth_props = [cell.methylation_proportion for cell in petri_dish.cells]
+    meth_props = [cell.cell_methylation_proportion for cell in petri_dish.cells]
     if meth_props:
-        print(f"  Mean methylation: {statistics.mean(meth_props):.2%}")
-        print(f"  Median methylation: {statistics.median(meth_props):.2%}")
+        print(f"  Mean cell methylation proportion: {statistics.mean(meth_props):.2%}")
+        print(f"  Median cell methylation proportion: {statistics.median(meth_props):.2%}")
     
     print("\nSimulation complete!")
     return 0

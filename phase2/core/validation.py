@@ -400,7 +400,7 @@ class PipelineValidator:
         if len(mutant_after) == 0 and len(control1_after) == 0:
             raise ValidationError("All individuals excluded by normalization!")
         
-        total_kept = len(normalized_mutant) + len(normalized_control1)
+        total_kept = len(mutant_after) + len(control1_after)
         self._log(f"✓ Normalization validation passed: {total_kept} individuals kept (threshold: {threshold} cells)")
     
     def validate_mixed_populations(self,
@@ -469,8 +469,8 @@ class PipelineValidator:
                     "warning"
                 )
         
-        total_mixed = len(mixed_mutant) + len(mixed_control1)
-        self._log(f"✓ Mixing validation passed: {len(mixed_mutant)} mutant, {len(mixed_control1)} control1 (ratio: {int(mix_ratio*100)}%)")
+        total_mixed = len(mutant_dishes) + len(control1_dishes)
+        self._log(f"✓ Mixing validation passed: {len(mutant_dishes)} mutant, {len(control1_dishes)} control1 (ratio: {mix_ratio}%)")
     
     def validate_before_save(self,
                            mutant_dishes: List[PetriDish],

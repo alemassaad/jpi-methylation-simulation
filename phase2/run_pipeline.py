@@ -881,16 +881,22 @@ def run_pipeline(args):
             seed=args.seed + 5000
         )
         
-        # Update metadata but don't save yet
-        for dish in mutant_dishes:
+        # Update metadata and remap IDs sequentially
+        for new_id, dish in enumerate(mutant_dishes, 1):
             if not hasattr(dish, 'metadata'):
                 dish.metadata = {}
+            original_id = dish.metadata.get('individual_id', new_id)
+            dish.metadata['original_id'] = original_id  # Preserve original
+            dish.metadata['individual_id'] = new_id  # Sequential for files
             dish.metadata['normalized'] = True
             dish.metadata['normalization_threshold'] = normalization_threshold
         
-        for dish in control1_dishes:
+        for new_id, dish in enumerate(control1_dishes, 1):
             if not hasattr(dish, 'metadata'):
                 dish.metadata = {}
+            original_id = dish.metadata.get('individual_id', new_id)
+            dish.metadata['original_id'] = original_id  # Preserve original
+            dish.metadata['individual_id'] = new_id  # Sequential for files
             dish.metadata['normalized'] = True
             dish.metadata['normalization_threshold'] = normalization_threshold
         
@@ -919,6 +925,21 @@ def run_pipeline(args):
         # Update the dish lists to use normalized versions
         mutant_dishes = normalized_mutant
         control1_dishes = normalized_control1
+        
+        # Remap IDs to be sequential after exclusions
+        for new_id, petri in enumerate(mutant_dishes, 1):
+            if not hasattr(petri, 'metadata'):
+                petri.metadata = {}
+            original_id = petri.metadata.get('individual_id', new_id)
+            petri.metadata['original_id'] = original_id  # Preserve original for traceability
+            petri.metadata['individual_id'] = new_id  # Sequential ID for file naming
+        
+        for new_id, petri in enumerate(control1_dishes, 1):
+            if not hasattr(petri, 'metadata'):
+                petri.metadata = {}
+            original_id = petri.metadata.get('individual_id', new_id)
+            petri.metadata['original_id'] = original_id  # Preserve original for traceability
+            petri.metadata['individual_id'] = new_id  # Sequential ID for file naming
         
         # Step 2: Create uniform pool based on normalized size
         print(f"\n  Step 2: Creating uniform mixing pool from year {args.second_snapshot}...")
@@ -1350,7 +1371,8 @@ def run_pipeline(args):
         gene_dist_path = plot_paths.get_gene_jsd_comparison_path()
         plot_gene_jsd_distribution_comparison(
             snapshot1_cells, snapshot2_cells, 
-            args.first_snapshot, args.second_snapshot, gene_dist_path
+            args.first_snapshot, args.second_snapshot, gene_dist_path,
+            gene_rate_groups=gene_rate_groups, gene_size=gene_size
         )
     
     except Exception as e:
@@ -1506,7 +1528,7 @@ def run_pipeline(args):
             plotter.plot_cell_methylation_proportion("Original Simulation Cell Methylation Proportion Timeline", meth_timeline_path)
             print(f"  ✓ Generated {os.path.basename(meth_timeline_path)}")
             
-            # Gene-level JSD timeline
+            # Gene JSD timeline
             gene_jsd_timeline_path = plot_paths.get_gene_jsd_timeline_path()
             plotter.plot_gene_jsd_timeline("Original Simulation Gene JSD Timeline", gene_jsd_timeline_path)
             print(f"  ✓ Generated {os.path.basename(gene_jsd_timeline_path)}")

@@ -1237,12 +1237,12 @@ def normalize_populations(mutant_dishes: List[PetriDish],
         if current_size < threshold_size:
             # Exclude this individual
             mutant_excluded += 1
-            print(f"    Mutant {i:02d}: {current_size} cells - EXCLUDED (below threshold)")
+            print(f"    Mutant {i+1:02d}: {current_size} cells - EXCLUDED (below threshold)")
         elif current_size == threshold_size:
             # Keep as is
             mutant_kept_as_is += 1
             normalized_mutant.append(dish)
-            print(f"    Mutant {i:02d}: {current_size} cells - kept as is")
+            print(f"    Mutant {i+1:02d}: {current_size} cells - kept as is")
         else:
             # Trim to threshold size
             mutant_trimmed += 1
@@ -1251,7 +1251,7 @@ def normalize_populations(mutant_dishes: List[PetriDish],
             # Randomly sample cells to match threshold
             new_dish.cells = random.sample(new_dish.cells, threshold_size)
             normalized_mutant.append(new_dish)
-            print(f"    Mutant {i:02d}: {current_size} → {threshold_size} cells (trimmed)")
+            print(f"    Mutant {i+1:02d}: {current_size} → {threshold_size} cells (trimmed)")
     
     # Process control1 dishes
     normalized_control1 = []
@@ -1265,12 +1265,12 @@ def normalize_populations(mutant_dishes: List[PetriDish],
         if current_size < threshold_size:
             # Exclude this individual
             control1_excluded += 1
-            print(f"    Control1 {i:02d}: {current_size} cells - EXCLUDED (below threshold)")
+            print(f"    Control1 {i+1:02d}: {current_size} cells - EXCLUDED (below threshold)")
         elif current_size == threshold_size:
             # Keep as is
             control1_kept_as_is += 1
             normalized_control1.append(dish)
-            print(f"    Control1 {i:02d}: {current_size} cells - kept as is")
+            print(f"    Control1 {i+1:02d}: {current_size} cells - kept as is")
         else:
             # Trim to threshold size
             control1_trimmed += 1
@@ -1279,7 +1279,7 @@ def normalize_populations(mutant_dishes: List[PetriDish],
             # Randomly sample cells to match threshold
             new_dish.cells = random.sample(new_dish.cells, threshold_size)
             normalized_control1.append(new_dish)
-            print(f"    Control1 {i:02d}: {current_size} → {threshold_size} cells (trimmed)")
+            print(f"    Control1 {i+1:02d}: {current_size} → {threshold_size} cells (trimmed)")
     
     # Print summary
     print(f"\n  Mutant summary:")

@@ -156,7 +156,12 @@ class PipelineValidator:
         if unique_ids < min(100, len(cells)):
             self._log("WARNING: Duplicate cell objects detected in snapshot", "warning")
         
-        self._log(f"✓ Snapshot validation passed: {len(cells)} valid cells")
+        # Get gene rate groups info for display
+        if cells and hasattr(cells[0], 'gene_rate_groups') and cells[0].gene_rate_groups:
+            grg_info = f", gene_rate_groups: {cells[0].gene_rate_groups}"
+        else:
+            grg_info = ""
+        self._log(f"✓ Snapshot validation passed: {len(cells)} valid cells{grg_info}")
         
     def validate_initial_individuals(self, 
                                    mutant_dishes: List[PetriDish],
@@ -233,7 +238,7 @@ class PipelineValidator:
                         f"{batch_name} {ind_id} has wrong gene_rate_groups"
                     )
         
-        self._log(f"✓ Initial individuals validation passed")
+        self._log(f"✓ Initial individuals validation passed: {len(mutant_dishes)} mutant, {len(control1_dishes)} control1")
     
     def validate_grown_individuals(self, 
                                   mutant_dishes: List[PetriDish],
@@ -360,7 +365,8 @@ class PipelineValidator:
             if not allow_extinction:
                 raise ValidationError("Complete control1 batch extinction")
         
-        self._log(f"✓ Growth validation complete: {report['total_extinct']} extinct")
+        total_individuals = report['mutant']['total'] + report['control1']['total']
+        self._log(f"✓ Growth validation complete: {total_individuals} individuals, {report['total_extinct']} extinct")
         return report
     
     def validate_normalized_populations(self,
@@ -394,7 +400,8 @@ class PipelineValidator:
         if len(mutant_after) == 0 and len(control1_after) == 0:
             raise ValidationError("All individuals excluded by normalization!")
         
-        self._log(f"✓ Normalization validation passed")
+        total_kept = len(normalized_mutant) + len(normalized_control1)
+        self._log(f"✓ Normalization validation passed: {total_kept} individuals kept (threshold: {threshold} cells)")
     
     def validate_mixed_populations(self,
                                   mutant_dishes: List[PetriDish],
@@ -462,7 +469,8 @@ class PipelineValidator:
                     "warning"
                 )
         
-        self._log(f"✓ Mixing validation passed")
+        total_mixed = len(mixed_mutant) + len(mixed_control1)
+        self._log(f"✓ Mixing validation passed: {len(mixed_mutant)} mutant, {len(mixed_control1)} control1 (ratio: {int(mix_ratio*100)}%)")
     
     def validate_before_save(self,
                            mutant_dishes: List[PetriDish],
@@ -513,7 +521,7 @@ class PipelineValidator:
                 raise ValidationError(f"{batch_name}: Duplicate individual_ids detected: {batch_ids}")
         
         total_dishes = len(mutant_dishes) + len(control1_dishes)
-        self._log(f"✓ Pre-save validation passed for {total_dishes} individuals")
+        self._log(f"✓ Pre-save validation passed: {len(mutant_dishes)} mutant, {len(control1_dishes)} control1 ready to save")
     
     def validate_control2(self,
                          control2_dishes: List[PetriDish],
@@ -557,7 +565,7 @@ class PipelineValidator:
                     f"Wrong individual_type: {dish.metadata.get('individual_type')}"
                 )
         
-        self._log(f"✓ Control2 validation passed")
+        self._log(f"✓ Control2 validation passed: {len(control2_dishes)} individuals created")
     
     def get_summary(self) -> Dict[str, Any]:
         """Get summary of validation results."""

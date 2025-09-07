@@ -141,7 +141,7 @@ def process_batch_growth(
         
         if current_cells == 1:
             # Fresh individual, needs full growth
-            print(f"    Individual {individual_id:02d}: {current_cells} → ~{expected_population} cells")
+            print(f"    Individual {individual_id:02d}: Growing for {years} years (target ~{expected_population} cells)")
             grow_individual(
                 petri, years, growth_phase,
                 verbose, start_year

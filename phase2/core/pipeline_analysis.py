@@ -334,7 +334,7 @@ def plot_gene_jsd_snapshot_histogram(snapshot_cells: List[Cell], output_path: st
         year: Optional year for title
         bins: Number of bins for histogram (default 20 for 20 genes)
     """
-    print(f"\nPlotting Gene-level JSD histogram...")
+    print(f"\nPlotting gene JSD histogram...")
     
     # Get parameters from the first cell
     if snapshot_cells:
@@ -415,11 +415,11 @@ def plot_gene_jsd_snapshot_histogram(snapshot_cells: List[Cell], output_path: st
     
     fig.update_layout(
         title=dict(
-            text=f"Gene-level JSD Distribution at Year{display_year}<br>"
+            text=f"Gene JSD Distribution at Year{display_year}<br>"
                  f"<sub>{len(gene_jsds)} genes{rate_text}</sub>",
             font=dict(size=16)
         ),
-        xaxis_title="Gene-level JSD Score",
+        xaxis_title="Gene JSD Score",
         yaxis_title="Count",
         template="plotly_white",
         width=1200,
@@ -1307,7 +1307,8 @@ def create_gene_individual_comparison_plot(mutant_jsds: np.ndarray,
 
 
 def plot_gene_jsd_distribution_comparison(snapshot1_cells, snapshot2_cells, 
-                                          year1, year2, output_path):
+                                          year1, year2, output_path,
+                                          gene_rate_groups=None, gene_size=5):
     """
     Overlapping histograms comparing gene JSD distributions at two time points.
     
@@ -1317,6 +1318,8 @@ def plot_gene_jsd_distribution_comparison(snapshot1_cells, snapshot2_cells,
         year1: Year of first snapshot
         year2: Year of second snapshot
         output_path: Path to save the plot
+        gene_rate_groups: Optional gene rate configuration
+        gene_size: Size of each gene (default 5)
     """
     # Import plotly here to avoid dependency issues
     try:
@@ -1330,11 +1333,32 @@ def plot_gene_jsd_distribution_comparison(snapshot1_cells, snapshot2_cells,
     # Create temporary PetriDish objects to calculate gene JSD
     from cell import PetriDish
     
-    petri1 = PetriDish()
+    # Extract gene configuration from cells if not provided
+    if not gene_rate_groups and snapshot1_cells:
+        if hasattr(snapshot1_cells[0], 'gene_rate_groups'):
+            gene_rate_groups = snapshot1_cells[0].gene_rate_groups
+            n_sites = len(snapshot1_cells[0].cpg_sites)
+            if hasattr(snapshot1_cells[0], 'gene_size'):
+                gene_size = snapshot1_cells[0].gene_size
+        else:
+            n_sites = len(snapshot1_cells[0].cpg_sites) if snapshot1_cells else 100
+    else:
+        n_sites = len(snapshot1_cells[0].cpg_sites) if snapshot1_cells else 100
+    
+    # Create PetriDish with proper configuration
+    if gene_rate_groups:
+        petri1 = PetriDish(gene_rate_groups=gene_rate_groups, n=n_sites)
+    else:
+        # Fallback to uniform rate with gene_size
+        petri1 = PetriDish(n=n_sites, gene_size=gene_size)
     petri1.cells = snapshot1_cells
     gene_jsds1 = petri1.calculate_gene_jsds()
     
-    petri2 = PetriDish()
+    # Same for petri2
+    if gene_rate_groups:
+        petri2 = PetriDish(gene_rate_groups=gene_rate_groups, n=n_sites)
+    else:
+        petri2 = PetriDish(n=n_sites, gene_size=gene_size)
     petri2.cells = snapshot2_cells
     gene_jsds2 = petri2.calculate_gene_jsds()
     

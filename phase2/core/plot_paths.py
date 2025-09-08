@@ -169,6 +169,9 @@ class PlotPaths:
     def get_gene_jsd_comparison_path(self) -> str:
         return os.path.join(self.gene_comparisons_dir, 'gene_jsd_comparison.png')
     
+    def get_gene_jsd_snapshot_comparison_path(self) -> str:
+        return os.path.join(self.gene_comparisons_dir, 'gene_jsd_snapshot_comparison.png')
+    
     def get_individual_gene_jsd_path(self, batch: str, individual_id: int) -> str:
         """Get path for individual gene JSD trajectory plot."""
         if batch == 'mutant':

@@ -141,7 +141,7 @@ def generate_step23_output_dir(args, sim_params: Dict) -> str:
             rate_str = "rate_inferred"
     
     level1 = (f"{rate_str}-"
-              f"grow{sim_params['growth_phase']}-"
+              f"simgrow{sim_params['growth_phase']}-"
               f"sites{sim_params['n_sites']}-"
               f"years{sim_params['sim_years']}")
     

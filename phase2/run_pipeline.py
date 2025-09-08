@@ -426,18 +426,82 @@ def print_timeline_breakdown(metrics: dict, first_snapshot: int, second_snapshot
     print(f"\n{'='*60}")
     print("TIMELINE BREAKDOWN")
     print(f"{'='*60}")
-    print(f"📊 Individual Simulation Timeline:")
-    print(f"   Year {first_snapshot}: Sample individual cells")
-    print(f"   Years {first_snapshot}→{first_snapshot + exponential_years}: Exponential growth (1 → {target_cells:,} cells)")
+    print(f"📊 Individual Growth Timeline:")
+    print(f"   Sampling: Individual cells from year {first_snapshot} snapshot")
+    print(f"   Growth period: {timeline_duration} years (ages {first_snapshot}→{second_snapshot})")
+    print(f"     • Years 0-{exponential_years}: Exponential growth (1 → {target_cells:,} cells)")
     if homeostasis_years > 0:
-        print(f"   Years {first_snapshot + exponential_years}→{second_snapshot}: Homeostasis (~{target_cells:,} cells)")
-    print(f"   Year {second_snapshot}: Extract for mixing")
+        print(f"     • Years {exponential_years+1}-{timeline_duration}: Homeostasis (~{target_cells:,} cells)")
+    print(f"   Mixing: Combine with year {second_snapshot} snapshot cells")
     print(f"")
     print(f"📈 Growth Summary:")
     print(f"   Total aging time: {timeline_duration} years")
     print(f"   Exponential phase: {exponential_years} years ({exponential_years/timeline_duration*100:.1f}%)")
     print(f"   Homeostasis phase: {homeostasis_years} years ({homeostasis_years/timeline_duration*100:.1f}%)")
     print(f"   Target population: {target_cells:,} cells (2^{exponential_years})")
+
+
+def print_renumbering_summary(mutant_dishes: List, control1_dishes: List, expected_count: int) -> None:
+    """
+    Print a summary of individual renumbering after normalization/exclusion.
+    Only prints if renumbering actually occurred (some individuals were excluded).
+    
+    Args:
+        mutant_dishes: List of mutant PetriDish objects after normalization
+        control1_dishes: List of control1 PetriDish objects after normalization
+        expected_count: Original expected number of individuals per batch
+    """
+    # Check if any renumbering occurred for mutants
+    mutant_renumbered = False
+    mutant_mappings = []
+    for dish in mutant_dishes:
+        original_id = dish.metadata.get('original_id', dish.metadata.get('individual_id', 0))
+        new_id = dish.metadata.get('individual_id', 0)
+        mutant_mappings.append((original_id, new_id))
+        if original_id != new_id:
+            mutant_renumbered = True
+    
+    # Check if any renumbering occurred for control1
+    control1_renumbered = False
+    control1_mappings = []
+    for dish in control1_dishes:
+        original_id = dish.metadata.get('original_id', dish.metadata.get('individual_id', 0))
+        new_id = dish.metadata.get('individual_id', 0)
+        control1_mappings.append((original_id, new_id))
+        if original_id != new_id:
+            control1_renumbered = True
+    
+    # Only print if renumbering occurred
+    if not mutant_renumbered and not control1_renumbered:
+        return
+    
+    print("\n  === INDIVIDUAL RENUMBERING AFTER EXCLUSIONS ===")
+    
+    # Print mutant renumbering if any
+    if len(mutant_dishes) < expected_count:
+        print("  Mutant individuals:")
+        print("    Original ID → New ID (for file naming)")
+        for orig, new in mutant_mappings:
+            if orig != new:
+                print(f"    {orig:02d} → {new:02d}")
+            else:
+                print(f"    {orig:02d} → {new:02d} (unchanged)")
+        excluded_count = expected_count - len(mutant_dishes)
+        print(f"    ({excluded_count} individuals excluded)")
+    
+    # Print control1 renumbering if any
+    if len(control1_dishes) < expected_count:
+        print("  Control1 individuals:")
+        print("    Original ID → New ID (for file naming)")
+        for orig, new in control1_mappings:
+            if orig != new:
+                print(f"    {orig:02d} → {new:02d}")
+            else:
+                print(f"    {orig:02d} → {new:02d} (unchanged)")
+        excluded_count = expected_count - len(control1_dishes)
+        print(f"    ({excluded_count} individuals excluded)")
+    
+    print()  # Add blank line for readability
 
 
 def run_pipeline(args):
@@ -900,6 +964,9 @@ def run_pipeline(args):
             dish.metadata['normalized'] = True
             dish.metadata['normalization_threshold'] = normalization_threshold
         
+        # Print renumbering summary if any changes occurred
+        print_renumbering_summary(mutant_dishes, control1_dishes, expected_individuals)
+        
         print(f"  Normalized all individuals to {normalization_threshold} cells (in memory)")
         
         # Validate normalization
@@ -940,6 +1007,9 @@ def run_pipeline(args):
             original_id = petri.metadata.get('individual_id', new_id)
             petri.metadata['original_id'] = original_id  # Preserve original for traceability
             petri.metadata['individual_id'] = new_id  # Sequential ID for file naming
+        
+        # Print renumbering summary if any changes occurred
+        print_renumbering_summary(mutant_dishes, control1_dishes, expected_individuals)
         
         # Step 2: Create uniform pool based on normalized size
         print(f"\n  Step 2: Creating uniform mixing pool from year {args.second_snapshot}...")
@@ -1122,8 +1192,8 @@ def run_pipeline(args):
     if args.normalize_size:
         # After normalization, we may have fewer individuals
         num_control2 = (len(mutant_dishes) + len(control1_dishes)) // 2
-        print(f"  Adjusted control2 count after normalization: {num_control2}")
-        print(f"    (Based on {len(mutant_dishes)} mutant + {len(control1_dishes)} control1)")
+        print(f"  Control2 count set to: {num_control2}")
+        print(f"    (Average of {len(mutant_dishes)} mutant + {len(control1_dishes)} control1 = {(len(mutant_dishes) + len(control1_dishes))/2:.1f})")
     else:
         # Use original expected count
         num_control2 = expected_individuals
@@ -1368,7 +1438,7 @@ def run_pipeline(args):
         snapshot2_cells = load_snapshot_cells(snapshot2_path)
     
         # Gene JSD distribution comparison (year vs year)
-        gene_dist_path = plot_paths.get_gene_jsd_comparison_path()
+        gene_dist_path = plot_paths.get_gene_jsd_snapshot_comparison_path()
         plot_gene_jsd_distribution_comparison(
             snapshot1_cells, snapshot2_cells, 
             args.first_snapshot, args.second_snapshot, gene_dist_path,

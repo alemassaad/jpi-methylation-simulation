@@ -842,6 +842,28 @@ class PetriDish:
         # Redirect to the new method
         return self.calculate_gene_jsds()
     
+    @property
+    def gene_jsds(self) -> List[float]:
+        """
+        Get current gene JSD values for the population.
+        Calculates on-demand, providing clean OOP access similar to cell.cell_jsd.
+        
+        Returns:
+            List of JSD values, one per gene (0.0 to 1.0)
+        """
+        return self.calculate_gene_jsds()
+    
+    @property
+    def gene_methylation_proportions(self) -> List[float]:
+        """
+        Get current gene methylation proportions for the population.
+        Calculates on-demand, providing clean OOP access.
+        
+        Returns:
+            List of methylation proportions (0.0 to 1.0), one per gene
+        """
+        return self.calculate_gene_mean_methylation()
+    
     def calculate_gene_jsds(self) -> List[float]:
         """
         Calculate Jensen-Shannon Divergence for each gene across all cells.

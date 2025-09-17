@@ -249,6 +249,46 @@ Phase 2 automatically infers gene_rate_groups from the simulation file, eliminat
 - `gene_jsd_snapshot_comparison.png` removed as not useful with only 20 data points
 - Function `plot_gene_jsd_distribution_comparison` removed from pipeline
 
+## Plot Architecture
+
+### Plot Similarity Design Principles
+Gene-level and cell-level plots follow identical design patterns:
+- **Distribution plots**: Step plots with filled areas, mean lines, and comprehensive statistics boxes
+- **Comparison plots**: Scatter points with jitter, quantile lines, and three-column statistics
+- **Individual trajectories**: Time series tracking metrics over years with consistent styling
+- **Parallel structure**: Cell and gene metrics have identical plot types (distributions, comparisons, trajectories)
+
+### Color Scheme Convention
+**Metric-based coloring for consistency**:
+- **JSD plots** (cell & gene): Blue (#1f77b4) with blue fill, red mean line
+- **Methylation plots** (cell & gene): Red (#d62728) with red fill, dark blue mean line
+- **Batch comparisons**: Mutant (#1f77b4), Control1 (#ff7f0e), Control2 (#2ca02c)
+
+### Key Plotting Functions
+
+**Distribution plots** (identical structure):
+- `plot_cell_jsd_distribution()`: Blue step plot, 200 bins, red mean line
+- `plot_gene_jsd_distribution()`: Blue step plot, 20 bins, red mean line  
+- `plot_cell_methylation_proportion_histogram()`: Red step plot, 200 bins, blue mean line
+- `plot_gene_methylation_proportion_histogram()`: Red step plot, 20 bins, blue mean line
+
+**OOP Properties for clean access**:
+- `cell.cell_jsd`: Individual cell's JSD value
+- `petri.gene_jsds`: List of 20 gene JSD values
+- `petri.gene_methylation_proportions`: List of 20 gene methylation proportions
+
+**Comparison plots**:
+- `create_comparison_plot_from_jsds()`: Template for batch comparisons
+- `create_gene_individual_comparison_plot()`: Gene JSD batch comparison
+- `create_gene_methylation_comparison_plot()`: Gene methylation batch comparison
+
+### Statistical Annotations
+All distribution plots include:
+- Mean, Median, SD, CV (coefficient of variation)
+- MAD (median absolute deviation)  
+- Percentiles: 5%, 25%, 75%, 95%
+- Statistics box in top-right corner with consistent formatting
+
 ## Biological Concepts
 
 ### CpG Sites

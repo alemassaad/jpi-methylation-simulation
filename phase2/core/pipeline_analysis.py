@@ -321,20 +321,21 @@ def plot_cell_methylation_proportion_histogram(cells: List[Cell], bins: int, out
     print(f"  Saved plot to {output_path}")
 
 
-def plot_gene_jsd_snapshot_histogram(snapshot_cells: List[Cell], output_path: str,
-                                    gene_rate_groups: Optional[List[Tuple[int, float]]] = None,
-                                    year: Optional[int] = None, bins: int = 20) -> None:
+def plot_gene_jsd_distribution(snapshot_cells: List[Cell], bins: int, output_path: str,
+                              gene_rate_groups: Optional[List[Tuple[int, float]]] = None,
+                              year: Optional[int] = None) -> None:
     """
-    Plot histogram of gene-level JSD values calculated from snapshot cells.
+    Create histogram of gene JSD distribution from snapshot cells.
+    Exact parallel to plot_cell_jsd_distribution but for gene-level JSDs.
     
     Args:
         snapshot_cells: List of Cell objects from snapshot
-        output_path: Path to save the histogram
-        gene_rate_groups: Optional gene rate groups for display
-        year: Optional year for title
-        bins: Number of bins for histogram (default 20 for 20 genes)
+        bins: Number of bins for histogram
+        output_path: Path to save plot
+        gene_rate_groups: Gene rate groups (optional, for display)
+        year: Year to display in title (optional)
     """
-    print(f"\nPlotting gene JSD histogram...")
+    print(f"\nPlotting gene JSD distribution...")
     
     # Get parameters from the first cell
     if snapshot_cells:
@@ -348,75 +349,110 @@ def plot_gene_jsd_snapshot_histogram(snapshot_cells: List[Cell], output_path: st
         n = 1000
         gene_size = 5
     
-    # Create temporary PetriDish with provided cells
-    temp_petri = PetriDish(
+    # Create PetriDish with provided cells to access gene_jsds property
+    petri = PetriDish(
         gene_rate_groups=gene_rate_groups,
-        n=n,  # Use n from the cells
-        gene_size=gene_size,  # Use gene_size from the cells
-        growth_phase=None,  # Static population (no aging)
-        calculate_cell_jsds=False,  # We don't need cell JSDs for this
-        cells=snapshot_cells  # Use provided cells directly
+        n=n,
+        gene_size=gene_size,
+        growth_phase=None,  # Static population
+        calculate_cell_jsds=False,  # Not needed for gene JSDs
+        cells=snapshot_cells
     )
     
-    # Calculate gene-level JSD values (one per gene)
-    gene_jsds = temp_petri.calculate_gene_jsds()
+    # Get gene JSD values using the clean property
+    gene_jsd_values = np.array(petri.gene_jsds)
     
-    print(f"  Calculated JSD for {len(gene_jsds)} genes")
-    print(f"  Mean gene JSD: {np.mean(gene_jsds):.4f}")
-    print(f"  Median gene JSD: {np.median(gene_jsds):.4f}")
-    print(f"  Std gene JSD: {np.std(gene_jsds):.4f}")
+    # Calculate statistics (exact same as cell-level)
+    mean_jsd = np.mean(gene_jsd_values)
+    std_jsd = np.std(gene_jsd_values)
+    median_jsd = np.median(gene_jsd_values)
+    cv_jsd = std_jsd / mean_jsd if mean_jsd > 0 else 0  # Coefficient of variation
+    mad_jsd = np.median(np.abs(gene_jsd_values - median_jsd))  # Median Absolute Deviation
+    p5_jsd = np.percentile(gene_jsd_values, 5)
+    p25_jsd = np.percentile(gene_jsd_values, 25)
+    p75_jsd = np.percentile(gene_jsd_values, 75)
+    p95_jsd = np.percentile(gene_jsd_values, 95)
     
-    # Create histogram
+    # Create figure
     fig = go.Figure()
     
-    # Add histogram
-    fig.add_trace(go.Histogram(
-        x=gene_jsds,
-        nbinsx=bins,
-        marker=dict(
-            color='blue',
-            line=dict(color='black', width=1)
-        ),
-        opacity=0.7
+    # Calculate histogram data for step plot
+    counts, bin_edges = np.histogram(gene_jsd_values, bins=bins)
+    
+    # Create step plot data (exact same as cell-level)
+    x_step = []
+    y_step = []
+    for i in range(len(counts)):
+        x_step.extend([bin_edges[i], bin_edges[i+1]])
+        y_step.extend([counts[i], counts[i]])
+    
+    # Add step histogram with fill (exact same styling as cell-level)
+    fig.add_trace(go.Scatter(
+        x=x_step,
+        y=y_step,
+        mode='lines',
+        name='Gene JSD Distribution',
+        line=dict(color='#1f77b4', width=2),
+        fill='tozeroy',
+        fillcolor='rgba(31, 119, 180, 0.3)',
+        showlegend=False,
+        hovertemplate='Gene JSD: %{x:.4f}<br>Count: %{y}<extra></extra>'
     ))
     
-    # Add statistics box
-    stats_text = (
-        f"<b>Statistics:</b><br>"
-        f"N genes: {len(gene_jsds)}<br>"
-        f"Mean: {np.mean(gene_jsds):.4f}<br>"
-        f"Median: {np.median(gene_jsds):.4f}<br>"
-        f"Std Dev: {np.std(gene_jsds):.4f}<br>"
-        f"Min: {np.min(gene_jsds):.4f}<br>"
-        f"Max: {np.max(gene_jsds):.4f}"
+    # Add mean line (exact same as cell-level)
+    fig.add_vline(
+        x=mean_jsd,
+        line_dash="solid",
+        line_color="red",
+        line_width=2,
+        annotation_text=f"Mean: {mean_jsd:.4f}",
+        annotation_position="top right"
     )
     
-    # Add annotation with statistics
+    # Add statistics box in top right corner (exact same format as cell-level)
+    stats_text = (f"<b>Statistics</b><br>"
+                  f"Mean: {mean_jsd:.4f}<br>"
+                  f"Median: {median_jsd:.4f}<br>"
+                  f"SD: {std_jsd:.4f}<br>"
+                  f"CV: {cv_jsd:.3f}<br>"
+                  f"MAD: {mad_jsd:.4f}<br>"
+                  f"5%: {p5_jsd:.4f}<br>"
+                  f"95%: {p95_jsd:.4f}")
+    
     fig.add_annotation(
         text=stats_text,
         xref="paper", yref="paper",
-        x=0.98, y=0.98,
+        x=0.98,
+        y=0.97,
         showarrow=False,
-        bordercolor="gray",
-        borderwidth=1,
+        font=dict(size=11, family="Arial"),
+        align="right",
+        xanchor="right",
+        yanchor="top",
         bgcolor="rgba(255, 255, 255, 0.9)",
-        align="left",
-        font=dict(size=11)
+        bordercolor="#333333",
+        borderwidth=1
     )
     
-    # Format title
-    display_year = f" {year}" if year is not None else ""
+    # Update layout (parallel to cell-level)
+    display_year = year if year is not None else 'unknown'
+    
+    # Format gene rate groups for display if provided
     rate_text = ""
-    if gene_rate_groups:
-        if len(gene_rate_groups) == 1:
-            rate_text = f" | {gene_rate_groups[0][0]} genes at {gene_rate_groups[0][1]:.1%}"
+    if gene_rate_groups is not None:
+        # Check if uniform rate (all groups have same rate)
+        rates = set(rate for _, rate in gene_rate_groups)
+        if len(rates) == 1:
+            rate_percentage = list(rates)[0] * 100
+            rate_text = f" | {rate_percentage:.1f}% methylation rate"
         else:
+            # Show gene groups summary
             rate_text = f" | {len(gene_rate_groups)} gene rate groups"
     
     fig.update_layout(
         title=dict(
-            text=f"Gene JSD Distribution at Year{display_year}<br>"
-                 f"<sub>{len(gene_jsds)} genes{rate_text}</sub>",
+            text=f"Gene JSD Distribution at Year {display_year}<br>"
+                 f"<sub>{len(gene_jsd_values)} genes{rate_text}</sub>",
             font=dict(size=16)
         ),
         xaxis_title="Gene JSD Score",
@@ -427,9 +463,190 @@ def plot_gene_jsd_snapshot_histogram(snapshot_cells: List[Cell], output_path: st
         showlegend=False
     )
     
-    # Update axes with grid
-    fig.update_xaxes(showgrid=True, gridcolor='rgba(0,0,0,0.1)')
-    fig.update_yaxes(showgrid=True, gridcolor='rgba(0,0,0,0.1)')
+    # Update axes with grid (exact same as cell-level)
+    fig.update_xaxes(
+        showgrid=True,
+        gridwidth=1,
+        gridcolor='lightgray',
+        zeroline=True,
+        zerolinewidth=1,
+        zerolinecolor='gray'
+    )
+    
+    fig.update_yaxes(
+        showgrid=True,
+        gridwidth=1,
+        gridcolor='lightgray'
+    )
+    
+    # Save
+    if os.path.dirname(output_path):
+        os.makedirs(os.path.dirname(output_path), exist_ok=True)
+    fig.write_image(output_path, width=1200, height=600, scale=2)
+    print(f"  Saved plot to {output_path}")
+
+
+# Keep old name as alias for backward compatibility
+plot_gene_jsd_snapshot_histogram = plot_gene_jsd_distribution
+
+
+def plot_gene_methylation_proportion_histogram(snapshot_cells: List[Cell], bins: int, output_path: str,
+                                              gene_rate_groups: Optional[List[Tuple[int, float]]] = None,
+                                              year: Optional[int] = None) -> None:
+    """
+    Create histogram of gene methylation proportion distribution from snapshot cells.
+    Exact parallel to plot_gene_jsd_distribution but for gene-level methylation proportions.
+    
+    Args:
+        snapshot_cells: List of Cell objects from snapshot
+        bins: Number of bins for histogram
+        output_path: Path to save plot
+        gene_rate_groups: Gene rate groups (optional, for display)
+        year: Year to display in title (optional)
+    """
+    print(f"\nPlotting gene methylation proportion distribution...")
+    
+    # Get parameters from the first cell
+    if snapshot_cells:
+        first_cell = snapshot_cells[0]
+        if not gene_rate_groups:
+            gene_rate_groups = first_cell.gene_rate_groups
+        n = len(first_cell.cpg_sites)
+        gene_size = first_cell.gene_size
+    else:
+        # Defaults if no cells
+        n = 1000
+        gene_size = 5
+    
+    # Create PetriDish with provided cells to access gene_methylation_proportions property
+    petri = PetriDish(
+        gene_rate_groups=gene_rate_groups,
+        n=n,
+        gene_size=gene_size,
+        growth_phase=None,  # Static population
+        calculate_cell_jsds=False,  # Not needed for methylation proportions
+        cells=snapshot_cells
+    )
+    
+    # Get gene methylation proportion values using the clean property
+    gene_methylation_values = np.array(petri.gene_methylation_proportions)
+    
+    # Calculate statistics (exact same as cell-level)
+    mean_meth = np.mean(gene_methylation_values)
+    std_meth = np.std(gene_methylation_values)
+    median_meth = np.median(gene_methylation_values)
+    cv_meth = std_meth / mean_meth if mean_meth > 0 else 0  # Coefficient of variation
+    mad_meth = np.median(np.abs(gene_methylation_values - median_meth))  # Median Absolute Deviation
+    p5_meth = np.percentile(gene_methylation_values, 5)
+    p25_meth = np.percentile(gene_methylation_values, 25)
+    p75_meth = np.percentile(gene_methylation_values, 75)
+    p95_meth = np.percentile(gene_methylation_values, 95)
+    
+    # Create figure
+    fig = go.Figure()
+    
+    # Calculate histogram data for step plot
+    counts, bin_edges = np.histogram(gene_methylation_values, bins=bins)
+    
+    # Create step plot data (exact same as cell-level)
+    x_step = []
+    y_step = []
+    for i in range(len(counts)):
+        x_step.extend([bin_edges[i], bin_edges[i+1]])
+        y_step.extend([counts[i], counts[i]])
+    
+    # Add step histogram with fill (use red color for methylation, matching cell-level)
+    fig.add_trace(go.Scatter(
+        x=x_step,
+        y=y_step,
+        mode='lines',
+        name='Gene Methylation Distribution',
+        line=dict(color='#d62728', width=2),  # Red color for methylation
+        fill='tozeroy',
+        fillcolor='rgba(214, 39, 40, 0.3)',  # Red fill with transparency
+        showlegend=False,
+        hovertemplate='Gene Methylation: %{x:.4f}<br>Count: %{y}<extra></extra>'
+    ))
+    
+    # Add mean line (dark blue to match cell-level methylation)
+    fig.add_vline(
+        x=mean_meth,
+        line_dash="solid",
+        line_color="darkblue",
+        line_width=2,
+        annotation_text=f"Mean: {mean_meth:.4f}",
+        annotation_position="top right"
+    )
+    
+    # Add statistics box in top right corner (exact same format as cell-level)
+    stats_text = (f"<b>Statistics</b><br>"
+                  f"Mean: {mean_meth:.4f}<br>"
+                  f"Median: {median_meth:.4f}<br>"
+                  f"SD: {std_meth:.4f}<br>"
+                  f"CV: {cv_meth:.3f}<br>"
+                  f"MAD: {mad_meth:.4f}<br>"
+                  f"5%: {p5_meth:.4f}<br>"
+                  f"95%: {p95_meth:.4f}")
+    
+    fig.add_annotation(
+        text=stats_text,
+        xref="paper", yref="paper",
+        x=0.98,
+        y=0.97,
+        showarrow=False,
+        font=dict(size=11, family="Arial"),
+        align="right",
+        xanchor="right",
+        yanchor="top",
+        bgcolor="rgba(255, 255, 255, 0.9)",
+        bordercolor="#333333",
+        borderwidth=1
+    )
+    
+    # Update layout (parallel to cell-level)
+    display_year = year if year is not None else 'unknown'
+    
+    # Format gene rate groups for display if provided
+    rate_text = ""
+    if gene_rate_groups is not None:
+        # Check if uniform rate (all groups have same rate)
+        rates = set(rate for _, rate in gene_rate_groups)
+        if len(rates) == 1:
+            rate_percentage = list(rates)[0] * 100
+            rate_text = f" | {rate_percentage:.1f}% methylation rate"
+        else:
+            # Show gene groups summary
+            rate_text = f" | {len(gene_rate_groups)} gene rate groups"
+    
+    fig.update_layout(
+        title=dict(
+            text=f"Gene Methylation Proportion Distribution at Year {display_year}<br>"
+                 f"<sub>{len(gene_methylation_values)} genes{rate_text}</sub>",
+            font=dict(size=16)
+        ),
+        xaxis_title="Gene Methylation Proportion",
+        yaxis_title="Count",
+        template="plotly_white",
+        width=1200,
+        height=600,
+        showlegend=False
+    )
+    
+    # Update axes with grid (exact same as cell-level)
+    fig.update_xaxes(
+        showgrid=True,
+        gridwidth=1,
+        gridcolor='lightgray',
+        zeroline=True,
+        zerolinewidth=1,
+        zerolinecolor='gray'
+    )
+    
+    fig.update_yaxes(
+        showgrid=True,
+        gridwidth=1,
+        gridcolor='lightgray'
+    )
     
     # Save
     if os.path.dirname(output_path):

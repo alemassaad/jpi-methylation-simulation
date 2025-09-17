@@ -50,7 +50,8 @@ from core.pipeline_utils import (
 from core.pipeline_analysis import (
     plot_cell_jsd_distribution,
     plot_cell_methylation_proportion_histogram,
-    plot_gene_jsd_snapshot_histogram,
+    plot_gene_jsd_distribution,
+    plot_gene_methylation_proportion_histogram,
     analyze_cell_methylation_proportion_comparison,
     analyze_populations_from_dishes,
     plot_gene_jsd_distributions,
@@ -731,8 +732,15 @@ def run_pipeline(args):
     
     # Add gene-level JSD histogram for year 30 snapshot
     gene_jsd_plot_path = plot_paths.get_gene_jsd_distribution_path(args.first_snapshot)
-    plot_gene_jsd_snapshot_histogram(first_snapshot_cells, gene_jsd_plot_path,
-                                    gene_rate_groups=gene_rate_groups, year=args.first_snapshot)
+    plot_gene_jsd_distribution(first_snapshot_cells, bins=20, output_path=gene_jsd_plot_path,
+                              gene_rate_groups=gene_rate_groups, year=args.first_snapshot)
+    
+    # Add gene-level methylation proportion histogram for year 30 snapshot
+    gene_methylation_plot_path = plot_paths.get_gene_methylation_distribution_path(args.first_snapshot)
+    plot_gene_methylation_proportion_histogram(first_snapshot_cells, bins=20,
+                                              output_path=gene_methylation_plot_path,
+                                              gene_rate_groups=gene_rate_groups,
+                                              year=args.first_snapshot)
     
     # ========================================================================
     # STAGE 3: Create Initial Individuals (as PetriDish objects)
@@ -914,8 +922,15 @@ def run_pipeline(args):
     
     # Add gene-level JSD histogram for year 50 snapshot
     gene_jsd_plot_path_50 = plot_paths.get_gene_jsd_distribution_path(args.second_snapshot)
-    plot_gene_jsd_snapshot_histogram(second_snapshot_cells, gene_jsd_plot_path_50,
-                                    gene_rate_groups=gene_rate_groups, year=args.second_snapshot)
+    plot_gene_jsd_distribution(second_snapshot_cells, bins=20, output_path=gene_jsd_plot_path_50,
+                              gene_rate_groups=gene_rate_groups, year=args.second_snapshot)
+    
+    # Add gene-level methylation proportion histogram for year 50 snapshot
+    gene_methylation_plot_path_50 = plot_paths.get_gene_methylation_distribution_path(args.second_snapshot)
+    plot_gene_methylation_proportion_histogram(second_snapshot_cells, bins=20,
+                                              output_path=gene_methylation_plot_path_50,
+                                              gene_rate_groups=gene_rate_groups,
+                                              year=args.second_snapshot)
     
     # ========================================================================
     # STAGE 6: Mix Populations

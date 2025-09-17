@@ -131,8 +131,10 @@ seed: 42
 
 8. **Analysis & Visualization**
    - Statistical comparisons (t-tests)
-   - JSD distribution plots
-   - Cell-level and individual-level analyses
+   - Distribution plots (step plots with statistics)
+   - Cell-level and gene-level parallel analyses
+   - Color scheme: JSD=blue, Methylation=red
+   - Comprehensive statistics: Mean, Median, SD, CV, MAD, percentiles
 
 ## Output Structure
 
@@ -148,10 +150,23 @@ data/
         │   ├── control1/   # Uniformly-sampled individuals
         │   └── control2/   # Pure snapshot individuals
         ├── results/
-        │   ├── year50_jsd_distribution_200bins.png
-        │   ├── cell_jsd_comparison.png
+        │   ├── cell_metrics/
+        │   │   ├── distributions/
+        │   │   │   ├── year50_cell_jsd.png              # Blue step plot
+        │   │   │   └── year50_cell_methylation_proportion.png  # Red step plot
+        │   │   └── comparisons/
+        │   │       ├── cell_jsd_comparison.png
+        │   │       └── cell_methylation_proportion_comparison.png
+        │   ├── gene_metrics/
+        │   │   ├── distributions/
+        │   │   │   ├── year50_gene_jsd.png              # Blue step plot (20 genes)
+        │   │   │   └── year50_gene_methylation.png      # Red step plot (20 genes)
+        │   │   └── comparisons/
+        │   │       ├── gene_jsd_comparison.png
+        │   │       └── gene_methylation_comparison.png
         │   ├── cell_jsd_analysis.json         # Cell-level JSD analysis
         │   ├── gene_jsd_analysis.json          # Gene-level JSD distributions
+        │   ├── gene_methylation_analysis.json  # Gene methylation statistics
         │   ├── mixing_statistics.json          # Only when --uniform-mixing
         │   └── pipeline_metadata.json          # Pipeline parameters only
         └── individual_plots/  # If --plot-individuals used

@@ -32,7 +32,6 @@ from .pipeline_analysis import (
     analyze_populations_from_dishes,
     generate_gene_jsd_analysis,
     plot_gene_jsd_distributions,
-    plot_gene_jsd_distribution_comparison,
     plot_gene_jsd_individual_comparison
 )
 
@@ -70,7 +69,6 @@ __all__ = [
     'analyze_populations_from_dishes',
     'generate_gene_jsd_analysis',
     'plot_gene_jsd_distributions',
-    'plot_gene_jsd_distribution_comparison',
     'plot_gene_jsd_individual_comparison',
     # path_utils
     'parse_step1_simulation_path',

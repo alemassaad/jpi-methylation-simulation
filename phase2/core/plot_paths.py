@@ -169,9 +169,6 @@ class PlotPaths:
     def get_gene_jsd_comparison_path(self) -> str:
         return os.path.join(self.gene_comparisons_dir, 'gene_jsd_comparison.png')
     
-    def get_gene_jsd_snapshot_comparison_path(self) -> str:
-        return os.path.join(self.gene_comparisons_dir, 'gene_jsd_snapshot_comparison.png')
-    
     def get_individual_gene_jsd_path(self, batch: str, individual_id: int) -> str:
         """Get path for individual gene JSD trajectory plot."""
         if batch == 'mutant':
@@ -186,6 +183,27 @@ class PlotPaths:
     
     def get_gene_jsd_analysis_path(self) -> str:
         return os.path.join(self.gene_analysis_dir, 'gene_jsd_analysis.json')
+    
+    def get_gene_methylation_analysis_path(self) -> str:
+        return os.path.join(self.gene_analysis_dir, 'gene_methylation_analysis.json')
+    
+    def get_gene_methylation_comparison_path(self) -> str:
+        return os.path.join(self.gene_comparisons_dir, 'gene_methylation_comparison.png')
+    
+    def get_gene_methylation_distribution_path(self, year: int) -> str:
+        return os.path.join(self.gene_distributions_dir, f'year{year}_gene_methylation.png')
+    
+    def get_gene_methylation_timeline_path(self) -> str:
+        return os.path.join(self.gene_timeline_dir, 'gene_methylation_timeline.png')
+    
+    def get_individual_gene_methylation_path(self, batch: str, individual_id: int) -> str:
+        """Get path for individual gene methylation trajectory plot."""
+        if batch == 'mutant':
+            return os.path.join(self.gene_trajectories_mutant_dir, f'individual_{individual_id:02d}_methylation.png')
+        elif batch == 'control1':
+            return os.path.join(self.gene_trajectories_control1_dir, f'individual_{individual_id:02d}_methylation.png')
+        else:
+            return None  # Control2 doesn't have trajectories
     
     # Metadata paths
     def get_pipeline_metadata_path(self) -> str:

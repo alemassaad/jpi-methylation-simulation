@@ -2,7 +2,16 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
-## Important Guidelines
+## Important User Instructions
+
+### Permission Requirements
+**NEVER make any code changes without explicit consent**
+- Always explain what changes would fix an issue first, then wait for approval
+- When encountering errors, first diagnose and explain the solution, showing exactly what would be changed  
+- Only take destructive actions (delete, remove, overwrite) when explicitly instructed
+- When asked about files or code, explain/analyze but don't modify unless specifically asked
+- Don't commit or push unless explicitly requested
+- Show: 1) What the problem is, 2) What files/functions would be modified, 3) What the changes would be - BEFORE making any edits
 
 ### Critical Documentation
 **PLOT_DOCUMENTATION.md in the root directory is a critical document that should NEVER be deleted. It explains all output plots from the simulation and must be updated whenever new plots are added.**
@@ -15,154 +24,114 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ### No Backward Compatibility Policy
 **DO NOT implement backward compatibility unless explicitly requested.**
-- Backward compatibility creates multiple code paths for single features
-- It increases complexity and introduces bugs
-- Makes maintenance harder
 - Clean breaks are preferred over compatibility layers
 - When making breaking changes, document them clearly but don't maintain old behavior
 
-## Project Overview
+## Commands
 
-Biologically realistic DNA methylation simulation modeling epigenetic drift through cell growth, division, and homeostasis. Uses object-oriented design with Cell and PetriDish classes to simulate how cells accumulate methylation patterns over time.
-
-### Repository Status
-- Main branch: main
-- Git repository: Yes
-- **Latest Major Change**: Lean JSON format (90% file size reduction)
-- **Config System**: Both phases now support YAML configuration files
-- **Active Development**: Gene JSD analysis and visualization
-
-## Recent Breaking Changes
-
-### 🚨 New Lean JSON Format (No Backward Compatibility)
-The simulation now uses a lean JSON format that reduces file sizes by ~90%:
-- **Old format**: Stored redundant data (rate, gene_size, site_rates) in every cell
-- **New format**: Stores parameters once, cells contain only essential data
-- **Impact**: Phase 2 requires new format; old simulations must be re-run
-
-### ✨ Config File System
-Both phases now support YAML configuration files to reduce command-line complexity:
+### Run Simulation (Phase 1)
 ```bash
-# Phase 1
+cd phase1
+
+# Quick test with new defaults (100 sites, 50 years, 64 cells)
+python run_simulation.py --rate 0.005
+
+# Using config file (recommended)
 python run_simulation.py --config configs/production.yaml
 
-# Phase 2
-python run_pipeline.py --config configs/quick_test.yaml --simulation PATH --rate 0.005
+# Full command with all options
+python run_simulation.py --rate 0.005 --years 100 --growth-phase 13 --sites 1000 --seed 42 --no-compress
+
+# Gene-specific methylation rates
+python run_simulation.py --gene-rate-groups "50:0.004,50:0.005,50:0.006" --gene-size 5
+
+# Performance options
+python run_simulation.py --rate 0.005 --no-cell-jsds  # Skip cell JSD calculations
+python run_simulation.py --rate 0.005 --no-gene-jsd   # Skip gene JSD tracking
+python run_simulation.py --rate 0.005 --no-jsds       # Skip ALL JSDs
 ```
 
-### 🎯 Clarified JSD Flags
-- Renamed `calculate_jsds` → `calculate_cell_jsds` for clarity
-- New independent control over different JSD types
+### Run Analysis Pipeline (Phase 2)
+```bash
+cd phase2
 
-### 🔧 Compression Consistency Fix
-- Phase 2 now correctly respects compression settings for all batches (mutant, control1, control2)
-- Automatically matches input file format (.json vs .json.gz) unless overridden with `--no-compress`
-- All output files within a run now have consistent compression
+# Auto-infer rates from simulation (no rate needed)
+python run_pipeline.py --simulation ../phase1/data/.../simulation.json.gz --first-snapshot 50 --second-snapshot 60
 
-### 📊 JSD Naming Convention Clarification
-- All cell-level JSD metrics now prefixed with `cell_` for clarity
-- Metadata keys: `mean_cell_jsd`, `std_cell_jsd`, `min_cell_jsd`, `max_cell_jsd`, `median_cell_jsd`
-- Functions: `get_cell_jsd_array()`, `plot_cell_jsd_distribution()`
-- Output file: `cell_jsd_comparison.png` (renamed from `jsd_comparison.png`)
+# Using config file (recommended)
+python run_pipeline.py --config configs/quick_test.yaml --simulation ../phase1/data/.../simulation.json.gz
 
-### 🔢 Individual ID Convention
-- All individual IDs now start at 1 (not 0) for intuitive numbering
-- First individual: `individual_01.json` with `individual_id: 1`
-- Consistent across all batches (mutant, control1, control2)
-- IDs always match filenames through all pipeline stages
+# With options
+python run_pipeline.py --simulation ../phase1/data/.../simulation.json.gz --first-snapshot 50 --second-snapshot 60 --uniform-mixing --normalize-size --plot-individuals --no-compress
+```
 
-### 📈 Gene Metrics as Proportions
-- `gene_mean_methylation` now returns proportions (0.0-1.0) instead of counts
-- Makes metrics more interpretable (e.g., 0.5 = 50% methylated)
-- Consistent with other proportion-based metrics
-- Gene-level JSD already clearly named with `gene_` prefix
-- **Breaking change**: Old JSON files will have old keys (`mean_jsd` etc.)
+### Run Tests
+```bash
+# Phase 1 tests
+cd phase1/tests
+python test_small.py
+python test_comprehensive.py
+python test_edge_cases.py
+python test_gene_jsd.py
+python test_new_format.py
+python test_config.py
 
-### 🧬 Gene-Level Metrics for Individuals
-- Each individual now includes gene-level statistics after mixing
-- New metadata fields:
-  - `gene_jsds`: Array of JSD values, one per gene (heterogeneity measure)
-  - `gene_mean_methylation`: Array of mean methylation levels (0-5), one per gene
-  - `n_genes`: Number of genes analyzed
-- Calculated only for final mixed populations (Stage 7)
-- Enables analysis of gene-specific methylation patterns and rate effects
+# Phase 2 tests  
+cd phase2/tests
+python test_reproducibility_robust.py
+python test_gene_rate_support.py
+python test_final_integration.py
+python verify_compression_fix.py
+python verify_determinism.py
 
-### 📅 Timestamp-based Directory Names
-- Both phase1 and phase2 use YYYYMMDDHHMMSS timestamps instead of hashes
-- Example: `seed42-20250901225349` instead of `seed42-ef74`
-- Enables chronological sorting and easy identification of run times
-- 14-character timestamp format for uniqueness
+# Test configs
+cd phase2/tests/config
+python test_config_simple.py
+python test_config_phase2.py
+```
 
-### 📦 JSON Output Files (Phase 2)
-- **`cell_jsd_analysis.json`**: Cell-level JSD statistics
-  - `summary_statistics`: Mean, std, median, min, max per batch
-  - `statistical_tests`: T-test results between batches
-  - `individual_means`: Mean cell JSD per individual
-- **`gene_jsd_analysis.json`**: Gene-level JSD distributions
-  - `gene_jsd_distributions`: Raw JSD values for each gene by batch
-  - `gene_metadata`: Gene count and rate group information
-  - `individual_averages`: Per-individual mean gene JSD values
-  - No averaging across genes - preserves full distributions
-- **`pipeline_metadata.json`**: Pipeline parameters only (no results)
-- **`mixing_statistics.json`**: Only with --uniform-mixing flag
-- **Breaking change**: Removed old `statistics.json` and `jsd_distributions.json`
+### Visualization Scripts
+```bash
+# Plot simulation history
+cd phase1
+python plot_history.py ../data/rate_0.00500/.../simulation.json.gz
 
-### 📊 Generated Plots (Phase 2)
-All plots are generated automatically without requiring special flags:
+# Generate individual plots for existing run
+cd phase2
+python plot_individuals.py data/.../results
 
-**Timeline Plots:**
-- **`original_simulation_jsd_timeline.png`**: Full JSD evolution from original Phase 1 simulation
-- **`original_simulation_methylation_timeline.png`**: Full methylation evolution over time
-- **`original_simulation_combined_timeline.png`**: Combined JSD + methylation view
-- **`individual_trajectories/`**: Growth period plots for each individual
-  - `mutant_XX_jsd.png` and `mutant_XX_methylation.png` for each mutant
-  - `control1_XX_jsd.png` and `control1_XX_methylation.png` for each control1
-  - Control2 individuals excluded (pure snapshots, no growth trajectory)
+# Analyze individual population sizes
+cd phase2/visualization
+python analyze_individual_sizes.py ../../data/.../individuals
+```
 
-**Comparison Plots:**
-- **`cell_jsd_comparison.png`**: Cell-level JSD comparison across batches with statistics
-- **`gene_jsd_individual_comparison.png`**: Gene-level JSD using individual averages
-- **`year{X}_jsd_distribution_{bins}bins.png`**: JSD distributions for snapshot years
+## High-Level Architecture
 
-**Gene-Level Plots:**
-- **`gene_jsd_plots/`**: Individual gene JSD distributions (one per gene)
-- **`top_variable_genes.png`**: Top 20 most variable genes across population
-- **`gene_jsd_distribution.png`**: Gene JSD comparison between snapshots (if available)
+### Core Classes (phase1/cell.py)
+- **Cell**: Individual cell with CpG sites and methylation state
+  - `methylated`: List of 0s and 1s representing methylation state
+  - `cell_JSD`: Jensen-Shannon divergence from baseline (0-1 range)
+  - `methylate()`: Apply stochastic methylation
+  - `create_daughter_cell()`: Mitosis (identical copy)
+  - `to_dict()`/`from_dict()`: Lean serialization
 
-## Biological Background
+- **PetriDish**: Population manager for cells
+  - Manages growth phase (exponential) and homeostasis (steady state)
+  - `divide_cells()`: Population doubling
+  - `random_cull_cells()`: Homeostatic ~50% survival
+  - `calculate_gene_jsd()`: Calculate JSD for each gene across population
+  - `save_history()`: Save in lean JSON format
 
-### CpG Sites
-Cytosine-guanine dinucleotides where methylation occurs in DNA. In this simulation:
-- Initially unmethylated (0)
-- Can become methylated (1) with probability `rate` per year
-- Once methylated, remain methylated (irreversible in this model)
-- Grouped into genes for distribution analysis
-
-### Epigenetic Drift
-The gradual accumulation of methylation changes over time:
-- Random methylation events occur stochastically
-- Methylation patterns are inherited during cell division
-- Population-level patterns emerge from single-cell dynamics
-- Modeled as a Poisson-like process with fixed rate
-
-### Cell-level Jensen-Shannon Divergence (cell_JSD)
-A symmetric measure of difference between probability distributions:
-- Stored as `cell_JSD` attribute on Cell objects
-- Quantifies how far a cell's methylation pattern has diverged from baseline
-- Calculated as average of KL divergences to midpoint distribution
-- Range: 0 (identical) to 1 (maximally different)
-- Used to track epigenetic age and cellular heterogeneity
-
-### Gene-level Jensen-Shannon Divergence (gene_JSD)
-Population-level measure of methylation heterogeneity for each gene:
-- Calculated per gene across all cells in PetriDish
-- Counts methylation levels (0-5 sites) across population
-- Compares distribution to baseline (all unmethylated)
-- Stored as list of JSDs, one per gene
-- Tracks evolution of gene-specific methylation patterns
-- Different from cell_JSD: gene_JSD measures population heterogeneity, cell_JSD measures individual divergence
-
-## Architecture
+### Pipeline Structure (phase2/)
+- **8-stage pipeline**: Snapshot extraction → sampling → growth → mixing → analysis
+- **Core modules**:
+  - `run_pipeline.py`: Main orchestrator
+  - `core/pipeline_utils.py`: Cell/PetriDish utilities
+  - `core/pipeline_analysis.py`: Visualization functions
+  - `core/path_utils.py`: Path generation and parsing
+  - `core/validation.py`: Data validation functions
+  - `core/individual_helpers.py`: Individual creation utilities
+  - `core/plot_paths.py`: Plot organization and naming
 
 ### Import Structure
 ```python
@@ -174,472 +143,127 @@ import sys
 sys.path.append(os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'phase1'))
 from cell import PetriDish, Cell
 from pipeline_utils import (...)
-from pipeline_analysis import (...)
-from path_utils import (...)
 ```
 
-### Core Classes (phase1/cell.py)
-```python
-# Uniform methylation rate
-Cell(n=1000, rate=0.005)        # Individual cell with CpG sites
-PetriDish(rate=0.005, growth_phase=13, calculate_cell_jsds=True)  # Population manager
+## Key Implementation Details
 
-# Gene-specific methylation rates
-Cell(n=1000, gene_rate_groups=[(50, 0.004), (50, 0.006)])
-PetriDish(gene_rate_groups=[(50, 0.004), (50, 0.006)], growth_phase=13)
-```
-
-Key methods:
-- `Cell.methylate()`: Apply stochastic methylation
-- `Cell.to_dict()`: Lean serialization (only methylated array + cell_JSD)
-- `Cell.from_dict()`: Deserialize from lean format
-- `Cell.create_daughter_cell()`: Mitosis (identical copy)
-- `PetriDish.divide_cells()`: Population doubling
-- `PetriDish.random_cull_cells()`: Homeostatic ~50% survival
-- `PetriDish.calculate_gene_jsd()`: Calculate JSD for each gene across population
-- `PetriDish.calculate_gene_jsds()`: Alias for calculate_gene_jsd (clearer name)
-- `PetriDish.calculate_gene_mean_methylation()`: Mean methylation level per gene
-- `PetriDish.save_history()`: Save in new lean format
-
-### JSON Format Structure (New Lean Format)
-
+### JSON Format (New Lean Format)
 ```json
 {
   "parameters": {
-    "rate": 0.005,                    // Or null if gene-specific
-    "gene_rate_groups": null,         // Or [[50, 0.004], [50, 0.006]]
-    "n": 1000,                        // CpG sites per cell
-    "gene_size": 5,                   // Sites per gene
-    "growth_phase": 13,               // Growth duration
-    "years": 100,                     // Total simulation time
-    "seed": 42,                       // Random seed
-    "track_cell_history": true,       // Cell tracking enabled
-    "track_gene_jsd": true           // Gene JSD tracking enabled
+    "rate": 0.005,              // Or null if gene-specific
+    "gene_rate_groups": null,   // Or [[50, 0.004], [50, 0.006]]
+    "n": 1000,                  // CpG sites per cell
+    "gene_size": 5,             // Sites per gene
+    "growth_phase": 13,         // Growth duration
+    "years": 100,               // Total simulation time
+    "seed": 42
   },
   "history": {
     "0": {
       "cells": [
         {
-          "cpg_sites": [0, 0, 1, 0, 1, ...],  // Methylation state (0s and 1s)
-          "cell_JSD": 0.0                      // Cell's divergence
+          "cpg_sites": [0, 0, 1, ...],  // Methylation state
+          "cell_JSD": 0.0                // Cell's divergence
         }
       ],
-      "gene_jsd": [0.0, 0.0, ...]      // Optional: per-gene JSDs
-    },
-    "1": { ... },
-    // ... more years
+      "gene_jsd": [0.0, 0.0, ...]  // Optional: per-gene JSDs
+    }
   }
 }
 ```
-
-**Key improvements over legacy format:**
-- No redundant data per cell (rate, gene_size, site_rates removed)
-- Parameters stored once at top level
-- ~90% file size reduction (8KB → 0.8KB per cell)
-- Cleaner structure with clear separation
-
-### Main Pipeline Structure
-- **phase1/**: Simulation engine (single cell → population growth → homeostasis)
-  - Growth phase (years 0-growth_phase): Deterministic 2^year cells
-  - Steady state (years growth_phase+1-T): Stochastic ~2^growth_phase cells
-  - Key files: `cell.py` (core classes), `run_simulation.py` (CLI), `plot_history.py` (visualization)
-- **phase2/**: Analysis pipeline (quantile sampling → growth → mixing → statistics)
-  - 8-stage pipeline from snapshot extraction to statistical analysis
-  - Key files: `run_pipeline.py` (main), `pipeline_utils.py` (helpers), `pipeline_analysis.py` (analysis)
-  - `plot_individuals.py` - Standalone script to generate plots for existing runs
-  - `path_utils.py` - Path generation and parsing utilities
+- ~90% file size reduction compared to legacy format
+- Parameters stored once at top level (not per cell)
+- Compressed (.json.gz) by default for production
 
 ### Directory Structure
 ```
-# Phase 1 output:
-phase1/data/gene_rates_200x0.00500/size8192-sites1000-genesize5-years100-seed42-YYYYMMDD-HHMMSS/
+# Phase 1 output
+phase1/data/gene_rates_200x0.00500/size8192-sites1000-genesize5-years100-seed42-YYYYMMDDHHMMSS/
   ├── simulation.json.gz      # Full history (lean format)
-  ├── simulation.json         # If --no-compress used
   ├── jsd_history.png         # Cell JSD trajectory plot
   └── methylation_history.png # Methylation trajectory plot
 
-# Phase 2 output:
+# Phase 2 output
 phase2/data/rate_0.00500-grow13-sites1000-years100/snap50to60-growth7-quant10x3-mix80-seed42-XXXX/
-  ├── individuals/            # Individual PetriDish objects
-  │   ├── mutant/            # Quantile-sampled individuals
-  │   ├── control1/          # Uniformly-sampled individuals
-  │   └── control2/          # Pure second snapshot individuals
+  ├── individuals/            # Individual PetriDish objects (mutant/control1/control2)
   ├── snapshots/             # Extracted snapshot data
   ├── results/               # Analysis outputs and plots
   └── individual_plots/      # Growth trajectories (if --plot-individuals used)
 ```
 
-## Commands
-
-### Installation
-
-```bash
-# Install required dependencies
-pip install -r requirements.txt
-
-# Core dependencies:
-# - pyyaml>=6.0 (for configuration files)
-# - plotly>=5.0.0,<6.0.0 (for visualization)
-# - kaleido==0.2.1 (for PNG export)
-# - scipy (included in most Python distributions)
-# - numpy (included in most Python distributions)
-```
-
-### Configuration Files
-
-Both phases support YAML configuration files with CLI override capability:
-
-**Phase 1 Config Structure:**
-```yaml
-simulation:
-  rate: 0.005           # Or use gene_rate_groups
-  sites: 100           # CpG sites (default changed from 1000)
-  years: 50            # Simulation duration (default changed from 100)
-  gene_size: 5
-  growth_phase: 6      # 2^6 = 64 cells (default changed from 13)
-
-output:
-  directory: "data"
-  compress: false      # Default changed for easier inspection
-
-performance:
-  track_gene_jsd: true
-  calculate_cell_jsds: true   # Renamed from calculate_jsds
-
-seed: 42
-```
-
-**Phase 2 Config Structure:**
-```yaml
-input:
-  simulation: null     # Required
-  rate: 0.005         # Or gene_rate_groups
-
-snapshots:
-  first: 50
-  second: 60
-
-individuals:
-  growth_phase: 7
-  n_quantiles: 10
-  cells_per_quantile: 3
-
-mixing:
-  ratio: 80
-  uniform: false
-  normalize_size: false
-
-visualization:
-  bins: 200
-  plot_individuals: false
-
-output:
-  directory: "data"
-  compress: true
-
-seed: 42
-verbose: false
-```
-
-### Run Simulation (Phase 1)
-
-```bash
-# Using config file (recommended)
-python run_simulation.py --config configs/production.yaml
-
-# Quick test with new defaults (faster)
-python run_simulation.py --rate 0.005
-
-# Full command with all options
-python run_simulation.py \
-    --rate 0.005 \
-    --years 100 \
-    --growth-phase 13 \
-    --sites 1000 \
-    --gene-size 5 \
-    --seed 42 \
-    --no-compress      # Save as .json instead of .json.gz
-
-# Gene-specific methylation rates
-python run_simulation.py \
-    --gene-rate-groups "50:0.004,50:0.0045,50:0.005,50:0.0055" \
-    --gene-size 5
-
-# Performance tuning with clarified flags
-python run_simulation.py --rate 0.005 --no-cell-jsds  # Skip cell JSD calculations
-python run_simulation.py --rate 0.005 --no-gene-jsd   # Skip gene JSD tracking
-python run_simulation.py --rate 0.005 --no-jsds       # Skip ALL JSDs (maximum speed)
-```
-
-### Run Analysis Pipeline (Phase 2)
-
-```bash
-# Auto-infer rates from simulation (NEW - no rate needed!)
-python run_pipeline.py \
-    --simulation ../phase1/data/.../simulation.json.gz \
-    --first-snapshot 50 \
-    --second-snapshot 60
-
-# Using config file (rate optional)
-python run_pipeline.py \
-    --config configs/quick_test.yaml \
-    --simulation ../phase1/data/.../simulation.json.gz
-
-# Explicit rate specification (must match simulation)
-python run_pipeline.py \
-    --rate 0.005 \
-    --simulation ../phase1/data/.../simulation.json.gz \
-    --first-snapshot 50 \
-    --second-snapshot 60 \
-    --seed 42
-
-# With gene-specific rates
-python run_pipeline.py \
-    --gene-rate-groups "5:0.004,5:0.005,5:0.006,5:0.007" \
-    --simulation ../phase1/data/.../simulation.json.gz \
-    --first-snapshot 50 \
-    --second-snapshot 60
-
-# With options
-python run_pipeline.py \
-    --simulation ../phase1/data/.../simulation.json.gz \
-    --first-snapshot 50 \
-    --second-snapshot 60 \
-    --uniform-mixing \          # Use same snapshot cells for all
-    --normalize-size \          # Normalize individual sizes
-    --plot-individuals \        # Generate growth trajectories
-    --no-compress              # Uncompressed output
-```
-
-**Auto-Inference Feature (NEW):**
-- Phase 2 now automatically infers gene_rate_groups from the simulation file
-- No need to specify `--rate` or `--gene-rate-groups` if you want to use the same configuration as the simulation
-- If you do specify rates, they must match the simulation exactly (validation enforced)
-
-### Run Tests
-```bash
-# Phase 1 tests
-cd phase1/tests
-python test_small.py
-python test_comprehensive.py
-python test_edge_cases.py
-python test_gene_jsd.py
-
-# Test new format
-cd phase1
-python test_new_format.py    # Tests lean JSON format
-python test_config.py         # Tests config system
-
-# Phase 2 tests  
-cd phase2/tests
-python test_reproducibility_robust.py
-python test_gene_rate_support.py
-python test_final_integration.py
-python verify_compression_fix.py
-python verify_determinism.py
-
-# Test phase2 config
-cd phase2/tests/config
-python test_config_simple.py
-python test_config_phase2.py
-```
-
-## Rate Consistency Validation
-
-### Important Requirement
-All cells in a PetriDish must have identical `gene_rate_groups` configuration. This ensures:
-- Consistent methylation dynamics across the population
-- Valid statistical comparisons
-- Accurate JSD calculations
-
-### Validation Methods
-- `PetriDish.validate_cell_consistency()`: Instance method that validates all cells in the PetriDish
-- `PetriDish.validate_cells_compatible(cells)`: Static method to pre-check cell compatibility before creating PetriDish
-
-### When Validation Occurs
-- Automatically when creating PetriDish with existing cells
-- Cell division maintains consistency (daughters inherit parent's gene_rate_groups)
-- No validation needed for internal operations (division, methylation, culling)
-
-### Testing
-Run comprehensive rate consistency tests:
-```bash
-cd phase1/tests
-python test_rate_consistency.py
-```
-
-## Key Implementation Details
-
-### Performance Flags (Clarified)
-```python
-# Phase 1 PetriDish parameters
-calculate_cell_jsds=True   # Calculate individual cell JSDs (renamed from calculate_jsds)
-track_gene_jsd=True        # Track population-level gene JSDs
-
-# CLI flags
---no-cell-jsds   # Disable cell JSD calculations only
---no-gene-jsd    # Disable gene JSD tracking only  
---no-jsds        # Disable ALL JSD calculations
---no-compress    # Save as .json instead of .json.gz
-```
-
-### File Size Comparison
-**Legacy format (old):**
-- Each cell: ~8KB of redundant data
-- 8,192 cells: ~70MB uncompressed
-- Compression ratio: ~10x
-
-**Lean format (new):**
-- Each cell: ~0.8KB (only essential data)
-- 8,192 cells: ~7MB uncompressed  
-- Compression ratio: ~70-75x
-- **Overall: ~90% reduction in file size**
-
-### Default Parameter Changes
-Phase 1 defaults optimized for faster testing:
-- `sites`: 1000 → 100 (10x faster)
-- `years`: 100 → 50 (2x faster)
-- `growth_phase`: 13 → 6 (128x smaller population)
-- `compress`: true → false (easier inspection)
-
-Production runs should override these with appropriate values.
-
-### Compression Options
-```bash
-# Compressed (default for production)
---compress or compress: true in config
-Output: simulation.json.gz (~70x smaller)
-
-# Uncompressed (default for testing)
---no-compress or compress: false in config  
-Output: simulation.json (human-readable)
-```
-
-## Development Guidelines
-
-### Code Quality
-- No linting or type checking tools are currently configured
-- Follow existing code style and patterns in neighboring files
-- Use descriptive variable names and clear function signatures
-- Python 3.7+ required (uses standard library features)
-
-### Testing Philosophy
-- Tests are standalone Python scripts, not using pytest framework
-- Each test file can be run directly: `python test_name.py`
-- Tests include comprehensive output with ✓ marks for passed checks
-- Return exit code 0 for success, 1 for failure
-- Always test with both compressed and uncompressed output formats
-
-### Config Priority
-Configuration follows this priority (highest to lowest):
-1. Command-line arguments
-2. User config file (--config)
-3. Default config file (config_default.yaml)
-4. Hardcoded defaults in code
-
-### Important Changes from Legacy
-1. **JSON Format**: No backward compatibility - old simulations must be re-run
-2. **Parameter Names**: `calculate_jsds` → `calculate_cell_jsds`
-3. **File Sizes**: Expect ~90% smaller files with new format
-4. **Config Files**: Preferred method for complex runs
-5. **Defaults**: Optimized for testing, not production
-
-## Phase 2 Individual JSON Structure
-
-### **Important: Understanding Individual JSON Files**
-
-Phase 2 saves individuals with different structures depending on their type:
-
-#### **Mutant & Control1 (Grown Individuals):**
-- **cells array**: Final mixed population (all cells age 50 after mixing)
-- **cell_history**: Full 20-year growth trajectory
-  - Year 0 = 1 cell sampled from year 30 snapshot (age 30)
-  - Years 0-6 = Exponential growth phase  
-  - Years 7-20 = Homeostasis phase
-  - Year 20 = Cells at year 50 (age 50)
-- **metadata.year**: 20 (end of growth period)
-- **Why saved with history**: Used for trajectory plots
-
-#### **Control2 (Pure Snapshot):**
-- **cells array**: Pure year 50 snapshot cells (all age 50)
-- **cell_history**: ⚠️ ISSUE: Contains bogus year 0 with fresh unmethylated cell (age 0)
-  - This is a bug from PetriDish initialization
-- **metadata.year**: 0 (should be 50)
-- **metadata.creation_method**: "uniform_base_plus_snapshot" or "pure_snapshot"
-- **Additional metadata**: uniform_base, uniform_base_size, etc.
-
-### **Known Issues:**
-
-1. **Control2 Bogus History**: Control2 has a fake year 0 history entry with an age-0 unmethylated cell due to PetriDish initialization before cells are replaced with snapshot cells
-
-2. **Control2 Metadata Year**: Set to 0 instead of 50 (the actual snapshot year)
-
-3. **Unnecessary History Storage**: All individuals are saved with `include_cell_history=True` even though control2 doesn't need history
-
-4. **Inconsistent Metadata**: Control1/mutant lack creation_method field that control2 has
-
-## Visualization and Analysis Tools
-
-### Standalone Visualization Scripts
-```bash
-# Phase 1 - Plot simulation history
-cd phase1
-python plot_history.py ../data/rate_0.00500/.../simulation.json.gz
-
-# Phase 2 - Generate individual plots for existing run
-cd phase2
-python plot_individuals.py data/.../results
-
-# Phase 2 - Analyze individual population sizes
-cd phase2/visualization
-python analyze_individual_sizes.py ../../data/.../individuals
-```
-
-## Common Troubleshooting
-
-### "Year X not found" in Phase 2
-- Simulation uses new lean format
-- Re-run phase 1 simulation with latest code
-
-### Large file sizes
-- Ensure using compressed output (default in production)
-- New format is ~90% smaller than legacy
-
-### JSD values all zero
-- Check if `--no-cell-jsds` or `--no-jsds` flag was used
-- Verify `calculate_cell_jsds: true` in config
-
-### Config not working
-- Ensure PyYAML installed: `pip install pyyaml`
-- Check YAML syntax (proper indentation)
-- Verify config file path
-
-### Timeline plots not appearing
-- Original simulation timeline plots are generated by default in Phase 2
-- Located in `results/original_simulation_*.png`
-- Works for both uniform and gene-specific rate simulations
-- Requires simulation file with history (not `--no-cell-history`)
-
-### Individual trajectory plots missing
-- Only generated for mutant and control1 individuals
-- Control2 excluded (pure snapshots, no growth)
-- Located in `results/individual_trajectories/`
-- Requires cell history tracking during growth phase
-
-## Performance Considerations
-
-### Typical Runtimes (with new defaults)
-- Small test: ~2 seconds (growth=2, years=10, sites=100)
-- Standard test: ~5 seconds (growth=6, years=50, sites=100)
-- Production: ~2-5 minutes (growth=13, years=100, sites=1000)
-
-### Memory Usage (with lean format)
-- Simulation history: ~10MB for 100 years, 8192 cells (was ~100MB)
-- Cached snapshots: ~1MB per year (was ~10MB)
-- Pipeline intermediates: ~5MB per stage (was ~50MB)
-
-### Optimization Tips
-- Use `--no-jsds` for maximum speed if JSDs not needed
-- Use compressed output for production runs
-- New lean format loads/saves much faster
-- Config files reduce startup parsing time
+### Config File System
+Both phases support YAML configuration with CLI override capability:
+- Command-line arguments > User config > Default config > Hardcoded defaults
+- Phase 1: `configs/production.yaml`, `configs/quick_test.yaml`
+- Phase 2: `configs/standard.yaml`, `configs/quick_test.yaml`
+
+### Performance Flags
+- `calculate_cell_jsds=True`: Calculate individual cell JSDs (renamed from calculate_jsds)
+- `track_gene_jsd=True`: Track population-level gene JSDs
+- CLI: `--no-cell-jsds`, `--no-gene-jsd`, `--no-jsds` (disable ALL)
+
+### Rate Consistency
+All cells in a PetriDish must have identical `gene_rate_groups` configuration. Validation occurs:
+- When creating PetriDish with existing cells
+- Using `validate_cell_consistency()` instance method
+- Using `validate_cells_compatible(cells)` static method
+
+### Phase 2 Auto-Inference
+Phase 2 automatically infers gene_rate_groups from the simulation file, eliminating the need to specify rates if using the same configuration as the simulation.
+
+## Recent Breaking Changes
+
+### Lean JSON Format
+- New format reduces file sizes by ~90%
+- No backward compatibility with old format
+- Old simulations must be re-run
+
+### Config System  
+- Both phases now support YAML configuration files
+- Preferred method for complex runs
+
+### JSD Naming Convention
+- All cell-level JSD metrics prefixed with `cell_`
+- Gene-level metrics prefixed with `gene_`
+- Renamed `calculate_jsds` → `calculate_cell_jsds`
+
+### Individual ID Convention
+- All individual IDs start at 1 (not 0)
+- IDs always match filenames through all pipeline stages
+
+### Gene Metrics as Proportions
+- `gene_mean_methylation` returns proportions (0.0-1.0) instead of counts
+
+### Timestamp-based Directory Names
+- Both phases use YYYYMMDDHHMMSS timestamps instead of hashes
+- Enables chronological sorting and easy identification
+
+### Gene Methylation Proportion Plots
+- Added gene-level methylation proportion comparison plots
+- `gene_methylation_comparison.png` shows batch comparison with exact same layout as gene JSD plot
+- `gene_methylation_analysis.json` contains per-individual statistics
+- Individual trajectory plots include `_methylation.png` suffix for gene methylation
+
+### Removed Plots
+- `gene_jsd_snapshot_comparison.png` removed as not useful with only 20 data points
+- Function `plot_gene_jsd_distribution_comparison` removed from pipeline
+
+## Biological Concepts
+
+### CpG Sites
+Cytosine-guanine dinucleotides where methylation occurs in DNA:
+- Initially unmethylated (0)
+- Can become methylated (1) with probability `rate` per year
+- Once methylated, remain methylated (irreversible)
+- Grouped into genes for distribution analysis
+
+### Jensen-Shannon Divergence (JSD)
+- **Cell-level JSD**: Measures individual cell divergence from baseline (0-1 range)
+- **Gene-level JSD**: Measures population heterogeneity per gene
+
+### Epigenetic Drift
+Gradual accumulation of methylation changes over time:
+- Random methylation events occur stochastically
+- Methylation patterns inherited during cell division
+- Population-level patterns emerge from single-cell dynamics

@@ -53,9 +53,10 @@ from core.pipeline_analysis import (
     plot_gene_jsd_snapshot_histogram,
     analyze_cell_methylation_proportion_comparison,
     analyze_populations_from_dishes,
-    plot_gene_jsd_distribution_comparison,
     plot_gene_jsd_distributions,
-    plot_gene_jsd_individual_comparison
+    plot_gene_jsd_individual_comparison,
+    generate_gene_methylation_analysis,
+    plot_gene_methylation_individual_comparison
 )
 from core.path_utils import parse_step1_simulation_path, generate_step23_output_dir
 from core.plot_paths import PlotPaths
@@ -1426,27 +1427,23 @@ def run_pipeline(args):
                 verbose=True  # Always verbose for now
             )
     
-    # Generate additional gene JSD plots if data is available
-    print(f"\nGenerating additional gene JSD plots...")
+    # Generate gene methylation analysis
+    print(f"\nGenerating gene methylation analysis...")
+    gene_methylation_results = generate_gene_methylation_analysis(
+        mutant_dishes, control1_dishes, control2_dishes, plot_paths
+    )
     
-    # Check if we have snapshots for gene JSD distribution comparison
-    try:
-        # Load snapshots for gene JSD comparison
-        snapshot1_path = os.path.join(snapshots_dir, f"year{args.first_snapshot}_snapshot{snapshot_ext}")
-        snapshot2_path = os.path.join(snapshots_dir, f"year{args.second_snapshot}_snapshot{snapshot_ext}")
-        snapshot1_cells = load_snapshot_cells(snapshot1_path)
-        snapshot2_cells = load_snapshot_cells(snapshot2_path)
-    
-        # Gene JSD distribution comparison (year vs year)
-        gene_dist_path = plot_paths.get_gene_jsd_snapshot_comparison_path()
-        plot_gene_jsd_distribution_comparison(
-            snapshot1_cells, snapshot2_cells, 
-            args.first_snapshot, args.second_snapshot, gene_dist_path,
-            gene_rate_groups=gene_rate_groups, gene_size=gene_size
+    # Generate gene methylation comparison plot
+    gene_methylation_path = plot_paths.get_gene_methylation_analysis_path()
+    if os.path.exists(gene_methylation_path):
+        plot_gene_methylation_individual_comparison(
+            gene_methylation_path=gene_methylation_path,
+            plot_paths=plot_paths,
+            verbose=True
         )
     
-    except Exception as e:
-        print(f"  Skipping gene JSD distribution comparison: {e}")
+    # Generate additional gene JSD plots if data is available
+    print(f"\nGenerating additional gene JSD plots...")
     
     # Gene vs Cell JSD scatter plot - removed per user request
     # (This plot was not providing useful insights)

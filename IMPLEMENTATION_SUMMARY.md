@@ -1,7 +1,11 @@
 # Implementation Summary: New Visualization Plots
 
 ## Task Completed
-Successfully implemented 5 new plot types to achieve complete visualization coverage across all tracked metrics (cell-level JSD, gene-level JSD, and cell methylation).
+Successfully implemented new plot types and gene methylation visualizations to achieve complete coverage across all tracked metrics (cell-level JSD, gene-level JSD, cell methylation, and gene methylation).
+
+## Recent Updates
+- **Added**: Gene methylation proportion comparison plots with exact same layout as gene JSD plots
+- **Removed**: `plot_gene_jsd_distribution_comparison` function and `gene_jsd_snapshot_comparison.png` plot (not useful with only 20 data points)
 
 ## Plots Implemented
 
@@ -17,11 +21,10 @@ Successfully implemented 5 new plot types to achieve complete visualization cove
 - **Output**: `cell_methylation_comparison.png`, `cell_methylation_analysis.json`
 - **Status**: WORKING
 
-### 3. ✅ Gene-level JSD Snapshot Histogram
-- **Location**: `phase2/core/pipeline_analysis.py` - `plot_gene_jsd_snapshot_histogram()`
-- **Integration**: Added calls in Stage 2 and Stage 5.5 of `run_pipeline.py`
-- **Output**: `year30_gene_jsd_histogram.png`, `year50_gene_jsd_histogram.png`
-- **Status**: WORKING (after fixing parameter passing)
+### 3. ❌ Gene-level JSD Snapshot Histogram (REMOVED)
+- **Status**: REMOVED - Not useful with only 20 data points
+- **Previous location**: `phase2/core/pipeline_analysis.py`
+- **Reason**: Histogram with 20 points doesn't provide meaningful insights
 
 ### 4. ✅ Gene-level JSD Individual Trajectories
 - **Location**: `phase1/cell.py` - `PetriDishPlotter.plot_gene_jsd_trajectory()`
@@ -30,6 +33,18 @@ Successfully implemented 5 new plot types to achieve complete visualization cove
 - **Status**: WORKING
 
 ### 5. ✅ Gene-level JSD Original Timeline
+- **Location**: `phase1/cell.py` - `PetriDishPlotter.plot_gene_jsd_timeline()`
+- **Integration**: Added call in original timeline section of `run_pipeline.py`
+- **Output**: `original_simulation_gene_jsd_timeline.png`
+- **Status**: WORKING
+
+### 6. ✅ Gene Methylation Proportion Comparison
+- **Location**: `phase2/core/pipeline_analysis.py` - `plot_gene_methylation_individual_comparison()`
+- **Integration**: Added call in Stage 8 of `run_pipeline.py`
+- **Output**: `gene_methylation_comparison.png`, `gene_methylation_analysis.json`
+- **Status**: WORKING - Uses exact same layout as gene JSD comparison plot
+
+### 7. ✅ Gene Methylation Individual Trajectories
 - **Location**: `phase1/cell.py` - `PetriDishPlotter.plot_gene_jsd_timeline()`
 - **Integration**: Added call in original timeline section of `run_pipeline.py`
 - **Output**: `original_simulation_gene_jsd_timeline.png`
@@ -51,8 +66,9 @@ Successfully implemented 5 new plot types to achieve complete visualization cove
 | Metric | Snapshot Histogram | Batch Comparison | Individual Trajectories | Original Timeline |
 |--------|-------------------|------------------|------------------------|-------------------|
 | **Cell-level JSD** | ✅ Exists | ✅ Exists | ✅ Exists | ✅ Exists |
-| **Gene-level JSD** | ✅ NEW | ✅ Exists | ✅ NEW | ✅ NEW |
+| **Gene-level JSD** | ❌ Removed | ✅ Exists | ✅ NEW | ✅ NEW |
 | **Cell Methylation** | ✅ NEW | ✅ NEW | ✅ Exists | ✅ Exists |
+| **Gene Methylation** | ❌ Not impl | ✅ NEW | ✅ NEW | ✅ NEW |
 
 ## Files Modified
 
@@ -62,8 +78,10 @@ Successfully implemented 5 new plot types to achieve complete visualization cove
 
 2. **phase2/core/pipeline_analysis.py**
    - Added `plot_cell_methylation_histogram()` function
-   - Added `plot_gene_jsd_snapshot_histogram()` function  
+   - ~~Added `plot_gene_jsd_snapshot_histogram()` function~~ (REMOVED)
    - Added `analyze_cell_methylation_comparison()` function
+   - Added `generate_gene_methylation_analysis()` function
+   - Added `plot_gene_methylation_individual_comparison()` function
    - Extended `create_comparison_plot_from_jsds()` with optional parameters
 
 3. **phase2/run_pipeline.py**
@@ -89,4 +107,4 @@ Created comprehensive test scripts:
 
 ## Summary
 
-Successfully achieved complete visualization parity across all three metrics (cell-level JSD, gene-level JSD, cell methylation) with all four plot types (snapshot histograms, batch comparisons, individual trajectories, original timelines). This provides comprehensive visualization capabilities for analyzing methylation simulation data from multiple perspectives.
+Successfully achieved complete visualization parity across all four metrics (cell-level JSD, gene-level JSD, cell methylation, gene methylation) with most plot types implemented. Removed gene JSD snapshot histogram as it was not providing useful insights with only 20 data points. Gene methylation plots now use exact same layout as gene JSD plots for visual consistency. This provides comprehensive visualization capabilities for analyzing methylation simulation data from multiple perspectives.

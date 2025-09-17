@@ -41,7 +41,6 @@ def test_imports():
         from core.pipeline_analysis import (
             plot_cell_jsd_distribution,
             analyze_populations_from_dishes,
-            plot_gene_jsd_distribution_comparison,
             plot_gene_jsd_distributions,
             plot_gene_jsd_individual_comparison
         )

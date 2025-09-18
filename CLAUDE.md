@@ -63,6 +63,10 @@ python run_pipeline.py --config configs/quick_test.yaml --simulation ../phase1/d
 
 # With options
 python run_pipeline.py --simulation ../phase1/data/.../simulation.json.gz --first-snapshot 50 --second-snapshot 60 --uniform-mixing --normalize-size --plot-individuals --no-compress
+
+# Wildcards in --simulation path are now supported!
+# When using wildcards (*), if multiple files match, you'll be prompted to select one:
+python run_pipeline.py --simulation "../phase1/data/*/simulation.json.gz"
 ```
 
 ### Run Tests
@@ -212,6 +216,36 @@ All cells in a PetriDish must have identical `gene_rate_groups` configuration. V
 ### Phase 2 Auto-Inference
 Phase 2 automatically infers gene_rate_groups from the simulation file, eliminating the need to specify rates if using the same configuration as the simulation.
 
+## Recently Fixed Issues
+
+### Phase 2 Simulation Selection with Wildcards (FIXED)
+**Previous Problem**: When using wildcards (`*`) in the `--simulation` flag, phase2 would find ALL matching simulations and automatically select the first one without confirmation.
+
+**Solution Implemented**: Modified `phase2/run_pipeline.py` (lines 1793-1845) to:
+- When a single file matches the pattern: Use it automatically
+- When multiple files match: Display a numbered list of all matches and prompt the user to select one
+- User can enter a number to select a specific simulation or 'q' to quit
+
+**Current Behavior**: 
+```bash
+# Using wildcards is now safe - it will prompt for selection if multiple matches
+python run_pipeline.py --simulation "../phase1/data/*/simulation.json.gz"
+
+# Output when multiple matches:
+# ========================================================
+# MULTIPLE SIMULATIONS FOUND
+# ========================================================
+# Found 3 simulation files matching pattern: ../phase1/data/*/simulation.json.gz
+# 
+# Available simulations:
+#   [1] rate_0.00400/size8192-sites1000-genesize5-years100-seed42-20250117123456/simulation.json.gz
+#   [2] rate_0.00500/size8192-sites1000-genesize5-years100-seed42-20250117134521/simulation.json.gz
+#   [3] rate_0.00600/size8192-sites1000-genesize5-years100-seed42-20250117145632/simulation.json.gz
+#
+# Please select a simulation by number (or 'q' to quit):
+# Selection: 2
+```
+
 ## Recent Breaking Changes
 
 ### Lean JSON Format
@@ -307,3 +341,11 @@ Gradual accumulation of methylation changes over time:
 - Random methylation events occur stochastically
 - Methylation patterns inherited during cell division
 - Population-level patterns emerge from single-cell dynamics
+
+## Recent Fixes
+
+### Gene JSD Data Key Types (Fixed 2025-01-18)
+- **Issue**: Phase2 KeyError when generating gene JSD timeline plots
+- **Root cause**: `extract_gene_jsd_from_history()` returned integer keys, but phase1's `plot_gene_jsd_timeline()` expected string keys
+- **Fix**: Modified `extract_gene_jsd_from_history()` to use string keys consistently
+- **Files changed**: `phase2/core/pipeline_utils.py`, `phase2/tests/test_gene_jsd_extraction.py`

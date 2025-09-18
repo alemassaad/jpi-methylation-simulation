@@ -1473,21 +1473,16 @@ def run_pipeline(args):
         print(f"  Loading original simulation: {args.simulation}")
         sim_data = open_json_file(args.simulation)
     
-        # Check if gene_jsd_history exists in simulation
-        if 'gene_jsd_history' in sim_data:
+        # Extract gene JSD history from the correct location
+        from core.pipeline_utils import extract_gene_jsd_from_history
+        gene_jsd_history, mean_gene_jsd_history, median_gene_jsd_history = extract_gene_jsd_from_history(sim_data)
+        
+        if gene_jsd_history:
             # Create a temporary PetriDish with gene_jsd_history for plotting
             temp_petri = PetriDish()
-            temp_petri.gene_jsd_history = {int(year): values for year, values in sim_data['gene_jsd_history'].items()}
-            
-            # Extract mean and median gene JSD histories from the history structure if available
-            temp_petri.mean_gene_jsd_history = {}
-            temp_petri.median_gene_jsd_history = {}
-            if 'history' in sim_data:
-                for year_str, year_data in sim_data['history'].items():
-                    if 'mean_gene_jsd' in year_data:
-                        temp_petri.mean_gene_jsd_history[int(year_str)] = year_data['mean_gene_jsd']
-                    if 'median_gene_jsd' in year_data:
-                        temp_petri.median_gene_jsd_history[int(year_str)] = year_data['median_gene_jsd']
+            temp_petri.gene_jsd_history = gene_jsd_history
+            temp_petri.mean_gene_jsd_history = mean_gene_jsd_history
+            temp_petri.median_gene_jsd_history = median_gene_jsd_history
         
             # Add some cells for gene rate group detection (if available)
             if sim_data.get('history') and len(sim_data['history']) > 0:
@@ -1522,7 +1517,7 @@ def run_pipeline(args):
                 print(f"    No gene rate groups found - skipping rate comparison plot")
             
         else:
-            print(f"    No gene_jsd_history found in simulation")
+            print(f"    No gene JSD data found in simulation history")
             print(f"    This simulation was likely run with --no-gene-jsd or --no-jsds flags")
             print(f"    Gene JSD tracking is now enabled by default in new simulations")
         
@@ -1591,11 +1586,11 @@ def run_pipeline(args):
                             cells.append(cell_dict)
                     original_petri.cell_history[year_str] = cells
         
-            # Also copy gene_jsd_history if available
-            if 'gene_jsd_history' in sim_data:
-                original_petri.gene_jsd_history = {
-                    int(year): values for year, values in sim_data['gene_jsd_history'].items()
-                }
+            # Extract and copy gene_jsd_history from the correct location
+            gene_jsd_hist, mean_hist, median_hist = extract_gene_jsd_from_history(sim_data)
+            if gene_jsd_hist:
+                original_petri.gene_jsd_history = gene_jsd_hist
+                # Note: mean/median histories are already set in the temporary petri above
         
             # Create plotter and generate timeline plots
             plotter = PetriDishPlotter(original_petri)
@@ -1797,11 +1792,52 @@ def main():
         if not matching_files:
             print(f"Error: No files matching pattern: {args.simulation}")
             sys.exit(1)
-        # Sort to prefer .json.gz over .json if both exist
-        matching_files.sort(key=lambda x: (0 if x.endswith('.json.gz') else 1))
-        args.simulation = matching_files[0]
-        if len(matching_files) > 1:
-            print(f"Multiple files found, using: {args.simulation}")
+        
+        # If only one file matches, use it
+        if len(matching_files) == 1:
+            args.simulation = matching_files[0]
+            print(f"Found simulation: {args.simulation}")
+        else:
+            # Multiple files found - require user to select
+            print(f"\n{'='*60}")
+            print("MULTIPLE SIMULATIONS FOUND")
+            print(f"{'='*60}")
+            print(f"Found {len(matching_files)} simulation files matching pattern: {args.simulation}")
+            print("\nAvailable simulations:")
+            
+            # Sort files for consistent ordering
+            matching_files.sort()
+            
+            # Display numbered list
+            for i, filepath in enumerate(matching_files, 1):
+                # Extract just the relevant path parts for display
+                if "phase1/data/" in filepath:
+                    display_path = filepath.split("phase1/data/")[1]
+                else:
+                    display_path = os.path.basename(filepath)
+                print(f"  [{i}] {display_path}")
+            
+            # Prompt for selection
+            print("\nPlease select a simulation by number (or 'q' to quit):")
+            while True:
+                try:
+                    selection = input("Selection: ").strip()
+                    if selection.lower() == 'q':
+                        print("Aborted by user.")
+                        sys.exit(0)
+                    
+                    idx = int(selection) - 1
+                    if 0 <= idx < len(matching_files):
+                        args.simulation = matching_files[idx]
+                        print(f"\nSelected: {args.simulation}")
+                        break
+                    else:
+                        print(f"Invalid selection. Please enter a number between 1 and {len(matching_files)}")
+                except ValueError:
+                    print("Invalid input. Please enter a number or 'q' to quit.")
+                except KeyboardInterrupt:
+                    print("\n\nAborted by user.")
+                    sys.exit(0)
     
     # Check simulation file exists and has valid extension
     if not os.path.exists(args.simulation):

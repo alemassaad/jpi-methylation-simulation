@@ -432,13 +432,13 @@ def load_petri_dish(filepath: str, include_cell_history: bool = False, include_g
         petri.track_cell_history = False
     
     # Restore gene JSD history if requested and available
-    if include_gene_jsd and 'gene_jsd_history' in data:
-        petri.gene_jsd_history = data['gene_jsd_history']
-        petri.track_gene_jsd = True
-        
-        # Also restore mean and median gene JSD histories if available
-        petri.mean_gene_jsd_history = data.get('mean_gene_jsd_history', {})
-        petri.median_gene_jsd_history = data.get('median_gene_jsd_history', {})
+    if include_gene_jsd:
+        # Use the helper to extract from either location
+        gene_jsd_hist, mean_hist, median_hist = extract_gene_jsd_from_history(data)
+        petri.gene_jsd_history = gene_jsd_hist
+        petri.mean_gene_jsd_history = mean_hist
+        petri.median_gene_jsd_history = median_hist
+        petri.track_gene_jsd = bool(gene_jsd_hist)  # Only True if we found data
     else:
         petri.gene_jsd_history = {}
         petri.mean_gene_jsd_history = {}
@@ -447,6 +447,39 @@ def load_petri_dish(filepath: str, include_cell_history: bool = False, include_g
         petri.history_enabled = False
     
     return petri
+
+
+def extract_gene_jsd_from_history(sim_data: dict) -> tuple:
+    """
+    Extract gene JSD data from simulation history structure.
+    Reads from the correct location where phase1 stores the data (nested in history).
+    
+    Args:
+        sim_data: Simulation data dictionary
+        
+    Returns:
+        Tuple of (gene_jsd_history, mean_gene_jsd_history, median_gene_jsd_history)
+        All as dicts with int years as keys, or empty dicts if not found
+    """
+    gene_jsd_history = {}
+    mean_gene_jsd_history = {}
+    median_gene_jsd_history = {}
+    
+    # Read from the correct location (nested in history)
+    if 'history' in sim_data:
+        for year_str, year_data in sim_data['history'].items():
+            year_int = int(year_str)
+            
+            if 'gene_jsd' in year_data:
+                gene_jsd_history[year_str] = year_data['gene_jsd']
+            
+            if 'mean_gene_jsd' in year_data:
+                mean_gene_jsd_history[year_str] = year_data['mean_gene_jsd']
+                
+            if 'median_gene_jsd' in year_data:
+                median_gene_jsd_history[year_str] = year_data['median_gene_jsd']
+    
+    return gene_jsd_history, mean_gene_jsd_history, median_gene_jsd_history
 
 
 def load_all_petri_dishes(directory: str, include_cell_history: bool = False) -> List[PetriDish]:

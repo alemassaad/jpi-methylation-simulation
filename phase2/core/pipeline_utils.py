@@ -467,8 +467,9 @@ def extract_gene_jsd_from_history(sim_data: dict) -> tuple:
     
     # Read from the correct location (nested in history)
     if 'history' in sim_data:
-        for year_str, year_data in sim_data['history'].items():
-            year_int = int(year_str)
+        for year_key, year_data in sim_data['history'].items():
+            # Force to string to ensure consistency
+            year_str = str(year_key)
             
             if 'gene_jsd' in year_data:
                 gene_jsd_history[year_str] = year_data['gene_jsd']

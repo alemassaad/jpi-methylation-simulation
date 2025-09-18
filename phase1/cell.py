@@ -2172,15 +2172,16 @@ class PetriDishPlotter:
             raise ValueError("No gene JSD history found. Enable gene JSD tracking with --track-gene-jsd flag.")
         
         # Extract data from gene_jsd_history
-        years = sorted(self.petri.gene_jsd_history.keys())
-        n_genes = len(self.petri.gene_jsd_history[years[0]])
+        # Convert string keys to int for sorting, keeping as int for iteration
+        years = sorted([int(y) for y in self.petri.gene_jsd_history.keys()])
+        n_genes = len(self.petri.gene_jsd_history[str(years[0])])
         
         # Create 2D array: rows = genes, columns = years
         heatmap_data = []
         for gene_idx in range(n_genes):
             gene_row = []
             for year in years:
-                gene_jsd_value = self.petri.gene_jsd_history[year][gene_idx]
+                gene_jsd_value = self.petri.gene_jsd_history[str(year)][gene_idx]
                 gene_row.append(gene_jsd_value)
             heatmap_data.append(gene_row)
         
@@ -2296,7 +2297,8 @@ class PetriDishPlotter:
         gene_rate_groups = self.petri.cells[0].gene_rate_groups
         
         # Extract data from gene_jsd_history
-        years = sorted(self.petri.gene_jsd_history.keys())
+        # Convert string keys to int for sorting, keeping as int for iteration
+        years = sorted([int(y) for y in self.petri.gene_jsd_history.keys()])
         
         # Calculate mean JSD for each rate group at each time point
         fig = go.Figure()
@@ -2325,7 +2327,7 @@ class PetriDishPlotter:
             group_p75 = []
             
             for year in years:
-                gene_jsds_for_group = self.petri.gene_jsd_history[year][gene_start_idx:gene_end_idx]
+                gene_jsds_for_group = self.petri.gene_jsd_history[str(year)][gene_start_idx:gene_end_idx]
                 group_means.append(np.mean(gene_jsds_for_group))
                 group_p25.append(np.percentile(gene_jsds_for_group, 25))
                 group_p75.append(np.percentile(gene_jsds_for_group, 75))

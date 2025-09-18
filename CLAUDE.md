@@ -27,6 +27,11 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - Clean breaks are preferred over compatibility layers
 - When making breaking changes, document them clearly but don't maintain old behavior
 
+## Installation
+```bash
+pip install -r requirements.txt  # Installs plotly, kaleido, pyyaml
+```
+
 ## Commands
 
 ### Run Simulation (Phase 1)
@@ -248,40 +253,26 @@ python run_pipeline.py --simulation "../phase1/data/*/simulation.json.gz"
 
 ## Recent Breaking Changes
 
-### Lean JSON Format
-- New format reduces file sizes by ~90%
-- No backward compatibility with old format
-- Old simulations must be re-run
+### Lean JSON Format (90% size reduction)
+- New format stores parameters once at top level, not per cell
+- No backward compatibility - old simulations must be re-run
+- Compressed (.json.gz) by default for production
 
-### Config System  
-- Both phases now support YAML configuration files
-- Preferred method for complex runs
+### Config File System
+- Both phases support YAML configuration with CLI override capability
+- Command-line arguments > User config > Default config > Hardcoded defaults
+- Phase 1: `configs/production.yaml`, `configs/quick_test.yaml`
+- Phase 2: `configs/standard.yaml`, `configs/quick_test.yaml`
 
 ### JSD Naming Convention
-- All cell-level JSD metrics prefixed with `cell_`
-- Gene-level metrics prefixed with `gene_`
-- Renamed `calculate_jsds` → `calculate_cell_jsds`
+- Cell-level JSD metrics prefixed with `cell_` (e.g., `cell_JSD`)
+- Gene-level metrics prefixed with `gene_` (e.g., `gene_jsds`)
+- Performance flag renamed: `calculate_jsds` → `calculate_cell_jsds`
 
-### Individual ID Convention
-- All individual IDs start at 1 (not 0)
-- IDs always match filenames through all pipeline stages
-
-### Gene Metrics as Proportions
-- `gene_mean_methylation` returns proportions (0.0-1.0) instead of counts
-
-### Timestamp-based Directory Names
-- Both phases use YYYYMMDDHHMMSS timestamps instead of hashes
-- Enables chronological sorting and easy identification
-
-### Gene Methylation Proportion Plots
-- Added gene-level methylation proportion comparison plots
-- `gene_methylation_comparison.png` shows batch comparison with exact same layout as gene JSD plot
-- `gene_methylation_analysis.json` contains per-individual statistics
-- Individual trajectory plots include `_methylation.png` suffix for gene methylation
-
-### Removed Plots
-- `gene_jsd_snapshot_comparison.png` removed as not useful with only 20 data points
-- Function `plot_gene_jsd_distribution_comparison` removed from pipeline
+### Data Structure Changes
+- Individual IDs start at 1 (not 0) and match filenames throughout pipeline
+- `gene_mean_methylation` returns proportions (0.0-1.0) not counts
+- Timestamp-based directory names (YYYYMMDDHHMMSS) replace MD5 hashes
 
 ## Plot Architecture
 
@@ -342,7 +333,48 @@ Gradual accumulation of methylation changes over time:
 - Methylation patterns inherited during cell division
 - Population-level patterns emerge from single-cell dynamics
 
+## Troubleshooting
+
+### Common Issues and Solutions
+- **"No module named 'yaml'"**: Run `pip install pyyaml`
+- **Plots not generating**: Install plotly and kaleido with `pip install plotly kaleido`
+- **Out of memory with large simulations**: Use `--no-jsds` flag to skip JSD calculations
+- **Simulation running slow**: Reduce sites with `--sites 100` or years with `--years 50`
+
+### Linting and Type Checking
+This repository doesn't have configured linting or type checking commands. To add them:
+```bash
+pip install ruff mypy  # Install tools
+ruff check .  # Run linter
+mypy phase1 phase2  # Run type checker
+```
+
+## Dictionary Key Convention
+All history dictionaries use STRING keys for years to ensure JSON compatibility:
+- `cell_history` uses string keys: "0", "1", "2", etc.
+- `gene_jsd_history` uses string keys: "0", "1", "2", etc.
+- `mean_gene_jsd_history` and `median_gene_jsd_history` follow same convention
+- **When sorting years**: Convert to int for sorting, then back to string for access
+- **Example pattern**: 
+  ```python
+  years = sorted([int(y) for y in history.keys()])  # Sort as integers
+  for year in years:
+      data = history[str(year)]  # Access with string key
+  ```
+- **Important**: Always use `str(year)` when accessing dictionary values
+
 ## Recent Fixes
+
+### Dictionary Key Type Consistency (Fixed 2025-01-18)
+- **Issue**: Type comparison error in phase1 plots: `'<' not supported between instances of 'int' and 'str'`
+- **Root cause**: `plot_gene_jsd_heatmap()` and `plot_gene_jsd_by_rate_group()` sorted string keys without conversion
+- **Fix**: Convert keys to int for sorting, use string keys for access
+- **Files changed**: `phase1/cell.py` (lines 2175-2184, 2299-2330), `phase2/core/pipeline_utils.py`
+
+### Phase 2 Simulation Selection with Wildcards (Fixed)
+- When using wildcards (`*`) in `--simulation` flag, prompts for selection if multiple files match
+- Single match: Uses file automatically
+- Multiple matches: Shows numbered list for user selection
 
 ### Gene JSD Data Key Types (Fixed 2025-01-18)
 - **Issue**: Phase2 KeyError when generating gene JSD timeline plots

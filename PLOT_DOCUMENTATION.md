@@ -259,6 +259,15 @@ Clean property-based access for all metrics:
 - **Gene level**: `petri.gene_jsds`, `petri.gene_methylation_proportions`
 - No temporary objects or complex calculations in plotting functions
 
+## Technical Notes
+
+### Dictionary Key Convention
+**IMPORTANT**: All history dictionaries in the codebase use **string keys** for years to ensure JSON compatibility:
+- `cell_history`, `gene_jsd_history`, `mean_gene_jsd_history`, `median_gene_jsd_history` all use string keys
+- When sorting years, use pattern: `years = sorted([int(y) for y in history.keys()])`
+- When accessing, convert back: `history[str(year)]`
+- This convention prevents type comparison errors and ensures JSON serialization works correctly
+
 ## JSON Output Files
 
 ### Analysis Results

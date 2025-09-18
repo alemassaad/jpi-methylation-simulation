@@ -82,21 +82,22 @@ python test_small.py
 python test_comprehensive.py
 python test_edge_cases.py
 python test_gene_jsd.py
-python test_new_format.py
-python test_config.py
+python test_key_consistency.py
+python test_rate_consistency.py
 
 # Phase 2 tests  
 cd phase2/tests
-python test_reproducibility_robust.py
-python test_gene_rate_support.py
-python test_final_integration.py
-python verify_compression_fix.py
-python verify_determinism.py
+python test_gene_jsd_extraction.py
+python test_validation.py
+python test_cleanup_simple.py
+python test_static_petridish.py
+python test_rate_consistency_phase2.py
 
 # Test configs
 cd phase2/tests/config
 python test_config_simple.py
 python test_config_phase2.py
+python test_pipeline_with_config.py
 ```
 
 ### Visualization Scripts
@@ -205,7 +206,7 @@ phase2/data/rate_0.00500-grow13-sites1000-years100/snap50to60-growth7-quant10x3-
 Both phases support YAML configuration with CLI override capability:
 - Command-line arguments > User config > Default config > Hardcoded defaults
 - Phase 1: `configs/production.yaml`, `configs/quick_test.yaml`
-- Phase 2: `configs/standard.yaml`, `configs/quick_test.yaml`
+- Phase 2: `configs/config_default.yaml`, `configs/quick_test.yaml`, `configs/uniform_mixing.yaml`
 
 ### Performance Flags
 - `calculate_cell_jsds=True`: Calculate individual cell JSDs (renamed from calculate_jsds)
@@ -262,7 +263,7 @@ python run_pipeline.py --simulation "../phase1/data/*/simulation.json.gz"
 - Both phases support YAML configuration with CLI override capability
 - Command-line arguments > User config > Default config > Hardcoded defaults
 - Phase 1: `configs/production.yaml`, `configs/quick_test.yaml`
-- Phase 2: `configs/standard.yaml`, `configs/quick_test.yaml`
+- Phase 2: `configs/config_default.yaml`, `configs/quick_test.yaml`
 
 ### JSD Naming Convention
 - Cell-level JSD metrics prefixed with `cell_` (e.g., `cell_JSD`)

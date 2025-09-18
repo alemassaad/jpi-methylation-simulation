@@ -36,7 +36,7 @@ visualization:
 # Output configuration
 output:
   directory: "data"              # Base output directory
-  compress: false                 # Save as .json.gz if true, .json if false
+  compress: true                 # Save as .json.gz if true, .json if false
 
 # Other settings
 seed: 42                         # Random seed (use -1 or null for random)

@@ -1504,17 +1504,6 @@ def run_pipeline(args):
                 title="Gene JSD Evolution Heatmap (from Phase1 simulation)",
                 output_path=heatmap_path
             )
-        
-            # Gene Rate Group Comparison (only if gene rate groups exist)
-            if (temp_petri.cells and hasattr(temp_petri.cells[0], 'gene_rate_groups') 
-                and temp_petri.cells[0].gene_rate_groups):
-                rate_comparison_path = os.path.join(results_dir, "simulation_gene_rate_comparison.png")
-                plotter.plot_gene_jsd_by_rate_group(
-                    title="Gene JSD by Rate Group (from Phase1 simulation)",
-                    output_path=rate_comparison_path
-                )
-            else:
-                print(f"    No gene rate groups found - skipping rate comparison plot")
             
         else:
             print(f"    No gene JSD data found in simulation history")

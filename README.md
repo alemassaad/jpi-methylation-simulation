@@ -26,7 +26,7 @@ The simulation and analysis pipeline features:
 - **Biological Realism**: Single cell → exponential growth → homeostasis
 - **Clean Architecture**: Object-oriented Cell and PetriDish classes
 - **Full Reproducibility**: Comprehensive random seeding
-- **Hierarchical Organization**: Parameter-based directory structure with MD5 hashing
+- **Hierarchical Organization**: Parameter-based directory structure with timestamps
 - **Dynamic Configuration**: Flexible snapshot years and growth parameters
 
 ## Installation
@@ -71,8 +71,8 @@ python run_simulation.py --gene-rate-groups "50:0.004,50:0.005,50:0.006,50:0.007
 python run_simulation.py --rate 0.005 --no-compress
 
 # Output will be in hierarchical structure:
-# data/gene_rates_200x0.00500/size8192-sites1000-genesize5-years100-seed42-YYYYMMDD-HHMMSS/simulation.json.gz
-# Or: data/gene_rates_50x0.004_50x0.005.../size8192-sites1000-genesize5-years100-seed42-YYYYMMDD-HHMMSS/simulation.json.gz
+# data/gene_rates_200x0.00500/size8192-sites1000-genesize5-years100-seed42-YYYYMMDDHHMMSS/simulation.json.gz
+# Or: data/gene_rates_50x0.004_50x0.005.../size8192-sites1000-genesize5-years100-seed42-YYYYMMDDHHMMSS/simulation.json.gz
 ```
 
 ### Phase 2: Analysis Pipeline
@@ -225,7 +225,7 @@ python run_pipeline.py \
 ### Hierarchical Directory Structure
 ```
 phase1 output:
-data/gene_rates_200x0.00500/size8192-sites1000-genesize5-years100-seed42-YYYYMMDD-HHMMSS/simulation.json.gz
+data/gene_rates_200x0.00500/size8192-sites1000-genesize5-years100-seed42-YYYYMMDDHHMMSS/simulation.json.gz
 
 phase2 output:
 data/gene_rates_200x0.00500-size8192-sites1000-years100/
@@ -246,7 +246,7 @@ Suffix indicators:
 - Global random seeding at pipeline start
 - NumPy seeding for all array operations
 - Deterministic file I/O and sampling
-- MD5 hashing for unique directory names
+- Timestamp-based unique directory names
 
 ### Object-Oriented Design
 ```python
@@ -338,18 +338,24 @@ python test_small.py           # Quick validation
 python test_comprehensive.py   # Full feature tests
 python test_edge_cases.py      # Edge case handling
 python test_gene_jsd.py        # Gene JSD functionality
-python test_new_format.py      # Lean JSON format tests
-python test_config.py          # Config system tests
+python test_key_consistency.py # Dictionary key consistency
+python test_rate_consistency.py # Rate consistency validation
 ```
 
 ### Phase 2 Tests
 ```bash
 cd phase2/tests
-python test_reproducibility_robust.py   # Test full reproducibility
-python test_dynamic_mix_year.py        # Test dynamic year calculations
-python test_gene_rate_support.py       # Gene-specific rate support
-python test_final_integration.py       # Full pipeline integration
-python run_all_uniform_tests.py        # Complete uniform mixing suite
+python test_validation.py              # Data validation functions
+python test_cleanup_simple.py          # Test cleanup procedures
+python test_static_petridish.py        # PetriDish functionality
+python test_rate_consistency_phase2.py # Rate consistency in phase2
+python test_gene_jsd_extraction.py     # Gene JSD extraction tests
+
+# Test configs
+cd phase2/tests/config
+python test_config_simple.py           # Simple config tests
+python test_config_phase2.py           # Phase2 config tests
+python test_pipeline_with_config.py    # Pipeline with config
 ```
 
 ## License

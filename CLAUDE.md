@@ -27,6 +27,15 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - Clean breaks are preferred over compatibility layers
 - When making breaking changes, document them clearly but don't maintain old behavior
 
+### Linting and Testing Commands
+**This repository doesn't have configured linting or type checking commands. If you need to check code quality:**
+```bash
+# To add linting (if requested by user):
+pip install ruff mypy
+ruff check .
+mypy phase1 phase2
+```
+
 ## Installation
 ```bash
 pip install -r requirements.txt  # Installs numpy, scipy, plotly, kaleido, pyyaml

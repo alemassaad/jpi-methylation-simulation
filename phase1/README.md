@@ -24,19 +24,19 @@ A biologically realistic methylation simulation that models epigenetic drift thr
 
 ```bash
 # Using config file (recommended)
-python3 run_simulation.py --config configs/production.yaml
+python run_simulation.py --config configs/production.yaml
 
 # Quick test with new defaults (100 sites, 50 years, 64 cells)
-python3 run_simulation.py --rate 0.005
+python run_simulation.py --rate 0.005
 
 # Standard production run
-python3 run_simulation.py --rate 0.005 --years 100 --growth-phase 13 --sites 1000 --seed 42
+python run_simulation.py --rate 0.005 --years 100 --growth-phase 13 --sites 1000 --seed 42
 
 # Gene-specific methylation rates
-python3 run_simulation.py --gene-rate-groups "50:0.004,50:0.005,50:0.006,50:0.007" --gene-size 5
+python run_simulation.py --gene-rate-groups "50:0.004,50:0.005,50:0.006,50:0.007" --gene-size 5
 
 # Visualize results
-python3 plot_history.py data/rate_0.00500/*/simulation.json
+python plot_history.py data/rate_0.00500/*/simulation.json
 ```
 
 ## Configuration
@@ -84,16 +84,16 @@ seed: 42
 
 ```bash
 # Default: Calculate everything
-python3 run_simulation.py --rate 0.005
+python run_simulation.py --rate 0.005
 
 # Skip cell JSDs only (still track gene JSDs)
-python3 run_simulation.py --rate 0.005 --no-cell-jsds
+python run_simulation.py --rate 0.005 --no-cell-jsds
 
 # Skip gene JSDs only (still calculate cell JSDs)
-python3 run_simulation.py --rate 0.005 --no-gene-jsd
+python run_simulation.py --rate 0.005 --no-gene-jsd
 
 # Skip ALL JSDs for maximum performance
-python3 run_simulation.py --rate 0.005 --no-jsds
+python run_simulation.py --rate 0.005 --no-jsds
 ```
 
 ## Output Format
@@ -172,29 +172,29 @@ The directory name includes a timestamp (YYYYMMDDHHMMSS format) for chronologica
 
 ### Quick Test
 ```bash
-python3 run_simulation.py --config configs/quick_test.yaml
+python run_simulation.py --config configs/quick_test.yaml
 # Or manually: 4 cells, 10 years, fast
-python3 run_simulation.py --rate 0.01 --years 10 --growth-phase 2 --sites 100
+python run_simulation.py --rate 0.01 --years 10 --growth-phase 2 --sites 100
 ```
 
 ### Production Run
 ```bash
-python3 run_simulation.py --config configs/production.yaml
+python run_simulation.py --config configs/production.yaml
 # Or manually: 8192 cells, 100 years, standard
-python3 run_simulation.py --rate 0.005 --years 100 --growth-phase 13 --sites 1000
+python run_simulation.py --rate 0.005 --years 100 --growth-phase 13 --sites 1000
 ```
 
 ### Debug Mode
 ```bash
-python3 run_simulation.py --config configs/debug.yaml
+python run_simulation.py --config configs/debug.yaml
 # Verbose output, uncompressed files
 ```
 
 ### Gene-Specific Rates
 ```bash
-python3 run_simulation.py --config configs/gene_rates.yaml
+python run_simulation.py --config configs/gene_rates.yaml
 # Or manually specify different rates for gene groups
-python3 run_simulation.py --gene-rate-groups "100:0.003,100:0.007" --gene-size 5
+python run_simulation.py --gene-rate-groups "100:0.003,100:0.007" --gene-size 5
 ```
 
 ## Metrics and Analysis
@@ -248,15 +248,14 @@ python3 run_simulation.py --gene-rate-groups "100:0.003,100:0.007" --gene-size 5
 ```bash
 # Run individual tests
 cd tests
-python3 test_small.py           # Quick validation
-python3 test_comprehensive.py   # Full feature test
-python3 test_edge_cases.py      # Edge case handling
-python3 test_gene_jsd.py        # Gene JSD functionality
+python test_small.py           # Quick validation
+python test_comprehensive.py   # Full feature test
+python test_edge_cases.py      # Edge case handling
+python test_gene_jsd.py        # Gene JSD functionality
 
-# Test new features
-cd ..
-python3 test_new_format.py      # Lean JSON format tests
-python3 test_config.py           # Config system tests
+# Additional tests
+python test_key_consistency.py # Dictionary key consistency
+python test_rate_consistency.py # Rate consistency validation
 ```
 
 ## Troubleshooting

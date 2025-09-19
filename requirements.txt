@@ -1,9 +1,10 @@
-# Core dependencies (none required for basic simulation)
-# Python 3.7+ standard library is sufficient for simulation
+# Core dependencies
+numpy>=1.19.0  # Optional but recommended for performance
+scipy>=1.7.0    # Required for statistical analysis in phase2
 
 # Config file support
 pyyaml>=6.0
 
 # Plotting dependencies
 plotly>=5.0.0,<6.0.0
-kaleido==0.2.1
+kaleido==0.2.1  # Required for PNG export from plotly

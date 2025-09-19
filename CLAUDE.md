@@ -29,8 +29,15 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Installation
 ```bash
-pip install -r requirements.txt  # Installs plotly, kaleido, pyyaml
+pip install -r requirements.txt  # Installs numpy, scipy, plotly, kaleido, pyyaml
 ```
+
+Required dependencies:
+- `numpy` (>=1.19.0): Optional but recommended for performance
+- `scipy` (>=1.7.0): Required for statistical analysis in phase2
+- `pyyaml` (>=6.0): For YAML config file support
+- `plotly` (>=5.0.0, <6.0.0): For interactive visualizations
+- `kaleido` (0.2.1): For PNG export from plotly
 
 ## Commands
 

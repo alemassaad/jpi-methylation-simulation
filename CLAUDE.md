@@ -2,16 +2,26 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
-## Important User Instructions
+## Global User Instructions (All Projects)
 
-### Permission Requirements
-**NEVER make any code changes without explicit consent**
-- Always explain what changes would fix an issue first, then wait for approval
-- When encountering errors, first diagnose and explain the solution, showing exactly what would be changed  
-- Only take destructive actions (delete, remove, overwrite) when explicitly instructed
-- When asked about files or code, explain/analyze but don't modify unless specifically asked
-- Don't commit or push unless explicitly requested
-- Show: 1) What the problem is, 2) What files/functions would be modified, 3) What the changes would be - BEFORE making any edits
+### General Rules
+1. **NEVER make any code changes without explicit consent** - always explain what changes would fix an issue first, then wait for approval
+2. When encountering errors or problems, first diagnose and explain the solution, showing exactly what would be changed
+3. Only take destructive actions (delete, remove, overwrite) when explicitly instructed
+4. When asked about files or code, explain/analyze but don't modify unless specifically asked
+5. Don't commit or push unless explicitly requested
+6. Keep responses concise and to the point
+7. Always show: 1) What the problem is, 2) What files/functions would be modified, 3) What the changes would be - BEFORE making any edits
+
+### File Operations
+- **Require explicit permission for**: edit, modify, write, create, delete, remove, overwrite, move
+- **Safe operations (no permission needed)**: read, analyze, explain, list, search, grep, find
+
+### Preferences
+- **Verbosity**: concise
+- **Proactive actions**: minimal
+
+## Project-Specific Instructions
 
 ### Critical Documentation
 **PLOT_DOCUMENTATION.md in the root directory is a critical document that should NEVER be deleted. It explains all output plots from the simulation and must be updated whenever new plots are added.**

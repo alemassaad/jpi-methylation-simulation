@@ -1,41 +1,58 @@
-
-!step1/data/test_*.json
-!step2/data/snapshots/test_*.json.gz
-!step2/test_lineages/*.json.gz
-!step2/test_lineages_control/*.json.gz
-!step3/data/test_snapshots/*.json.gz
-# IDE files
-# Large simulation files (exceed GitHub's 100MB limit)
-# Old data directory (if any)
-# Phase1 test data
-# Phase2 test data directories
-# Python cache
-# Step 1 outputs
-# Step 2 data
-# Step 3 data
-# Temporary plots during testing
-*.bak
-*.pyc
-*.tmp
-.DS_Store
-.idea/
-.pytest_cache/
-.vscode/
+# Python
 __pycache__/
-data/
-phase1/data/*.json.gz
-phase2/data_test*/
-phase2/data_test/
-phase2/pipeline_output.log
-step*/plots/*.html
-step*/test_plots/
-step1/data/*.json.gz
-step2/data/lineages/**/*.json.gz
-step2/data/snapshots/*.json.gz
-step3/data/individuals/**/*.json.gz
-step3/data/snapshots/*.json.gz
-step3/data/test_individuals/**/*.json.gz
+*.py[cod]
+*.pyc
+*.pyo
+*.pyd
+.Python
+*.so
 
-# Phase 2 temporary files
-phase2/tmp/
-phase2/*.log
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# System files
+.DS_Store
+Thumbs.db
+*.bak
+*.tmp
+
+# Testing
+.pytest_cache/
+.coverage
+htmlcov/
+*.log
+
+# Data and outputs (all phases)
+data/
+phase1/data/
+phase2/data/
+phase3/data/
+phase3/results/
+
+# Large simulation files
+*.json.gz
+*.json
+# But keep config files
+!**/config*.yaml
+!**/default.yaml
+!**/config_default.yaml
+# Keep requirements
+!requirements.txt
+
+# Temporary files
+tmp/
+temp/
+*.tmp
+
+# Jupyter
+.ipynb_checkpoints/
+*.ipynb
+
+# Environment
+venv/
+env/
+.env

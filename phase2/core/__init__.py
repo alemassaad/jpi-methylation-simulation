@@ -27,14 +27,6 @@ from .pipeline_utils import (
     get_cell_jsd_array
 )
 
-from .pipeline_analysis import (
-    plot_cell_jsd_distribution,
-    analyze_populations_from_dishes,
-    generate_gene_jsd_analysis,
-    plot_gene_jsd_distributions,
-    plot_gene_jsd_individual_comparison
-)
-
 from .path_utils import (
     parse_step1_simulation_path,
     generate_step23_output_dir
@@ -64,12 +56,6 @@ __all__ = [
     'dict_to_cell',
     'get_petri_statistics',
     'get_cell_jsd_array',
-    # pipeline_analysis
-    'plot_cell_jsd_distribution',
-    'analyze_populations_from_dishes',
-    'generate_gene_jsd_analysis',
-    'plot_gene_jsd_distributions',
-    'plot_gene_jsd_individual_comparison',
     # path_utils
     'parse_step1_simulation_path',
     'generate_step23_output_dir'

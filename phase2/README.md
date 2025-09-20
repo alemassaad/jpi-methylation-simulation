@@ -2,19 +2,14 @@
 
 A modular pipeline for generating structured datasets from phase1 simulations. Phase2 creates cell populations and snapshot data for downstream analysis, with no plotting or visualization (moved to phase3).
 
-## 🆕 Major Architecture Changes
+## Current Structure (After Cleanup)
 
-### Phase Split (2025-09-20)
-Phase 2 is now **data generation only**. All analysis and plotting has been moved to **phase3** for clean separation of concerns.
+Phase 2 now contains only essential data generation components (10 files total):
+- **Core Scripts**: `run_pipeline.py`, `extract_snapshots.py`, `simulate_individuals.py`, `create_control2.py`
+- **Core Modules**: `pipeline_utils.py`, `individual_helpers.py`, `path_utils.py`, `validation.py`
+- **Configuration**: `configs/config_default.yaml`
 
-### Modular Organization (2025-01-20)
-Phase 2 consists of 3 modular data generation components:
-- **`extract_snapshots.py`**: Extract cell snapshots from phase1 simulations
-- **`simulate_individuals.py`**: Create, grow, and mix cell populations
-- **`create_control2.py`**: Create control populations from snapshots
-- **`run_pipeline.py`**: Main driver that orchestrates all scripts
-
-For analysis and visualization, use **phase3** instead.
+All testing and plotting functionality has been removed for a clean, focused pipeline.
 
 ## Quick Start
 
@@ -44,9 +39,9 @@ python run_pipeline.py \
     --individual-growth-phase 6 \
     --mix-ratio 70
 
-# With config file
+# Using default config
 python run_pipeline.py \
-    --config configs/quick_test.yaml \
+    --config configs/config_default.yaml \
     --simulation ../phase1/data/*/simulation.json.gz
 ```
 

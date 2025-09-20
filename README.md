@@ -77,8 +77,8 @@ This installs:
 ```bash
 cd phase1
 
-# Using config file (recommended)
-python run_simulation.py --config configs/production.yaml
+# Using your own config (copy from config_default.yaml)
+python run_simulation.py --config my_config.yaml
 
 # Or with CLI arguments
 python run_simulation.py --rate 0.005 --years 100 --growth-phase 13 --seed 42

@@ -34,7 +34,7 @@ Phase 3 is the **pure analysis pipeline** that reads structured datasets from ph
 Ensure you have:
 1. **Phase1 simulation**: Complete simulation file (`.json.gz`)
 2. **Phase2 data**: Complete phase2 pipeline output with `snapshots/` and `individuals/` directories
-3. **Dependencies**: Install with `pip install -r requirements.txt`
+3. **Dependencies**: Install from root directory with `pip install -r requirements.txt`
 
 ### Basic Usage
 ```bash

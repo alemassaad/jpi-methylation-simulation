@@ -20,13 +20,21 @@ A biologically realistic methylation simulation that models epigenetic drift thr
 - **JSD tracking**: Both cell-level and gene-level divergence metrics
 - **Compression control**: Choose between .json or .json.gz output
 
+## Current Structure (After Cleanup)
+
+Phase 1 now contains only core simulation components (5 files total):
+- **`cell.py`**: Core Cell and PetriDish classes
+- **`run_simulation.py`**: Main simulation script
+- **`plot_history.py`**: Visualization tool for simulation results
+- **`config_default.yaml`**: Default configuration template
+- **`README.md`**: This documentation
+
+All test files and example configs have been removed for simplicity.
+
 ## Quick Start
 
 ```bash
-# Using config file (recommended)
-python run_simulation.py --config configs/production.yaml
-
-# Quick test with new defaults (100 sites, 50 years, 64 cells)
+# Quick test with defaults (100 sites, 50 years, 64 cells)
 python run_simulation.py --rate 0.005
 
 # Standard production run
@@ -35,8 +43,11 @@ python run_simulation.py --rate 0.005 --years 100 --growth-phase 13 --sites 1000
 # Gene-specific methylation rates
 python run_simulation.py --gene-rate-groups "50:0.004,50:0.005,50:0.006,50:0.007" --gene-size 5
 
+# Create your own config from config_default.yaml template
+python run_simulation.py --config my_config.yaml
+
 # Visualize results
-python plot_history.py data/rate_0.00500/*/simulation.json
+python plot_history.py data/rate_0.00500/*/simulation.json.gz
 ```
 
 ## Configuration

@@ -1,15 +1,20 @@
-# Phase 2: Simulation and Growth Pipeline
+# Phase 2: Data Generation Pipeline
 
-A modular pipeline for creating and simulating cell populations, split into independent scripts for flexibility and maintainability.
+A modular pipeline for generating structured datasets from phase1 simulations. Phase2 creates cell populations and snapshot data for downstream analysis, with no plotting or visualization (moved to phase3).
 
-## 🆕 Major Architecture Change (2025-01-20)
+## 🆕 Major Architecture Changes
 
-Phase 2 has been completely reorganized from a monolithic script into 4 modular components:
+### Phase Split (2025-09-20)
+Phase 2 is now **data generation only**. All analysis and plotting has been moved to **phase3** for clean separation of concerns.
+
+### Modular Organization (2025-01-20)
+Phase 2 consists of 3 modular data generation components:
 - **`extract_snapshots.py`**: Extract cell snapshots from phase1 simulations
 - **`simulate_individuals.py`**: Create, grow, and mix cell populations
 - **`create_control2.py`**: Create control populations from snapshots
-- **`analyze_and_plot.py`**: Generate all analysis and visualizations
 - **`run_pipeline.py`**: Main driver that orchestrates all scripts
+
+For analysis and visualization, use **phase3** instead.
 
 ## Quick Start
 
@@ -68,13 +73,14 @@ python run_pipeline.py \
 - Matches mutant/control1 population sizes
 - Uses uniform pool if uniform mixing was applied
 
-### Stage 7: Analysis and Plotting (`analyze_and_plot.py`)
-- Cell-level and gene-level metrics
-- Population comparisons
-- Individual growth trajectories
-- Timeline visualizations
+### Next Step: Analysis (Phase 3)
+- Use phase3 to analyze the generated data
+- All plotting and visualization moved to phase3
+- Multiple analyses possible on same phase2 data
 
 ## Command-Line Options
+
+**Note**: Phase 2 no longer includes plotting options. For visualization, use phase3 after running phase2.
 
 ### Required Arguments
 - `--simulation`: Path to phase1 simulation file (supports wildcards)
@@ -95,8 +101,8 @@ python run_pipeline.py \
 ### Advanced Options
 - `--uniform-mixing`: Use same snapshot cells for all individuals
 - `--normalize-size`: Normalize populations to same size before mixing
-- `--bins`: Number of bins for histograms (default: 200)
-- `--max-gene-plots`: Limit number of per-gene plots
+- `--force-reload`: Force re-extraction of snapshots
+- `--force-recreate`: Force recreation of individuals
 - `--no-compress`: Save uncompressed JSON files
 - `--force-reload`: Force re-extraction of snapshots
 - `--force-recreate`: Force recreation of individuals
@@ -147,11 +153,11 @@ python create_control2.py \
     --base-dir data/my_analysis \
     --seed 342
 
-# Analysis only (can be run multiple times)
-python analyze_and_plot.py \
-    --base-dir data/my_analysis \
-    --simulation ../phase1/data/.../simulation.json.gz \
-    --bins 200
+# For analysis, use phase3 instead:
+cd ../phase3
+python run_analysis.py \
+    --phase2-dir ../phase2/data/my_analysis \
+    --simulation ../phase1/data/.../simulation.json.gz
 ```
 
 ## Output Structure
@@ -170,17 +176,8 @@ data/{rate_info}/snap{Y1}to{Y2}-growth{G}-quant{Q}x{C}-mix{M}-seed{S}-{timestamp
 │   ├── control2/
 │   │   └── individual_*.json.gz
 │   └── mixing_metadata.json
-└── results/
-    ├── cell_metrics/
-    │   ├── distributions/
-    │   ├── comparisons/
-    │   ├── individual_trajectories/
-    │   └── timeline/
-    └── gene_metrics/
-        ├── distributions/
-        ├── comparisons/
-        ├── per_gene/
-        └── timeline/
+# No results/ directory in phase2 - data only
+# For analysis results, use phase3
 ```
 
 ## Mixing Modes
@@ -251,20 +248,43 @@ python run_pipeline.py \
 - Use compressed files (`.json.gz`) for large simulations
 - Run stages individually for debugging
 - Reuse snapshots with `--force-reload` only when needed
-- Limit gene plots with `--max-gene-plots` for faster analysis
+- Generate data once, then run multiple analyses in phase3
 
 ## Migration from Old Pipeline
 
-The new modular architecture is NOT backward compatible with old pipeline runs. To migrate:
+The new three-phase architecture is NOT backward compatible with old pipeline runs. To migrate:
 
 1. Re-run phase1 simulations if using old JSON format
-2. Use new `run_pipeline.py` instead of old monolithic script
-3. Update any automation scripts to use new command structure
-4. Config files remain compatible
+2. Use new phase2 `run_pipeline.py` for data generation only
+3. Use new phase3 `run_analysis.py` for all analysis and plotting
+4. Update automation scripts to use phase2 + phase3 workflow
+5. Config files remain compatible within each phase
+
+## Integration with Phase 3
+
+Phase 2 generates data that phase3 analyzes:
+
+```bash
+# Generate data with phase2
+cd phase2
+python run_pipeline.py --simulation ../phase1/data/*/simulation.json.gz
+
+# Analyze data with phase3
+cd ../phase3
+python run_analysis.py \
+    --phase2-dir ../phase2/data/{run_directory}/ \
+    --simulation ../phase1/data/*/simulation.json.gz
+```
+
+### Benefits of Separation
+- **Efficiency**: Generate data once, analyze multiple ways
+- **Flexibility**: Different analysis parameters on same data
+- **Scalability**: Batch analysis of multiple phase2 runs
+- **Development**: Independent analysis development
 
 ## Future Plans
 
-- Phase 3 will contain only analysis/plotting (current Stage 7)
-- Phase 2 will be pure simulation (Stages 1-6)
-- Potential parallelization of individual simulations
-- Web interface for interactive analysis
+- Potential parallelization of individual population simulations
+- Distributed processing for large-scale studies
+- Enhanced validation and quality control
+- Integration with external analysis tools

@@ -445,7 +445,7 @@ This repository doesn't have configured linting or type checking commands. To ad
 ```bash
 pip install ruff mypy  # Install tools
 ruff check .  # Run linter
-mypy phase1 phase2  # Run type checker
+mypy phase1 phase2 phase3  # Run type checker
 ```
 
 ## Dictionary Key Convention

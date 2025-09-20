@@ -20,14 +20,36 @@ The simulation models:
 - Mixed population experiments
 - Jensen-Shannon divergence (cell_JSD) from baseline patterns
 
-## Pipeline: Phase 1 → Phase 2
+## Three-Phase Architecture: Simulation → Data Generation → Analysis
 
-The simulation and analysis pipeline features:
-- **Biological Realism**: Single cell → exponential growth → homeostasis
-- **Clean Architecture**: Object-oriented Cell and PetriDish classes
-- **Full Reproducibility**: Comprehensive random seeding
-- **Hierarchical Organization**: Parameter-based directory structure with timestamps
-- **Dynamic Configuration**: Flexible snapshot years and growth parameters
+The complete pipeline is now organized into three distinct phases:
+
+### Phase 1: Biologically Realistic Simulation
+- Single cell origin with exponential growth and homeostasis
+- Stochastic methylation accumulation and inheritance
+- Object-oriented Cell and PetriDish classes
+- Lean JSON format with ~90% size reduction
+- Hierarchical output directory structure
+
+### Phase 2: Data Generation Pipeline
+- Extract snapshots from phase1 simulations
+- Create and grow individual cell populations
+- Implement quantile-based sampling strategies
+- Generate mutant and control populations
+- Full reproducibility with comprehensive seeding
+
+### Phase 3: Analysis and Visualization
+- Pure analysis pipeline (no simulation)
+- Generate all plots and statistical analysis
+- Cell-level and gene-level metric visualization
+- Population comparisons and timeline analysis
+- Re-analyzable without re-simulation
+
+This separation provides:
+- **Clean Architecture**: Clear separation of concerns
+- **Efficiency**: Re-analyze without re-simulation
+- **Flexibility**: Multiple analysis approaches on same data
+- **Scalability**: Batch processing and parallel analysis
 
 ## Installation
 
@@ -75,43 +97,71 @@ python run_simulation.py --rate 0.005 --no-compress
 # Or: data/gene_rates_50x0.004_50x0.005.../size8192-sites1000-genesize5-years100-seed42-YYYYMMDDHHMMSS/simulation.json.gz
 ```
 
-### Phase 2: Analysis Pipeline
+### Phase 2: Data Generation Pipeline
 ```bash
 cd phase2
 
 # Using config file (recommended)
-python run_pipeline.py --config configs/standard.yaml
+python run_pipeline.py --config configs/quick_test.yaml \
+    --simulation ../phase1/data/*/simulation.json.gz
 
-# Standard analysis (30 individuals from 10 deciles)
-python run_pipeline.py --rate 0.005 \
-    --simulation ../phase1/data/gene_rates_*/size8192-*/simulation.json.gz \
-    --first-snapshot 50 --second-snapshot 60 \
+# Standard data generation (30 individuals from 10 deciles)
+python run_pipeline.py \
+    --simulation ../phase1/data/*/simulation.json.gz \
+    --first-snapshot 30 --second-snapshot 50 \
     --individual-growth-phase 7 --seed 42
 
-# With gene-specific rates
-python run_pipeline.py --gene-rate-groups "50:0.004,50:0.005,50:0.006,50:0.007" \
-    --simulation ../phase1/data/gene_rates_*/simulation.json.gz \
-    --first-snapshot 50 --second-snapshot 60 --seed 42
-
-# Quick test (4 individuals from quartiles, short growth)
-python run_pipeline.py --rate 0.005 \
-    --simulation ../phase1/data/gene_rates_*/size8192-*/simulation.json.gz \
-    --first-snapshot 10 --second-snapshot 15 \
-    --individual-growth-phase 3 \
-    --n-quantiles 4 --cells-per-quantile 1
+# Quick test (8 individuals from quartiles, short growth)
+python run_pipeline.py \
+    --simulation ../phase1/data/*/simulation.json.gz \
+    --first-snapshot 30 --second-snapshot 50 \
+    --individual-growth-phase 4 \
+    --n-quantiles 4 --cells-per-quantile 2
 
 # Output structure:
-# data/gene_rates_200x0.00500-size8192-sites1000-years100/
-#   └── snap50to60-growth7-quant10x3-mix80-seed42-XXXX/
-#       ├── snapshots/     # Cached year 50 and 60 extracts
-#       ├── individuals/   # Mutant, Control1, Control2 populations
-#       ├── plots/         # cell_JSD distributions and comparisons
-#       └── results/       # Statistical analyses
-#
-# With advanced features:
-#   mix80u   - Uniform mixing
-#   mix80n   - Size normalization
-#   mix80un  - Both features
+# data/gene_rates_*/snap30to50-growth7-quant10x3-mix80-seed42-XXXX/
+#   ├── snapshots/     # Extracted cell snapshots
+#   └── individuals/   # Mutant, Control1, Control2 populations
+#       ├── mutant/
+#       ├── control1/
+#       ├── control2/
+#       └── mixing_metadata.json
+```
+
+### Phase 3: Analysis and Visualization
+```bash
+cd phase3
+
+# Analyze phase2 data
+python run_analysis.py \
+    --phase2-dir ../phase2/data/{run_directory}/ \
+    --simulation ../phase1/data/{sim}/simulation.json.gz
+
+# Using config file
+python run_analysis.py \
+    --phase2-dir ../phase2/data/{run_directory}/ \
+    --simulation ../phase1/data/{sim}/simulation.json.gz \
+    --config configs/quick_analysis.yaml
+
+# Custom analysis parameters
+python run_analysis.py \
+    --phase2-dir ../phase2/data/{run_directory}/ \
+    --simulation ../phase1/data/{sim}/simulation.json.gz \
+    --bins 150 --max-gene-plots 10
+
+# Output structure:
+# data/analysis_bins200_TIMESTAMP/results/
+#   ├── cell_metrics/      # Cell-level analysis
+#   │   ├── distributions/
+#   │   ├── comparisons/
+#   │   ├── individual_trajectories/
+#   │   └── timeline/
+#   ├── gene_metrics/      # Gene-level analysis
+#   │   ├── distributions/
+#   │   ├── comparisons/
+#   │   ├── per_gene/
+#   │   └── timeline/
+#   └── metadata/
 ```
 
 ## Detailed Usage
@@ -163,79 +213,130 @@ python run_simulation.py --growth-phase 15  # 32768 cells (2^15)
 - Stochastic population size varies around 2^growth-phase
 - Models adult tissue homeostasis
 
-### Phase 2: Analysis Pipeline
+### Phase 2: Data Generation Pipeline
 
-Complete pipeline from cell sampling to analysis:
+Generates structured datasets from phase1 simulations for downstream analysis:
 
 ```bash
 cd phase2
 
-# Full run with all parameters
+# Complete data generation pipeline
 python run_pipeline.py \
-    --rate 0.005 \
-    --simulation ../phase1/data/gene_rates_*/size8192-*/simulation.json.gz \
-    --first-snapshot 50 \           # First snapshot year
-    --second-snapshot 60 \          # Second snapshot year  
+    --simulation ../phase1/data/*/simulation.json.gz \
+    --first-snapshot 30 \           # First snapshot year
+    --second-snapshot 50 \          # Second snapshot year  
     --individual-growth-phase 7 \   # Growth before homeostasis (2^7=128 cells)
     --n-quantiles 10 \              # Number of quantiles for sampling
     --cells-per-quantile 3 \        # Cells sampled per quantile
     --mix-ratio 80 \                # % of snapshot cells in final mix
     --uniform-mixing \              # Use same snapshot cells for all (optional)
     --normalize-size \              # Normalize to same size before mixing (optional)
-    --bins 200 \                    # Histogram bins for cell_JSD plot
     --seed 42                       # Random seed for reproducibility
 ```
 
-**Pipeline Stages:**
+**Data Generation Stages:**
 
-1. **Extract First Snapshot** (e.g., year 50)
-   - Cached in `snapshots/year{N}_snapshot.json.gz`
+1. **Extract Snapshots** (`extract_snapshots.py`)
+   - Extract cells from two time points
+   - Cache in `snapshots/year{N}_snapshot.json.gz`
+   - Validate gene rate group consistency
    
-2. **Plot cell_JSD Distribution**
-   - Step histogram with statistics overlay
-   - Mean, Median, SD, CV, MAD, 5%, 95%
-   
-3. **Create Initial Individuals**
+2. **Create Initial Individuals** (`simulate_individuals.py`)
    - Mutant: Quantile-based sampling (e.g., 3 from each decile)
    - Control1: Uniform random sampling
    
-4. **Grow Individuals**
+3. **Grow Populations**
    - Exponential growth for individual-growth-phase years
-   - Then homeostasis (divide → cull → methylate) maintaining ~2^growth cells
-   - More biologically realistic than pure exponential growth
+   - Then homeostasis (divide → cull → methylate)
+   - Maintains population around 2^growth_phase cells
    
-5. **Extract Second Snapshot** (first_snapshot + growth_years)
-   - Age-aligned with grown individuals
-   
-6. **Mix Populations**
-   - Add snapshot cells to grown individuals
+4. **Mix with Snapshots**
+   - Add second snapshot cells to grown individuals
    - Default: 80% snapshot, 20% grown
+   - Optional uniform mixing and size normalization
    
-7. **Create Control2**
-   - Pure second snapshot cells
+5. **Create Control2** (`create_control2.py`)
+   - Pure second snapshot populations
    - Same total count as mixed populations
+   - Uses uniform pool if uniform mixing was applied
+
+### Phase 3: Analysis and Visualization
+
+Pure analysis pipeline that reads phase2 data and generates comprehensive visualizations:
+
+```bash
+cd phase3
+
+# Complete analysis pipeline
+python run_analysis.py \
+    --phase2-dir ../phase2/data/{run_directory}/ \
+    --simulation ../phase1/data/{sim}/simulation.json.gz \
+    --bins 200 \                    # Histogram bins
+    --max-gene-plots 20 \           # Limit per-gene plots
+    --output-dir custom_analysis     # Custom output location
+```
+
+**Analysis Stages:**
+
+1. **Snapshot Distributions**
+   - Cell and gene JSD distributions
+   - Methylation proportion histograms
+   - Statistical overlays (mean, median, SD, CV, percentiles)
    
-8. **Analysis & Visualization**
-   - Scatter plots with statistical overlays
-   - T-tests between all group pairs
-   - Cell-level and individual-level distributions
+2. **Population Comparisons**
+   - Compare mutant vs control1 vs control2
+   - Statistical significance testing
+   - Batch-level comparison plots
+   
+3. **Individual Trajectories**
+   - Growth trajectories for each individual
+   - Cell JSD and methylation progression over time
+   - Gene-level evolution tracking
+   
+4. **Timeline Analysis**
+   - Original simulation timeline plots
+   - Full history visualization from phase1
+   - Gene JSD heatmaps and progression
 
 ## Key Features
 
 ### Hierarchical Directory Structure
 ```
-phase1 output:
-data/gene_rates_200x0.00500/size8192-sites1000-genesize5-years100-seed42-YYYYMMDDHHMMSS/simulation.json.gz
+Phase 1 output:
+data/gene_rates_200x0.00500/size8192-sites1000-genesize5-years100-seed42-YYYYMMDDHHMMSS/
+├── simulation.json.gz           # Complete simulation history
+├── jsd_history.png             # Cell JSD timeline
+└── methylation_history.png     # Methylation timeline
 
-phase2 output:
-data/gene_rates_200x0.00500-size8192-sites1000-years100/
-  └── snap50to60-growth7-quant10x3-mix80[u][n]-seed42-XXXX/
-      ├── snapshots/
-      ├── individuals/
-      ├── plots/
-      └── results/
+Phase 2 output:
+data/gene_rates_200x0.00500-grow9-sites1000-years100/
+  └── snap30to50-growth7-quant10x3-mix80[u][n]-seed42-YYYYMMDDHHMMSS/
+      ├── snapshots/            # Extracted cell snapshots
+      │   ├── year30_snapshot.json.gz
+      │   ├── year50_snapshot.json.gz
+      │   └── metadata.json
+      └── individuals/          # Generated populations
+          ├── mutant/
+          ├── control1/
+          ├── control2/
+          └── mixing_metadata.json
+
+Phase 3 output:
+data/analysis_bins200_YYYYMMDDHHMMSS/
+  └── results/
+      ├── cell_metrics/         # Cell-level analysis
+      │   ├── distributions/
+      │   ├── comparisons/
+      │   ├── individual_trajectories/
+      │   └── timeline/
+      ├── gene_metrics/         # Gene-level analysis
+      │   ├── distributions/
+      │   ├── comparisons/
+      │   ├── per_gene/
+      │   └── timeline/
+      └── metadata/
       
-Suffix indicators:
+Phase 2 suffix indicators:
   mix80   - Standard mixing (independent sampling)
   mix80u  - Uniform mixing (shared snapshot cells)
   mix80n  - Size normalization (median - 0.5σ threshold)
@@ -262,15 +363,17 @@ petri.methylate_cells()  # Apply methylation
 petri.random_cull_cells()  # Homeostatic culling
 ```
 
-## Advanced Features (Phase 2)
+## Advanced Features
 
-### Uniform Mixing (`--uniform-mixing`)
+### Phase 2: Data Generation Options
+
+#### Uniform Mixing (`--uniform-mixing`)
 - All individuals receive the exact same set of snapshot cells
 - Reduces inter-individual variation from random sampling
 - Useful for focusing on biological variation rather than sampling noise
 - Directory suffix: 'u' (e.g., mix80u)
 
-### Size Normalization (`--normalize-size`)
+#### Size Normalization (`--normalize-size`)
 - Normalizes all individuals to the same cell count before mixing
 - Uses median - 0.5σ threshold to determine target size
 - Excludes individuals below threshold, trims those above
@@ -279,34 +382,62 @@ petri.random_cull_cells()  # Homeostatic culling
 - Directory suffix: 'n' (e.g., mix80n)
 - Works best combined with uniform mixing (mix80un)
 
-### Homeostasis in Individual Growth
+#### Homeostasis in Individual Growth
 - `--individual-growth-phase`: Years of exponential growth before homeostasis
 - After growth phase: divide → cull → methylate each year
 - Maintains population around 2^growth_phase cells
 - More biologically realistic than pure exponential growth
 - Example: `--individual-growth-phase 7` → ~128 cells
 
+### Phase 3: Analysis Options
+
+#### Flexible Visualization
+- Configurable histogram bins (`--bins`)
+- Limit gene plots for faster analysis (`--max-gene-plots`)
+- Custom output directories (`--output-dir`)
+- YAML configuration files for consistent analysis
+
+#### Re-analysis Capability
+- Analyze same phase2 data with different parameters
+- No need to re-run expensive simulations
+- Batch processing of multiple phase2 runs
+- Independent analysis timeline from data generation
+
 ## Project Structure
 
 ```
 jpi-methylation-simulation/
-├── phase1/               # Simulation engine
-│   ├── cell.py               # Core classes (Cell, PetriDish)
-│   ├── run_simulation.py     # Main CLI runner
-│   ├── plot_history.py       # Time-series visualization
-│   ├── tests/                # Unit tests
-│   └── data/                 # Hierarchical output structure
-├── phase2/              # Analysis pipeline
-│   ├── run_pipeline.py       # Pipeline orchestrator
-│   ├── pipeline_utils.py     # Cell/PetriDish utilities
-│   ├── pipeline_analysis.py  # Visualization functions
-│   ├── path_utils.py         # Path parsing/generation
-│   ├── tests/                # Pipeline tests
-│   ├── tools/                # Comparison and analysis tools
-│   └── data/                 # Hierarchical output structure
-├── requirements.txt           # Python dependencies
-├── README.md                  # This file
-└── CLAUDE.md                  # AI assistant guidance
+├── phase1/                    # Simulation Engine
+│   ├── cell.py                    # Core classes (Cell, PetriDish)
+│   ├── run_simulation.py          # Main simulation runner
+│   ├── plot_history.py            # Time-series visualization
+│   ├── configs/                   # YAML configuration files
+│   ├── tests/                     # Unit tests
+│   └── data/                      # Simulation output
+├── phase2/                    # Data Generation Pipeline
+│   ├── run_pipeline.py            # Pipeline orchestrator
+│   ├── extract_snapshots.py       # Extract cell snapshots
+│   ├── simulate_individuals.py    # Create and grow populations
+│   ├── create_control2.py         # Generate control populations
+│   ├── core/                      # Pipeline utilities
+│   │   ├── pipeline_utils.py      # Cell/PetriDish utilities
+│   │   ├── path_utils.py          # Path parsing/generation
+│   │   └── validation.py          # Data validation
+│   ├── configs/                   # Configuration files
+│   ├── tests/                     # Pipeline tests
+│   └── data/                      # Generated datasets
+├── phase3/                    # Analysis and Visualization
+│   ├── run_analysis.py            # Main analysis runner
+│   ├── core/                      # Analysis functions
+│   │   ├── data_loader.py         # Data loading utilities
+│   │   ├── analysis_functions.py  # Statistical analysis
+│   │   └── plot_paths.py          # Plot organization
+│   ├── configs/                   # Analysis configurations
+│   └── data/                      # Analysis results
+├── requirements.txt               # Python dependencies
+├── README.md                      # This file
+├── CLAUDE.md                      # AI assistant guidance
+└── PLOT_DOCUMENTATION.md          # Plot descriptions
 ```
 
 ## Key Concepts
@@ -342,7 +473,7 @@ python test_key_consistency.py # Dictionary key consistency
 python test_rate_consistency.py # Rate consistency validation
 ```
 
-### Phase 2 Tests
+### Phase 2 Tests (Data Generation)
 ```bash
 cd phase2/tests
 python test_validation.py              # Data validation functions
@@ -356,6 +487,13 @@ cd phase2/tests/config
 python test_config_simple.py           # Simple config tests
 python test_config_phase2.py           # Phase2 config tests
 python test_pipeline_with_config.py    # Pipeline with config
+```
+
+### Phase 3 Tests (Analysis)
+```bash
+cd phase3/tests  # (if test directory exists)
+# Test analysis functions, plot generation, data loading
+# Configuration validation, output format verification
 ```
 
 ## License

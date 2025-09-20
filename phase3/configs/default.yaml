@@ -1,0 +1,10 @@
+# Default configuration for phase3 analysis
+
+# Histogram parameters
+bins: 200
+
+# Gene plot limits
+max_gene_plots: null  # null means plot all genes
+
+# Output options
+# output_dir: null  # Auto-generated if not specified

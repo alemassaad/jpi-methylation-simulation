@@ -1,0 +1,10 @@
+# Quick analysis configuration - fewer bins and limited gene plots
+
+# Histogram parameters
+bins: 100
+
+# Gene plot limits
+max_gene_plots: 5  # Only plot first 5 genes for quick analysis
+
+# Output options
+# output_dir: quick_results

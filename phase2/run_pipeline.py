@@ -279,30 +279,21 @@ def main():
     if not run_command(control2_cmd, "Create Control2 (Stage 6)"):
         sys.exit(1)
     
-    # Stage 7: Analysis and plotting
-    analyze_cmd = [
-        'python', 'analyze_and_plot.py',
-        '--base-dir', base_dir,
-        '--simulation', args.simulation,
-        '--bins', str(args.bins),
-    ]
-    if args.max_gene_plots:
-        analyze_cmd.extend(['--max-gene-plots', str(args.max_gene_plots)])
-    
-    if not run_command(analyze_cmd, "Analysis and Plotting (Stage 7)"):
-        sys.exit(1)
+    # Analysis moved to phase3 - no longer part of phase2 pipeline
     
     # Summary
     elapsed_time = time.time() - start_time
     print("\n" + "=" * 80)
-    print("PIPELINE COMPLETE")
+    print("PHASE 2 COMPLETE - Data Generation")
     print("=" * 80)
     print(f"Total time: {elapsed_time:.2f} seconds")
     print(f"Output directory: {base_dir}")
     print("\nGenerated directories:")
     print(f"  - snapshots/    : Extracted cell snapshots")
     print(f"  - individuals/  : Simulated populations")
-    print(f"  - results/      : Analysis and plots")
+    print("\nNext step: Run phase3 for analysis")
+    print(f"  cd ../phase3")
+    print(f"  python run_analysis.py --phase2-dir ../{base_dir} --simulation {args.simulation}")
     print("=" * 80)
 
 

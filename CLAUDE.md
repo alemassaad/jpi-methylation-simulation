@@ -82,22 +82,32 @@ python run_simulation.py --rate 0.005 --no-gene-jsd   # Skip gene JSD tracking
 python run_simulation.py --rate 0.005 --no-jsds       # Skip ALL JSDs
 ```
 
-### Run Analysis Pipeline (Phase 2)
+### Run Pipeline (Phase 2 - NEW MODULAR ARCHITECTURE)
 ```bash
 cd phase2
 
-# Auto-infer rates from simulation (no rate needed)
-python run_pipeline.py --simulation ../phase1/data/.../simulation.json.gz --first-snapshot 50 --second-snapshot 60
+# Complete pipeline with defaults
+python run_pipeline.py --simulation ../phase1/data/*/simulation.json.gz
+
+# Standard analysis
+python run_pipeline.py --simulation ../phase1/data/*/simulation.json.gz \
+  --first-snapshot 30 --second-snapshot 50 \
+  --n-quantiles 10 --cells-per-quantile 3 \
+  --individual-growth-phase 7 --mix-ratio 80
 
 # Using config file (recommended)
-python run_pipeline.py --config configs/quick_test.yaml --simulation ../phase1/data/.../simulation.json.gz
+python run_pipeline.py --config configs/quick_test.yaml --simulation ../phase1/data/*/simulation.json.gz
 
-# With options
-python run_pipeline.py --simulation ../phase1/data/.../simulation.json.gz --first-snapshot 50 --second-snapshot 60 --uniform-mixing --normalize-size --plot-individuals --no-compress
+# With advanced options
+python run_pipeline.py --simulation ../phase1/data/*/simulation.json.gz \
+  --first-snapshot 30 --second-snapshot 50 \
+  --uniform-mixing --normalize-size --no-compress
 
-# Wildcards in --simulation path are now supported!
-# When using wildcards (*), if multiple files match, you'll be prompted to select one:
-python run_pipeline.py --simulation "../phase1/data/*/simulation.json.gz"
+# Run individual stages (for debugging/custom workflows)
+python extract_snapshots.py --simulation ../phase1/data/*/simulation.json.gz --output-dir data/my_run
+python simulate_individuals.py --base-dir data/my_run --n-quantiles 10 --cells-per-quantile 3
+python create_control2.py --base-dir data/my_run
+python analyze_and_plot.py --base-dir data/my_run --simulation ../phase1/data/*/simulation.json.gz
 ```
 
 ### Run Tests
@@ -158,16 +168,38 @@ python analyze_individual_sizes.py ../../data/.../individuals
   - `calculate_gene_jsd()`: Calculate JSD for each gene across population
   - `save_history()`: Save in lean JSON format
 
-### Pipeline Structure (phase2/)
-- **8-stage pipeline**: Snapshot extraction → sampling → growth → mixing → analysis
-- **Core modules**:
-  - `run_pipeline.py`: Main orchestrator
-  - `core/pipeline_utils.py`: Cell/PetriDish utilities
-  - `core/pipeline_analysis.py`: Visualization functions
-  - `core/path_utils.py`: Path generation and parsing
-  - `core/validation.py`: Data validation functions
-  - `core/individual_helpers.py`: Individual creation utilities
-  - `core/plot_paths.py`: Plot organization and naming
+### Pipeline Structure (phase2/) - NEW MODULAR ARCHITECTURE (2025-01-20)
+Phase 2 has been reorganized into 4 independent scripts + 1 driver:
+
+**Main Scripts**:
+- `run_pipeline.py`: Main driver that orchestrates all stages
+- `extract_snapshots.py`: Stages 1-2 (extract snapshots from phase1)
+- `simulate_individuals.py`: Stages 3-5 (create, grow, mix populations)
+- `create_control2.py`: Stage 6 (create control populations)
+- `analyze_and_plot.py`: Stage 7 (all analysis and visualization)
+
+**Core Modules**:
+- `core/pipeline_utils.py`: Cell/PetriDish utilities, data I/O
+- `core/pipeline_analysis.py`: All plotting and analysis functions
+- `core/individual_helpers.py`: Individual creation and growth
+- `core/validation.py`: Data validation functions
+- `core/path_utils.py`: Path generation and parsing
+- `core/plot_paths.py`: Plot organization and naming
+
+**7-Stage Pipeline**:
+1. **Stage 1-2**: Extract both snapshots (years 30 & 50)
+2. **Stage 3**: Create initial individuals (quantile/uniform sampling)
+3. **Stage 4**: Grow individuals (exponential + homeostasis)
+4. **Stage 5**: Mix with snapshot cells
+5. **Stage 6**: Create control2 individuals
+6. **Stage 7**: Analysis and visualization
+
+**Benefits**:
+- Modular: Each script has single responsibility
+- Restartable: Can resume from any stage
+- Debuggable: Run stages individually
+- Cacheable: Snapshots saved for reuse
+- Flexible: Custom workflows possible
 
 ### Import Structure
 ```python
@@ -220,12 +252,28 @@ phase1/data/gene_rates_200x0.00500/size8192-sites1000-genesize5-years100-seed42-
   ├── jsd_history.png         # Cell JSD trajectory plot
   └── methylation_history.png # Methylation trajectory plot
 
-# Phase 2 output
-phase2/data/rate_0.00500-grow13-sites1000-years100/snap50to60-growth7-quant10x3-mix80-seed42-XXXX/
-  ├── individuals/            # Individual PetriDish objects (mutant/control1/control2)
-  ├── snapshots/             # Extracted snapshot data
-  ├── results/               # Analysis outputs and plots
-  └── individual_plots/      # Growth trajectories (if --plot-individuals used)
+# Phase 2 output (NEW STRUCTURE)
+phase2/data/{rate_info}/snap{Y1}to{Y2}-growth{G}-quant{Q}x{C}-mix{M}-seed{S}-{timestamp}/
+  ├── snapshots/              # Extracted snapshots (cached for reuse)
+  │   ├── year30_snapshot.json.gz
+  │   ├── year50_snapshot.json.gz
+  │   └── metadata.json      # Gene rate groups, parameters
+  ├── individuals/            # Simulated populations
+  │   ├── mutant/            # Quantile-sampled individuals
+  │   ├── control1/          # Uniformly-sampled individuals
+  │   ├── control2/          # Pure snapshot individuals
+  │   └── mixing_metadata.json  # Mixing configuration
+  └── results/               # All analysis outputs
+      ├── cell_metrics/      # Cell-level analysis
+      │   ├── distributions/
+      │   ├── comparisons/
+      │   ├── individual_trajectories/
+      │   └── timeline/
+      └── gene_metrics/      # Gene-level analysis
+          ├── distributions/
+          ├── comparisons/
+          ├── per_gene/
+          └── timeline/
 ```
 
 ### Config File System

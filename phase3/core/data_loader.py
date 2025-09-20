@@ -123,13 +123,28 @@ def load_petri_dish(filepath: str, include_cell_history: bool = False) -> PetriD
     cells = [dict_to_cell(cell_dict) for cell_dict in data['cells']]
     
     if cells:
-        # Use first cell's configuration
-        petri = PetriDish()
-        petri.cells = cells
+        # Extract configuration from first cell to ensure PetriDish matches
+        first_cell = cells[0]
+        n = first_cell.n
+        gene_size = first_cell.gene_size
+        gene_rate_groups = first_cell.gene_rate_groups if hasattr(first_cell, 'gene_rate_groups') else None
         
-        # Set gene_rate_groups from first cell if available
-        if hasattr(cells[0], 'gene_rate_groups') and cells[0].gene_rate_groups:
-            petri.gene_rate_groups = cells[0].gene_rate_groups
+        # Validate all cells have consistent parameters
+        n_values = set(cell.n for cell in cells)
+        if len(n_values) > 1:
+            raise ValueError(f"Inconsistent n values across cells: {n_values}")
+        
+        gene_sizes = set(cell.gene_size for cell in cells)
+        if len(gene_sizes) > 1:
+            raise ValueError(f"Inconsistent gene_size values: {gene_sizes}")
+        
+        # Create PetriDish with matching parameters
+        petri = PetriDish(
+            n=n,
+            gene_size=gene_size,
+            gene_rate_groups=gene_rate_groups,
+            cells=cells  # Pass cells directly
+        )
     else:
         petri = PetriDish()
     

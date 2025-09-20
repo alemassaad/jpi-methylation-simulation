@@ -28,8 +28,8 @@ from .pipeline_utils import (
 )
 
 from .path_utils import (
-    parse_step1_simulation_path,
-    generate_step23_output_dir
+    parse_phase1_simulation_path,
+    generate_phase2_output_dir
 )
 
 __all__ = [
@@ -57,6 +57,6 @@ __all__ = [
     'get_petri_statistics',
     'get_cell_jsd_array',
     # path_utils
-    'parse_step1_simulation_path',
-    'generate_step23_output_dir'
+    'parse_phase1_simulation_path',
+    'generate_phase2_output_dir'
 ]

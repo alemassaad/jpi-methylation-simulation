@@ -10,7 +10,7 @@ from datetime import datetime
 from typing import Dict, Optional
 
 
-def parse_step1_simulation_path(filepath: str) -> Optional[Dict]:
+def parse_phase1_simulation_path(filepath: str) -> Optional[Dict]:
     """
     Parse parameters from phase1 simulation path.
     
@@ -102,7 +102,7 @@ def parse_step1_simulation_path(filepath: str) -> Optional[Dict]:
     return None
 
 
-def generate_step23_output_dir(args, sim_params: Dict) -> str:
+def generate_phase2_output_dir(args, sim_params: Dict) -> str:
     """
     Generate hierarchical output directory for phase2.
     
@@ -111,7 +111,7 @@ def generate_step23_output_dir(args, sim_params: Dict) -> str:
     
     Args:
         args: Command line arguments with pipeline parameters
-        sim_params: Dictionary from parse_step1_simulation_path
+        sim_params: Dictionary from parse_phase1_simulation_path
         
     Returns:
         Full path to output directory

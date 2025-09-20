@@ -22,7 +22,7 @@ except ImportError:
 # Add parent directory to path
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 sys.path.append(os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'phase1'))
-from phase2.core.path_utils import parse_step1_simulation_path, generate_step23_output_dir
+from phase2.core.path_utils import parse_phase1_simulation_path, generate_phase2_output_dir
 
 
 def load_config(config_path: Optional[str] = None) -> Dict[str, Any]:
@@ -209,12 +209,12 @@ def main():
         sys.exit(1)
     
     # Parse simulation parameters and generate output directory
-    sim_params = parse_step1_simulation_path(args.simulation)
+    sim_params = parse_phase1_simulation_path(args.simulation)
     if not sim_params:
         print(f"Error: Could not parse simulation parameters")
         sys.exit(1)
     
-    base_dir = generate_step23_output_dir(args, sim_params)
+    base_dir = generate_phase2_output_dir(args, sim_params)
     
     print("=" * 80)
     print("PHASE 2 PIPELINE - NEW ARCHITECTURE")

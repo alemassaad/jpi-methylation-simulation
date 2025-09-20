@@ -303,12 +303,13 @@ python run_pipeline.py --simulation "../phase1/data/*/simulation.json.gz"
 
 ## Plot Architecture
 
-### Plot Similarity Design Principles
-Gene-level and cell-level plots follow identical design patterns:
+### Consistent Plot Design (As of commit dfaa763)
+
+All cell-level and gene-level plots now use **identical, consistent styling**:
 - **Distribution plots**: Step plots with filled areas, mean lines, and comprehensive statistics boxes
-- **Comparison plots**: Scatter points with jitter, quantile lines, and three-column statistics
+- **Comparison plots**: Scatter points with jitter, quantile lines, and three-column statistics above plot
 - **Individual trajectories**: Time series tracking metrics over years with consistent styling
-- **Parallel structure**: Cell and gene metrics have identical plot types (distributions, comparisons, trajectories)
+- **Perfect symmetry**: Cell and gene metrics have identical plot types and styling
 
 ### Color Scheme Convention
 **Metric-based coloring for consistency**:
@@ -316,23 +317,28 @@ Gene-level and cell-level plots follow identical design patterns:
 - **Methylation plots** (cell & gene): Red (#d62728) with red fill, dark blue mean line
 - **Batch comparisons**: Mutant (#1f77b4), Control1 (#ff7f0e), Control2 (#2ca02c)
 
-### Key Plotting Functions
+### Key Plotting Functions in phase2/core/pipeline_analysis.py
 
-**Distribution plots** (identical structure):
-- `plot_cell_jsd_distribution()`: Blue step plot, 200 bins, red mean line
-- `plot_gene_jsd_distribution()`: Blue step plot, 20 bins, red mean line  
-- `plot_cell_methylation_proportion_histogram()`: Red step plot, 200 bins, blue mean line
-- `plot_gene_methylation_proportion_histogram()`: Red step plot, 20 bins, blue mean line
+**Distribution plots (identical structure for cell and gene)**:
+- `plot_cell_jsd_distribution()`: Line 26 - Blue step plot, 200 bins, red mean line
+- `plot_gene_jsd_distribution()`: Line 324 - Blue step plot, 20 bins, red mean line  
+- `plot_cell_methylation_proportion_histogram()`: Line 172 - Red step plot, 200 bins, blue mean line
+- `plot_gene_methylation_proportion_histogram()`: Line 493 - Red step plot, 20 bins, blue mean line
+
+**Comparison plots (all using same template design)**:
+- `create_comparison_plot_from_jsds()`: Line 1234 - Template for batch comparisons
+- `create_gene_individual_comparison_plot()`: Line 1464 - For gene-level individual averages
+- `create_gene_methylation_comparison_plot()`: Line 2232 - For gene methylation averages
+- `create_gene_comparison_plot()`: Line 1895 - For per-gene distributions
+
+**Plot generation flow**:
+- `plot_gene_jsd_distributions()`: Line 1842 - Creates individual plots for each gene
+- Individual gene plots stored in: `results/gene_metrics/per_gene/gene_XXX_jsd.png`
 
 **OOP Properties for clean access**:
 - `cell.cell_jsd`: Individual cell's JSD value
-- `petri.gene_jsds`: List of 20 gene JSD values
-- `petri.gene_methylation_proportions`: List of 20 gene methylation proportions
-
-**Comparison plots**:
-- `create_comparison_plot_from_jsds()`: Template for batch comparisons
-- `create_gene_individual_comparison_plot()`: Gene JSD batch comparison
-- `create_gene_methylation_comparison_plot()`: Gene methylation batch comparison
+- `petri.gene_jsds`: List of 20 gene JSD values (calculated property)
+- `petri.gene_methylation_proportions`: List of 20 gene methylation proportions (calculated property)
 
 ### Statistical Annotations
 All distribution plots include:
@@ -340,6 +346,24 @@ All distribution plots include:
 - MAD (median absolute deviation)  
 - Percentiles: 5%, 25%, 75%, 95%
 - Statistics box in top-right corner with consistent formatting
+
+All comparison plots include:
+- Three-column statistics positioned above plot at y=1.02 (one column per batch)
+- Mean lines (solid, thick)
+- Quantile lines (25-75% dashed, 5-95% dotted)
+- Jittered scatter points with consistent opacity
+
+### Plot Organization (via PlotPaths class)
+Plots are organized into metric-based subdirectories:
+- `results/cell_metrics/`: All cell-level plots
+  - `distributions/`: Snapshot histograms
+  - `comparisons/`: Batch comparisons
+  - `individual_trajectories/`: Per-individual time series
+- `results/gene_metrics/`: All gene-level plots
+  - `distributions/`: Snapshot histograms
+  - `comparisons/`: Batch comparisons  
+  - `per_gene/`: Individual gene distributions (gene_000_jsd.png through gene_019_jsd.png)
+  - `individual_trajectories/`: Per-individual gene trajectories
 
 ## Biological Concepts
 

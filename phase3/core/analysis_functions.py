@@ -853,7 +853,7 @@ def generate_gene_jsd_analysis(mutant_dishes: List[PetriDish],
         
         # Calculate gene JSD for each individual
         for petri in dishes:
-            individual_gene_jsds = petri.calculate_gene_jsds()
+            individual_gene_jsds = petri.calculate_gene_jsd()
             for gene_idx, jsd_value in enumerate(individual_gene_jsds):
                 gene_jsds[gene_idx].append(float(jsd_value))
         
@@ -1714,7 +1714,7 @@ def plot_top_variable_genes(petri_dishes, n_top=20, output_path=None):
     # Calculate gene JSD for all dishes and average across individuals
     all_gene_jsds = []
     for petri in petri_dishes:
-        gene_jsds = petri.calculate_gene_jsds()
+        gene_jsds = petri.calculate_gene_jsd()
         all_gene_jsds.append(gene_jsds)
     
     # Convert to numpy array and calculate mean across individuals

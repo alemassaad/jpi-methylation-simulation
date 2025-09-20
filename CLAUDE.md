@@ -37,6 +37,20 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - Clean breaks are preferred over compatibility layers
 - When making breaking changes, document them clearly but don't maintain old behavior
 
+### Testing Commands
+**Run tests with `python` (not python3) from the test directory:**
+```bash
+# Phase 1 Tests
+cd phase1/tests
+python test_small.py           # Quick validation
+python test_comprehensive.py   # Full feature tests
+
+# Phase 2 Tests  
+cd phase2/tests
+python test_validation.py      # Data validation functions
+python test_pipeline_with_config.py  # Pipeline with config
+```
+
 ## Installation
 ```bash
 pip install -r requirements.txt  # Installs numpy, scipy, plotly, kaleido, pyyaml
@@ -111,12 +125,15 @@ python run_analysis.py --config configs/quick_analysis.yaml \
   - `cell_JSD`: Jensen-Shannon divergence from baseline (0-1 range)
   - `methylate()`: Apply stochastic methylation
   - `create_daughter_cell()`: Mitosis (identical copy)
+  - `to_dict()`: Serialize for saving
+  - `from_dict()`: Deserialize from saved data
 
 - **PetriDish**: Population manager for cells
   - Manages growth phase (exponential) and homeostasis (steady state)
   - `divide_cells()`: Population doubling
   - `random_cull_cells()`: Homeostatic ~50% survival
   - `calculate_gene_jsd()`: Calculate JSD for each gene across population
+  - `from_cells()`: Factory method - creates PetriDish from cell(s)
 
 ### Import Structure
 ```python
@@ -227,6 +244,7 @@ Cytosine-guanine dinucleotides where methylation occurs in DNA:
 - **Plots not generating**: Install with `pip install plotly kaleido`
 - **Out of memory**: Use `--no-jsds` flag to skip JSD calculations
 - **Slow simulation**: Reduce sites with `--sites 100` or years with `--years 50`
+- **ImportError in phase2/phase3**: Ensure sys.path additions are correct (see Import Structure section)
 
 ## Cleanup Summary (2025-01-20)
 Repository simplified from ~100+ files to 24 essential files:
@@ -235,3 +253,26 @@ Repository simplified from ~100+ files to 24 essential files:
 - **Phase 3**: Already minimal with 9 files
 
 All test files and redundant configs removed. Core functionality preserved.
+
+## Major Refactoring (2025-01-20)
+
+### Plotting Separation
+- **Moved all plotting from phase1 to phase3**: phase1/cell.py reduced from 2,831 to 1,278 lines (55% reduction)
+- **PetriDishPlotter**: Now in phase3/core/petri_dish_plotter.py
+- **plot_history.py**: Functionality moved to phase3/plot_simulation.py
+- **Clear separation**: phase1 = simulation, phase3 = visualization
+
+### Method Consolidation
+- **Gene JSD**: Single method `calculate_gene_jsd()` - removed duplicate `calculate_gene_jsds()`
+- **Factory method**: Single `from_cells()` method handles both single cell and list inputs - removed `from_snapshot_cell()`
+- **Cleaner API**: No redundant properties or duplicate methods
+
+### Plot Phase1 Simulation Results
+```bash
+# NEW way (use phase3):
+cd phase3
+python plot_simulation.py ../phase1/data/*/simulation.json.gz
+
+# OLD way (deprecated):
+# cd phase1 && python plot_history.py simulation.json.gz
+```

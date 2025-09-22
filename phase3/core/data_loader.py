@@ -88,6 +88,9 @@ def load_snapshot_cells(filepath: str) -> List[Cell]:
     """
     Load snapshot cells from a JSON file.
     
+    Handles snapshot format with year key: {"30": {"cells": [...], "gene_jsd": [...]}}
+    The year key wrapper is stripped and the cells are extracted.
+    
     Args:
         filepath: Path to snapshot JSON file
         
@@ -97,10 +100,25 @@ def load_snapshot_cells(filepath: str) -> List[Cell]:
     with smart_open(filepath, 'r') as f:
         data = json.load(f)
     
+    # Handle year key wrapper (e.g., {"30": {...}})
+    if len(data) == 1 and isinstance(list(data.keys())[0], str) and list(data.keys())[0].isdigit():
+        # Has year key wrapper, extract the year data
+        year_key = list(data.keys())[0]
+        year_data = data[year_key]
+    else:
+        # Assume it's direct year data (backward compatibility)
+        year_data = data
+    
+    # Direct access to cells
     cells = []
-    for cell_dict in data['cells']:
+    for cell_dict in year_data['cells']:
         cell = dict_to_cell(cell_dict)
         cells.append(cell)
+    
+    # Note if gene_jsd data is present
+    if 'gene_jsd' in year_data:
+        # This data is preserved but not currently used by phase3
+        pass
     
     return cells
 

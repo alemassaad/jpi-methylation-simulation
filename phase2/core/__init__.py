@@ -4,8 +4,8 @@ Core pipeline modules for Phase 2.
 
 from .pipeline_utils import (
     load_snapshot_as_cells,
-    save_snapshot_cells,
     load_snapshot_cells,
+    smart_open,
     sample_by_quantiles,
     sample_uniform,
     mix_petri_with_snapshot,
@@ -17,6 +17,7 @@ from .pipeline_utils import (
     create_control2_with_uniform_base,
     load_petri_dish,
     save_petri_dish,
+    save_all_individuals,
     load_all_petri_dishes,
     check_petri_files_state,
     grow_petri_for_years,
@@ -35,8 +36,8 @@ from .path_utils import (
 __all__ = [
     # pipeline_utils
     'load_snapshot_as_cells',
-    'save_snapshot_cells',
     'load_snapshot_cells',
+    'smart_open',
     'sample_by_quantiles',
     'sample_uniform',
     'mix_petri_with_snapshot',
@@ -48,6 +49,7 @@ __all__ = [
     'create_control2_with_uniform_base',
     'load_petri_dish',
     'save_petri_dish',
+    'save_all_individuals',
     'load_all_petri_dishes',
     'check_petri_files_state',
     'grow_petri_for_years',

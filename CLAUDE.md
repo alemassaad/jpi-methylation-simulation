@@ -120,6 +120,255 @@ cd phase3
 python plot_simulation.py ../phase1/data/*/simulation.json.gz
 ```
 
+## Phase 2 Pipeline Architecture
+
+### Overview
+Phase 2 generates structured datasets from Phase 1 simulations through a 6-stage pipeline. All individuals receive uniform mixing (same snapshot cells) for reproducible analysis.
+
+### Pipeline Stages
+
+#### Stage 1-2: Extract Snapshots (`extract_snapshots.py`)
+**Purpose**: Extract cells from two time points in the simulation as direct copies
+
+**Process**:
+1. Load simulation file
+2. Extract year data from history[year_str] (e.g., history["30"])
+3. Save as direct copy with year key wrapper
+4. Create metadata.json from simulation config
+
+**Snapshot Format**:
+```json
+{
+  "30": {
+    "cells": [...],
+    "gene_jsd": [...]  // Preserved if present
+  }
+}
+```
+
+**Output**:
+- `snapshots/year{N}_snapshot.json[.gz]` - Direct copy of year data with year key
+- `snapshots/metadata.json` - Configuration extracted from simulation
+
+**Key Features**:
+- No transformation - exact copy from phase1
+- Year key included for self-contained files
+- Preserves all fields (gene_jsd, etc.)
+
+#### Stage 3-5: Simulate Individuals (`simulate_individuals.py`)
+
+##### Stage 3: Create Initial Individuals
+**Purpose**: Initialize populations from first snapshot
+
+**Mutant Creation**:
+- Uses quantile-based sampling for systematic coverage
+- Cells sorted by methylation, divided into quantiles
+- Sample specified cells per quantile
+- Creates `n_quantiles × cells_per_quantile` individuals
+
+**Control1 Creation**:
+- Uses uniform random sampling
+- Creates same number as mutant individuals
+- No quantile structure, pure random selection
+
+##### Stage 4: Grow Individuals
+**Purpose**: Simulate population growth over time
+
+**Process**:
+1. Each individual grows for `timeline_duration` years
+2. Exponential growth for `growth_phase` years
+3. Homeostasis via random culling afterward
+4. Target population: 2^growth_phase cells
+5. Tracks full history during growth
+
+**Timeline Calculation**:
+```
+timeline_duration = second_snapshot - first_snapshot
+homeostasis_years = timeline_duration - growth_phase
+```
+
+##### Stage 5: Mix Populations
+**Purpose**: Combine grown populations with second snapshot
+
+**Uniform Mixing Process**:
+1. **Normalize individuals**: All populations set to same size
+2. **Create uniform pool**: Select cells from second snapshot
+3. **Apply mixing**: Each individual gets identical snapshot cells
+4. **Final composition**: `mix_ratio%` from snapshot, rest from grown
+
+**Key Feature**: Uniform mixing ensures all individuals receive exactly the same snapshot cells, eliminating sampling variation
+
+#### Stage 6: Create Control2 (`create_control2.py`)
+**Purpose**: Pure snapshot populations without growth
+
+**Process**:
+1. Determine count based on mutant/control1 populations
+2. If uniform mixing was used, apply same uniform base
+3. Fill remaining slots with random sampling
+4. No growth phase - pure snapshot cells
+5. Matches experimental population sizes
+
+### Key Data Structures
+
+#### Cell Object (from phase1)
+```python
+{
+  "cpg_sites": [0, 0, 1, ...],           # Methylation state
+  "cell_jsd": 0.123,                      # Jensen-Shannon divergence
+  "age": 30,                              # Cell age in years
+  "gene_rate_groups": [[50, 0.004], ...], # Gene-specific rates
+  "cell_methylation_proportion": 0.15,    # Proportion methylated
+  "n_methylated": 150                     # Count methylated
+}
+```
+
+#### PetriDish Metadata
+```python
+{
+  "individual_id": 1,
+  "individual_type": "mutant",
+  "source_quantile": 3,           # For mutant only
+  "n_quantiles": 10,              # For mutant only
+  "initial_year": 30,
+  "mixed": true,
+  "mix_mode": "uniform",
+  "mix_ratio": 80,
+  "normalized": true,              # If size normalization applied
+  "normalization_threshold": 128
+}
+```
+
+### Configuration System
+
+#### Default Configuration (`config_default.yaml`)
+Always loaded automatically. Key parameters:
+- `first_snapshot`: 30 (year)
+- `second_snapshot`: 50 (year)
+- `n_quantiles`: 4 (quartiles)
+- `cells_per_quantile`: 3
+- `individual_growth_phase`: 6 (64 cells)
+- `mix_ratio`: 70 (percentage)
+- `normalize_size`: true
+- `compress`: false
+- `seed`: 42
+
+#### Configuration Priority
+1. Default config loaded first
+2. Custom config file overrides defaults
+3. Command-line arguments override everything
+
+### Output Directory Structure
+```
+data/{rate_info}/snap{Y1}to{Y2}-growth{G}-quant{Q}x{C}-mix{M}u-seed{S}-{timestamp}/
+├── snapshots/
+│   ├── year30_snapshot.json[.gz]      # First snapshot cells
+│   ├── year50_snapshot.json[.gz]      # Second snapshot cells
+│   └── metadata.json                  # Gene rates, parameters
+├── individuals/
+│   ├── mutant/
+│   │   └── individual_*.json[.gz]     # Mutant populations
+│   ├── control1/
+│   │   └── individual_*.json[.gz]     # Control1 populations
+│   ├── control2/
+│   │   └── individual_*.json[.gz]     # Control2 populations
+│   └── mixing_metadata.json           # Mixing parameters, uniform pool
+```
+
+### Validation System
+
+#### PipelineValidator Class
+Comprehensive validation at each stage:
+
+**Snapshot Validation**:
+- Cell count sufficient for sampling
+- Age consistency
+- Gene_rate_groups match expectations
+- Methylation biologically valid
+
+**Individual Validation**:
+- Correct count created
+- Metadata properly set
+- Gene rates consistent
+
+**Growth Validation**:
+- Population within expected range
+- Extinction handling (configurable)
+- History tracking complete
+
+**Mixing Validation**:
+- Uniform pool correctly applied
+- Size normalization successful
+- Final populations valid
+
+### Core Module Functions
+
+#### pipeline_utils.py
+- `smart_open()`: Handle .json and .json.gz files
+- `dict_to_cell()`: Convert JSON to Cell objects
+- `load_snapshot_cells()`: Load snapshots with year key handling
+- `sample_by_quantiles()`: Quantile-based sampling
+- `sample_uniform()`: Random uniform sampling
+- `normalize_populations()`: Size normalization
+- `create_uniform_mixing_pool()`: Generate uniform cells
+- `mix_petri_uniform()`: Apply uniform mixing
+Note: `save_snapshot_cells()` removed - snapshots are now direct copies saved by extract_snapshots.py
+
+#### individual_helpers.py
+- `create_individual()`: Initialize PetriDish
+- `grow_individual()`: Simulate growth
+- `mix_individual()`: Mix with snapshot
+- `process_batch_growth()`: Batch growth processing
+- `process_batch_mixing()`: Batch mixing processing
+
+#### path_utils.py
+- `parse_phase1_simulation_path()`: Extract simulation parameters
+- `generate_phase2_output_dir()`: Create output path with timestamp
+
+#### validation.py
+- `ValidationError`: Critical failures
+- `ValidationWarning`: Non-fatal issues
+- `ValidationConfig`: Configure strictness
+- `PipelineValidator`: Main validation orchestrator
+
+### Critical Implementation Details
+
+#### Uniform Mixing Implementation
+1. All individuals normalized to median size
+2. Uniform pool created from second snapshot
+3. Pool size = `normalized_size × mix_ratio / (1 - mix_ratio)`
+4. Same pool cells added to every individual
+5. Indices tracked in `mixing_metadata.json`
+
+#### Extinction Handling
+- Natural extinction allowed during growth
+- Extinct individuals removed during normalization
+- Validation tracks extinction rate
+- Complete batch extinction triggers failure
+
+#### Gene Rate Groups
+- Every cell stores its own gene_rate_groups
+- Validated at load time for consistency
+- Passed through entire pipeline
+- Critical for multi-rate simulations
+
+### Common Issues and Solutions
+
+#### Memory Management
+- Large simulations may require batch processing
+- Reduce n_quantiles or cells_per_quantile if needed
+- Use compression for large datasets
+
+#### Validation Failures
+- "Gene rate groups mismatch": Inconsistent simulation
+- "Insufficient cells": Snapshot too small for sampling
+- "Complete batch extinction": Growth parameters too aggressive
+
+#### Performance Tips
+- Snapshots cached within run directory
+- Use compressed files for large simulations
+- Run stages individually for debugging
+- Generate data once, analyze multiple times with phase3
+
 ## High-Level Architecture
 
 ### Three-Phase Architecture

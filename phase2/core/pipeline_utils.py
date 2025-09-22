@@ -187,59 +187,16 @@ def load_snapshot_as_cells(simulation_file: str, year: int,
     return cells
 
 
-def save_snapshot_cells(cells: List[Cell], filepath: str, compress: bool = True) -> None:
-    """
-    Save a list of Cell objects as a snapshot.
-    Now validates gene_rate_groups consistency.
-    
-    Args:
-        cells: List of Cell objects
-        filepath: Output path for JSON file
-        compress: If True, save as .json.gz; if False, save as .json
-    """
-    if not cells:
-        raise ValueError("Cannot save empty cell list")
-    
-    os.makedirs(os.path.dirname(filepath), exist_ok=True)
-    
-    # Validate all cells have same gene_rate_groups
-    PetriDish.validate_cells_compatible(cells)
-    
-    # Adjust filepath based on compress flag
-    if compress and not filepath.endswith('.gz'):
-        if filepath.endswith('.json'):
-            filepath = filepath + '.gz'
-        else:
-            filepath = filepath + '.json.gz'
-    elif not compress and filepath.endswith('.gz'):
-        filepath = filepath[:-3]  # Remove .gz extension
-    
-    # Get gene_rate_groups from first cell (all should be same)
-    gene_rate_groups = cells[0].gene_rate_groups
-    
-    metadata = {
-        "num_cells": len(cells),
-        "year": cells[0].age,
-        "gene_rate_groups": gene_rate_groups,  # Store for reference
-        "gene_size": cells[0].gene_size
-    }
-    
-    snapshot_data = {
-        "metadata": metadata,
-        "cells": [cell.to_dict() for cell in cells]  # Each has gene_rate_groups
-    }
-    
-    # Use smart_open which handles compression based on file extension
-    with smart_open(filepath, 'w') as f:
-        json.dump(snapshot_data, f, indent=2)
-    
-    print(f"  ✓ Saved {len(cells)} cells with gene_rate_groups: {gene_rate_groups}")
+# Note: save_snapshot_cells() has been removed - snapshots are now direct copies
+# from phase1 simulation years, saved by extract_snapshots.py
 
 
 def load_snapshot_cells(filepath: str) -> List[Cell]:
     """
     Load a snapshot file and convert to Cell objects.
-    Auto-detects whether file is compressed or not.
+    
+    Handles snapshot format with year key: {"30": {"cells": [...], "gene_jsd": [...]}}
+    The year key wrapper is stripped and the cells are extracted.
     
     Args:
         filepath: Path to snapshot file (.json or .json.gz)
@@ -251,35 +208,54 @@ def load_snapshot_cells(filepath: str) -> List[Cell]:
     with smart_open(filepath, 'r') as f:
         data = json.load(f)
     
-    cell_dicts = data['cells']
+    # Handle year key wrapper (e.g., {"30": {...}})
+    if len(data) == 1 and isinstance(list(data.keys())[0], str) and list(data.keys())[0].isdigit():
+        # Has year key wrapper, extract the year data
+        year_key = list(data.keys())[0]
+        year_data = data[year_key]
+    else:
+        # Assume it's direct year data (backward compatibility just in case)
+        year_data = data
+    
+    # Direct access to cells
+    cell_dicts = year_data['cells']
     cells = []
     
-    # Check if cells have gene_rate_groups (new format)
+    # Need to get gene_rate_groups from metadata.json if cells don't have it
+    gene_rate_groups_fallback = None
+    
+    # Try to load metadata.json for fallback gene_rate_groups
+    snapshot_dir = os.path.dirname(filepath)
+    metadata_file = os.path.join(snapshot_dir, 'metadata.json')
+    if os.path.exists(metadata_file):
+        with open(metadata_file, 'r') as f:
+            metadata = json.load(f)
+            gene_rate_groups_fallback = metadata.get('gene_rate_groups')
+            if gene_rate_groups_fallback:
+                gene_rate_groups_fallback = [tuple(g) for g in gene_rate_groups_fallback]
+            gene_size_fallback = metadata.get('gene_size', GENE_SIZE)
+    
     for cd in cell_dicts:
         if 'gene_rate_groups' in cd:
-            # New format with gene_rate_groups in each cell
+            # Cell has gene_rate_groups embedded (current phase1 format)
             cells.append(dict_to_cell(cd))
         else:
-            # Old format - need to get from metadata
-            metadata = data.get('metadata', {})
-            gene_rate_groups = metadata.get('gene_rate_groups')
-            if not gene_rate_groups:
-                # Try to convert from rate
-                rate = metadata.get('rate')
-                if rate:
-                    n = len(cd.get('cpg_sites', cd.get('methylated', [])))
-                    gene_size = metadata.get('gene_size', GENE_SIZE)
-                    gene_rate_groups = rate_to_gene_rate_groups(rate, n, gene_size)
-                else:
-                    raise ValueError("Snapshot has no rate configuration!")
-            
-            gene_size = metadata.get('gene_size', GENE_SIZE)
-            cell = Cell.from_dict(cd, gene_rate_groups=gene_rate_groups, gene_size=gene_size)
+            # Old format - use fallback from metadata.json
+            if not gene_rate_groups_fallback:
+                raise ValueError(
+                    "Cells don't have gene_rate_groups and no metadata.json found! "
+                    "Please re-run phase1 with latest code."
+                )
+            cell = Cell.from_dict(cd, gene_rate_groups=gene_rate_groups_fallback, gene_size=gene_size_fallback)
             cells.append(cell)
     
     # Validate all cells have same gene_rate_groups
     if cells:
         PetriDish.validate_cells_compatible(cells)
+    
+    # Log what was preserved (if not already logged elsewhere)
+    if 'gene_jsd' in year_data and len(cells) < 10:  # Only log for small test runs
+        print(f"  Note: Snapshot contains gene_jsd data ({len(year_data['gene_jsd'])} values)")
     
     return cells
 

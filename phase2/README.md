@@ -46,9 +46,10 @@ python run_pipeline.py --simulation ../phase1/data/*/simulation.json.gz
 ## Pipeline Stages
 
 ### Stage 1-2: Extract Snapshots (`extract_snapshots.py`)
-- Extracts cells from two time points in the simulation
-- Saves snapshots for reuse across multiple analyses
-- Validates gene rate groups consistency
+- Extracts year data from two time points as direct copies
+- Saves snapshots with year key wrapper (e.g., {"30": {...}})
+- Preserves all fields including gene_jsd if present
+- Creates metadata.json from simulation config
 
 ### Stage 3-5: Simulate Individuals (`simulate_individuals.py`)
 - **Stage 3**: Create initial individuals
@@ -152,9 +153,9 @@ python run_analysis.py \
 ```
 data/{rate_info}/snap{Y1}to{Y2}-growth{G}-quant{Q}x{C}-mix{M}-seed{S}-{timestamp}/
 ├── snapshots/
-│   ├── year30_snapshot.json.gz
-│   ├── year50_snapshot.json.gz
-│   └── metadata.json
+│   ├── year30_snapshot.json[.gz]  # Format: {"30": {"cells": [...], "gene_jsd": [...]}}
+│   ├── year50_snapshot.json[.gz]  # Format: {"50": {"cells": [...], "gene_jsd": [...]}}
+│   └── metadata.json               # Config from simulation
 ├── individuals/
 │   ├── mutant/
 │   │   └── individual_*.json.gz

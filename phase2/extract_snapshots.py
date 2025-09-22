@@ -9,16 +9,14 @@ import os
 import sys
 import json
 import gzip
-from typing import Optional, Dict, List, Tuple
+from typing import Optional, Dict, List, Tuple, Any
 
 # Add parent directory to path for imports
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 sys.path.append(os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'phase1'))
 
 from cell import Cell, rate_to_gene_rate_groups
-from core.pipeline_utils import (
-    load_snapshot_as_cells, save_snapshot_cells, smart_open
-)
+from core.pipeline_utils import smart_open
 from core.validation import PipelineValidator, ValidationError
 
 
@@ -26,54 +24,82 @@ def extract_and_save_snapshot(
     simulation_path: str,
     year: int,
     output_path: str,
-    gene_rate_groups: List[Tuple[int, float]],
     compress: bool = True
-) -> List[Cell]:
+) -> Dict:
     """
-    Extract snapshot from simulation and save to disk.
+    Extract snapshot from simulation and save as direct copy with year key.
+    
+    The snapshot format is {"year": {data}} where data is an exact copy
+    from the phase1 simulation's history[year].
     
     Args:
         simulation_path: Path to phase1 simulation file
         year: Year to extract
         output_path: Where to save snapshot
-        gene_rate_groups: Expected gene rate groups for validation
         compress: Whether to compress output
     
     Returns:
-        List of Cell objects
+        Dictionary with year data (cells and optionally gene_jsd)
     """
     print(f"\nExtracting year {year} snapshot...")
     
-    # Extract cells
-    cells = load_snapshot_as_cells(
-        simulation_path, year,
-        expected_gene_rate_groups=gene_rate_groups
-    )
-    print(f"  Extracted {len(cells)} cells")
+    # Load simulation and extract year data directly
+    with smart_open(simulation_path, 'r') as f:
+        data = json.load(f)
     
-    # Save to disk
-    save_snapshot_cells(cells, output_path, compress=compress)
+    year_str = str(year)
+    history = data['history']
+    
+    if year_str not in history:
+        available_years = sorted([int(y) for y in history.keys()])
+        raise ValueError(f"Year {year} not found. Available: {available_years}")
+    
+    # Get the year data directly (no transformation)
+    year_data = history[year_str]
+    print(f"  Extracted {len(year_data.get('cells', []))} cells")
+    
+    # Save year data with the year key included (like in phase1)
+    snapshot_with_key = {year_str: year_data}
+    with smart_open(output_path, 'w') as f:
+        json.dump(snapshot_with_key, f, indent=2)
     print(f"  Saved to {output_path}")
     
-    return cells
+    return year_data
 
 
 def save_metadata(
     output_dir: str,
-    gene_rate_groups: List[Tuple[int, float]],
-    n_sites: int,
-    gene_size: int,
+    simulation_path: str,
     first_year: int,
-    second_year: int,
-    simulation_path: str
+    second_year: int
 ) -> None:
     """
     Save metadata about the extraction for other scripts to use.
+    Gets configuration from simulation file.
     """
+    # Load simulation config
+    with smart_open(simulation_path, 'r') as f:
+        data = json.load(f)
+    
+    config = data.get('config', data.get('parameters', {}))
+    
+    # Extract gene_rate_groups
+    gene_rate_groups = config.get('gene_rate_groups')
+    if not gene_rate_groups:
+        # Convert from rate for old format
+        if 'rate' in config:
+            gene_rate_groups = rate_to_gene_rate_groups(
+                config['rate'], 
+                config.get('n', 1000), 
+                config.get('gene_size', 5)
+            )
+        else:
+            raise ValueError("Simulation has no rate configuration!")
+    
     metadata = {
         'gene_rate_groups': gene_rate_groups,
-        'n_sites': n_sites,
-        'gene_size': gene_size,
+        'n_sites': config.get('n', 1000),
+        'gene_size': config.get('gene_size', 5),
         'first_snapshot_year': first_year,
         'second_snapshot_year': second_year,
         'source_simulation': simulation_path,
@@ -134,95 +160,42 @@ def main():
     print(f"Compression: {'enabled' if use_compression else 'disabled'}")
     print("=" * 60)
     
-    # Load simulation to get parameters
-    print("\nLoading simulation parameters...")
-    with smart_open(args.simulation, 'r') as f:
-        sim_data = json.load(f)
-    
-    sim_params = sim_data.get('config', sim_data.get('parameters', {}))  # Support both old and new format
-    n_sites = sim_params.get('n', 1000)
-    gene_size = sim_params.get('gene_size', 5)
-    
-    # Get gene_rate_groups from simulation
-    sim_gene_rate_groups = sim_params.get('gene_rate_groups')
-    if not sim_gene_rate_groups:
-        # Convert rate to gene_rate_groups for old simulations
-        if 'rate' in sim_params:
-            sim_gene_rate_groups = rate_to_gene_rate_groups(
-                sim_params['rate'], n_sites, gene_size
-            )
-        else:
-            raise ValueError("Simulation has no rate configuration!")
-    
-    # Convert to tuples
-    gene_rate_groups = [tuple(group) for group in sim_gene_rate_groups]
-    print(f"Gene rate groups: {gene_rate_groups}")
-    print(f"Sites: {n_sites}, Gene size: {gene_size}")
-    
-    # Initialize validator
-    validator = PipelineValidator(verbose=True)
-    
     # Extract first snapshot
     if os.path.exists(first_snapshot_path):
         print(f"\n✓ First snapshot already exists: {first_snapshot_path}")
         print("  Skipping extraction (using cached file)")
     else:
-        first_cells = extract_and_save_snapshot(
+        year_data = extract_and_save_snapshot(
             args.simulation,
             args.first_snapshot,
             first_snapshot_path,
-            gene_rate_groups,
             use_compression
         )
-        
-        # Validate
-        try:
-            validator.validate_snapshot(
-                cells=first_cells,
-                expected_year=args.first_snapshot,
-                expected_gene_rate_groups=gene_rate_groups,
-                min_cells=10  # Minimum needed for sampling
-            )
-            print("  ✓ Validation passed")
-        except ValidationError as e:
-            print(f"\n❌ Snapshot validation failed: {e}")
-            sys.exit(1)
+        print("  ✓ Extraction complete")
+        if 'gene_jsd' in year_data:
+            print(f"  ✓ Preserved gene_jsd data ({len(year_data['gene_jsd'])} values)")
     
     # Extract second snapshot
     if os.path.exists(second_snapshot_path):
         print(f"\n✓ Second snapshot already exists: {second_snapshot_path}")
         print("  Skipping extraction (using cached file)")
     else:
-        second_cells = extract_and_save_snapshot(
+        year_data = extract_and_save_snapshot(
             args.simulation,
             args.second_snapshot,
             second_snapshot_path,
-            gene_rate_groups,
             use_compression
         )
-        
-        # Validate
-        try:
-            validator.validate_snapshot(
-                cells=second_cells,
-                expected_year=args.second_snapshot,
-                expected_gene_rate_groups=gene_rate_groups,
-                min_cells=10  # Minimum needed for sampling
-            )
-            print("  ✓ Validation passed")
-        except ValidationError as e:
-            print(f"\n❌ Snapshot validation failed: {e}")
-            sys.exit(1)
+        print("  ✓ Extraction complete")
+        if 'gene_jsd' in year_data:
+            print(f"  ✓ Preserved gene_jsd data ({len(year_data['gene_jsd'])} values)")
     
     # Save metadata
     save_metadata(
         snapshots_dir,
-        gene_rate_groups,
-        n_sites,
-        gene_size,
+        args.simulation,
         args.first_snapshot,
-        args.second_snapshot,
-        args.simulation
+        args.second_snapshot
     )
     
     print("\n" + "=" * 60)

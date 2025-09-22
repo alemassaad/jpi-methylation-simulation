@@ -6,13 +6,13 @@
 simulation: null                 # Path to phase1 simulation file (REQUIRED)
 
 # Snapshot configuration
-first_snapshot: 30               # First snapshot year
-second_snapshot: 50              # Second snapshot year  
+first_snapshot: 20               # First snapshot year
+second_snapshot: 40              # Second snapshot year  
 
 # Individual simulation parameters
 individual_growth_phase: 6       # Individual growth phase in years (2^6 = 64 cells)
-n_quantiles: 4                   # Number of quantiles for sampling (e.g., 4 = quartiles, 10 = deciles)
-cells_per_quantile: 3            # Cells sampled per quantile
+n_quantiles: 5                   # Number of quantiles for sampling (e.g., 4 = quartiles, 10 = deciles)
+cells_per_quantile: 2            # Cells sampled per quantile
 
 # Mixing configuration (uniform mixing is now always enabled)
 mix_ratio: 70                    # Percentage of snapshot cells in final mix (0-100)

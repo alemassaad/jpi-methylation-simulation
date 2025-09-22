@@ -363,8 +363,8 @@ def plot_gene_jsd_distribution(snapshot_cells: List[Cell], bins: int, output_pat
         cells=snapshot_cells
     )
     
-    # Get gene JSD values using the clean property
-    gene_jsd_values = np.array(petri.gene_jsds)
+    # Get gene JSD values by calculating them
+    gene_jsd_values = np.array(petri.calculate_gene_jsd())
     
     # Calculate statistics (exact same as cell-level)
     mean_jsd = np.mean(gene_jsd_values)

@@ -22,7 +22,6 @@ except ImportError:
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 sys.path.append(os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'phase1'))
 
-from cell import PetriDishPlotter
 from core import (
     load_snapshot_cells, load_all_petri_dishes, load_petri_dish,
     extract_gene_jsd_from_history, load_phase2_metadata, smart_open,
@@ -34,6 +33,7 @@ from core import (
     generate_gene_methylation_analysis, plot_gene_methylation_individual_comparison,
     generate_gene_jsd_analysis
 )
+from core.petri_dish_plotter import PetriDishPlotter
 
 
 def load_config(config_path: Optional[str] = None) -> Dict[str, Any]:

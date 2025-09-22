@@ -34,6 +34,7 @@ from core import (
     generate_gene_jsd_analysis
 )
 from core.petri_dish_plotter import PetriDishPlotter
+from core.gene_jsd_plotter import plot_gene_jsd_trajectory, plot_gene_jsd_heatmap
 
 
 def load_config(config_path: Optional[str] = None) -> Dict[str, Any]:
@@ -137,8 +138,8 @@ def plot_individual_trajectories(individuals_dir: str, plot_paths: PlotPaths) ->
                         plotter.plot_cell_methylation_proportion(
                             f"Mutant Individual {i:02d} Cell Methylation Proportion", meth_path
                         )
-                        plotter.plot_gene_jsd_trajectory(
-                            f"Mutant Individual {i:02d} Gene JSD", gene_jsd_path
+                        plot_gene_jsd_trajectory(
+                            petri, f"Mutant Individual {i:02d} Gene JSD", gene_jsd_path
                         )
                         
                         mutant_plot_count += 1
@@ -169,8 +170,8 @@ def plot_individual_trajectories(individuals_dir: str, plot_paths: PlotPaths) ->
                         plotter.plot_cell_methylation_proportion(
                             f"Control1 Individual {i:02d} Cell Methylation Proportion", meth_path
                         )
-                        plotter.plot_gene_jsd_trajectory(
-                            f"Control1 Individual {i:02d} Gene JSD", gene_jsd_path
+                        plot_gene_jsd_trajectory(
+                            petri, f"Control1 Individual {i:02d} Gene JSD", gene_jsd_path
                         )
                         
                         control1_plot_count += 1
@@ -252,14 +253,15 @@ def generate_timeline_plots(simulation_path: str, results_dir: str) -> None:
             # Gene JSD timeline
             if gene_jsd_hist:
                 gene_jsd_timeline_path = plot_paths.get_gene_jsd_timeline_path()
-                plotter.plot_gene_jsd_timeline(
-                    "Original Simulation Gene JSD Timeline", gene_jsd_timeline_path
+                plot_gene_jsd_trajectory(
+                    original_petri, "Original Simulation Gene JSD Timeline", gene_jsd_timeline_path
                 )
                 print(f"  ✓ Gene JSD timeline")
                 
                 # Gene JSD heatmap
                 heatmap_path = os.path.join(results_dir, "simulation_gene_jsd_heatmap.png")
-                plotter.plot_gene_jsd_heatmap(
+                plot_gene_jsd_heatmap(
+                    original_petri,
                     title="Gene JSD Evolution Heatmap",
                     output_path=heatmap_path
                 )

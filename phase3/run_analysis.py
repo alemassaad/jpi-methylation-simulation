@@ -196,7 +196,7 @@ def generate_timeline_plots(simulation_path: str, results_dir: str) -> None:
             # Create PetriDish from simulation
             from cell import PetriDish
             
-            params = sim_data.get('parameters', {})
+            params = sim_data.get('config', sim_data.get('parameters', {}))  # Support both old and new format
             rate = params.get('rate')
             gene_rate_groups = params.get('gene_rate_groups')
             n_sites = params.get('n', 1000)
@@ -229,11 +229,9 @@ def generate_timeline_plots(simulation_path: str, results_dir: str) -> None:
                     original_petri.cell_history[year_str] = cells
             
             # Extract gene JSD history
-            gene_jsd_hist, mean_hist, median_hist = extract_gene_jsd_from_history(sim_data)
+            gene_jsd_hist = extract_gene_jsd_from_history(sim_data)
             if gene_jsd_hist:
                 original_petri.gene_jsd_history = gene_jsd_hist
-                original_petri.mean_gene_jsd_history = mean_hist
-                original_petri.median_gene_jsd_history = median_hist
             
             # Generate plots
             plot_paths = PlotPaths(results_dir)

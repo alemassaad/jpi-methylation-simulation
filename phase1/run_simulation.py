@@ -131,16 +131,6 @@ def merge_config_and_args(config: Dict[str, Any], args: argparse.Namespace) -> D
     if args.no_compress:
         result['output']['compress'] = False
     
-    if args.no_gene_jsd:
-        result['performance']['track_gene_jsd'] = False
-    
-    if args.no_cell_jsds:
-        result['performance']['calculate_cell_jsds'] = False
-    
-    if args.no_jsds:
-        # Disable both cell and gene JSDs
-        result['performance']['calculate_cell_jsds'] = False
-        result['performance']['track_gene_jsd'] = False
     
     return result
 
@@ -217,13 +207,7 @@ def parse_arguments():
     parser.add_argument('--no-save', action='store_true',
                         help='Run simulation without saving results')
     
-    # Performance and tracking options
-    parser.add_argument('--no-gene-jsd', action='store_true',
-                        help='Disable gene JSD tracking (population-level heterogeneity per gene)')
-    parser.add_argument('--no-cell-jsds', action='store_true',
-                        help='Disable cell JSD calculations (individual cell divergence from baseline)')
-    parser.add_argument('--no-jsds', action='store_true',
-                        help='Disable ALL JSD calculations (both cell and gene) for maximum performance')
+    # Performance and tracking options have been removed - JSDs are always calculated
     parser.add_argument('--no-compress', action='store_true',
                         help='Save output as uncompressed JSON instead of .json.gz (larger files but easier to inspect)')
     
@@ -335,27 +319,18 @@ def main():
     # Create and run simulation with appropriate rate configuration
     print("\nInitializing PetriDish simulation...")
     
-    # Get performance flags
-    calculate_cell_jsds = perf_config.get('calculate_cell_jsds', True)
-    track_gene_jsd = perf_config.get('track_gene_jsd', True)
-    
     # Create PetriDish with unified interface
     petri_dish = PetriDish(
         gene_rate_groups=gene_rate_groups,  # Always use this
         n=n,
         gene_size=gene_size,
         seed=seed,
-        growth_phase=growth_phase,
-        calculate_cell_jsds=calculate_cell_jsds
+        growth_phase=growth_phase
     )
     
-    # Enable history tracking with gene JSD based on config
-    if track_gene_jsd:
-        petri_dish.enable_history_tracking(track_gene_jsd=True)
-        print("Gene JSD tracking enabled")
-    else:
-        petri_dish.enable_history_tracking(track_gene_jsd=False)
-        print("Gene JSD tracking disabled")
+    # Enable history tracking (gene JSD is always tracked)
+    petri_dish.enable_history_tracking()
+    print("Cell and gene JSD tracking enabled")
     
     # Run simulation
     petri_dish.run_simulation(t_max=t_max)

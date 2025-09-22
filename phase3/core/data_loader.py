@@ -159,10 +159,6 @@ def load_petri_dish(filepath: str, include_cell_history: bool = False) -> PetriD
     # Load gene JSD histories if available
     if 'gene_jsd_history' in data:
         petri.gene_jsd_history = data['gene_jsd_history']
-    if 'mean_gene_jsd_history' in data:
-        petri.mean_gene_jsd_history = data['mean_gene_jsd_history']
-    if 'median_gene_jsd_history' in data:
-        petri.median_gene_jsd_history = data['median_gene_jsd_history']
     
     return petri
 
@@ -193,7 +189,7 @@ def load_all_petri_dishes(directory: str, include_cell_history: bool = False) ->
     return dishes
 
 
-def extract_gene_jsd_from_history(sim_data: dict) -> Tuple[Dict, Dict, Dict]:
+def extract_gene_jsd_from_history(sim_data: dict) -> Dict:
     """
     Extract gene JSD history from simulation data.
     
@@ -201,13 +197,11 @@ def extract_gene_jsd_from_history(sim_data: dict) -> Tuple[Dict, Dict, Dict]:
         sim_data: Simulation data dictionary
         
     Returns:
-        Tuple of (gene_jsd_history, mean_history, median_history)
+        Dict with gene JSD history
     """
     import numpy as np
     
     gene_jsd_history = {}
-    mean_gene_jsd_history = {}
-    median_gene_jsd_history = {}
     
     history = sim_data.get('history', {})
     
@@ -216,10 +210,8 @@ def extract_gene_jsd_from_history(sim_data: dict) -> Tuple[Dict, Dict, Dict]:
             gene_jsds = year_data['gene_jsd']
             # Use string keys for consistency
             gene_jsd_history[year_str] = gene_jsds
-            mean_gene_jsd_history[year_str] = np.mean(gene_jsds)
-            median_gene_jsd_history[year_str] = np.median(gene_jsds)
     
-    return gene_jsd_history, mean_gene_jsd_history, median_gene_jsd_history
+    return gene_jsd_history
 
 
 def load_phase2_metadata(base_dir: str) -> Dict[str, Any]:

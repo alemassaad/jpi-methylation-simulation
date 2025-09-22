@@ -69,8 +69,8 @@ Required dependencies:
 ```bash
 cd phase1
 
-# Quick test (100 sites, 50 years, 64 cells)
-python run_simulation.py --rate 0.005
+# Quick test (100 sites, 50 years, 512 cells)
+python run_simulation.py --config config_default.yaml
 
 # Full simulation with all options
 python run_simulation.py --rate 0.005 --years 100 --growth-phase 13 --sites 1000 --seed 42
@@ -78,10 +78,7 @@ python run_simulation.py --rate 0.005 --years 100 --growth-phase 13 --sites 1000
 # Gene-specific methylation rates
 python run_simulation.py --gene-rate-groups "50:0.004,50:0.005,50:0.006" --gene-size 5
 
-# Performance options
-python run_simulation.py --rate 0.005 --no-cell-jsds  # Skip cell JSD calculations
-python run_simulation.py --rate 0.005 --no-gene-jsd   # Skip gene JSD tracking
-python run_simulation.py --rate 0.005 --no-jsds       # Skip ALL JSDs
+# JSD calculations are now always enabled - no performance flags needed
 ```
 
 ### Run Data Generation (Phase 2)
@@ -112,6 +109,13 @@ python run_analysis.py --config configs/quick_analysis.yaml \
     --simulation ../phase1/data/{simulation_directory}/simulation.json.gz
 ```
 
+### Plot Phase 1 Simulation
+```bash
+# Use phase3 for plotting phase1 results:
+cd phase3
+python plot_simulation.py ../phase1/data/*/simulation.json.gz
+```
+
 ## High-Level Architecture
 
 ### Three-Phase Architecture
@@ -120,20 +124,37 @@ python run_analysis.py --config configs/quick_analysis.yaml \
 - **Phase 3**: Analysis pipeline - generates all plots and statistics from phase2 data
 
 ### Core Classes (phase1/cell.py)
-- **Cell**: Individual cell with CpG sites and methylation state
-  - `methylated`: List of 0s and 1s representing methylation state
-  - `cell_JSD`: Jensen-Shannon divergence from baseline (0-1 range)
-  - `methylate()`: Apply stochastic methylation
-  - `create_daughter_cell()`: Mitosis (identical copy)
-  - `to_dict()`: Serialize for saving
-  - `from_dict()`: Deserialize from saved data
 
-- **PetriDish**: Population manager for cells
-  - Manages growth phase (exponential) and homeostasis (steady state)
-  - `divide_cells()`: Population doubling
-  - `random_cull_cells()`: Homeostatic ~50% survival
-  - `calculate_gene_jsd()`: Calculate JSD for each gene across population
-  - `from_cells()`: Factory method - creates PetriDish from cell(s)
+#### Cell Class
+Individual cell with CpG sites and methylation state.
+
+**Key Attributes (saved to file)**:
+- `cpg_sites`: List of 0s and 1s representing methylation state
+- `cell_jsd`: Jensen-Shannon divergence from baseline (0-1 range)
+- `age`: Cell age in years
+- `gene_rate_groups`: Rate configuration as [(n_genes, rate), ...]
+- `cell_methylation_proportion`: Proportion of methylated sites (0-1)
+- `n_methylated`: Count of methylated sites
+
+**Key Methods**:
+- `methylate()`: Apply stochastic methylation
+- `create_daughter_cell()`: Mitosis (identical copy)
+- `to_dict()`: Serialize for saving
+- `from_dict()`: Deserialize from saved data
+
+#### PetriDish Class
+Population manager for cells.
+
+**Life Cycle**:
+- Years 0-growth_phase: Exponential growth (1 → 2^growth_phase cells)
+- Years growth_phase+: Homeostasis (~2^growth_phase cells maintained)
+
+**Key Methods**:
+- `divide_cells()`: Population doubling
+- `random_cull_cells()`: Homeostatic ~50% survival
+- `calculate_gene_jsd()`: Calculate JSD for each gene across population
+- `from_cells()`: Factory method - creates PetriDish from cell(s)
+- `save_history()`: Save simulation to JSON/JSON.gz
 
 ### Import Structure
 ```python
@@ -150,7 +171,7 @@ sys.path.append(os.path.join(project_root, 'phase1'))
 sys.path.append(os.path.join(project_root, 'phase2'))
 ```
 
-## Current Repository Structure (After Cleanup)
+## Current Repository Structure (After Major Cleanup)
 
 ```
 jpi-methylation-simulation/
@@ -158,7 +179,7 @@ jpi-methylation-simulation/
 │   ├── README.md
 │   ├── cell.py                 # Core simulation engine
 │   ├── config_default.yaml     # Default configuration
-│   ├── plot_history.py         # Plot simulation history
+│   ├── plot_history.py         # Plot simulation history (deprecated - use phase3)
 │   └── run_simulation.py       # Main simulation script
 │
 ├── phase2/ (10 files)
@@ -188,15 +209,15 @@ jpi-methylation-simulation/
     │   ├── analysis_functions.py  # All plotting/analysis functions
     │   ├── data_loader.py         # Data loading utilities
     │   └── plot_paths.py          # Plot path management
-    └── run_analysis.py          # Main analysis script
+    ├── run_analysis.py          # Main analysis script
+    └── plot_simulation.py        # Plot phase1 simulation results
 ```
 
 ## JSON Format (Lean Format)
 ```json
 {
-  "parameters": {
-    "rate": 0.005,              // Or null if gene-specific
-    "gene_rate_groups": null,   // Or [[50, 0.004], [50, 0.006]]
+  "config": {
+    "gene_rate_groups": [[50, 0.004], [50, 0.006]],  // Gene-specific rates
     "n": 1000,                  // CpG sites per cell
     "gene_size": 5,             // Sites per gene
     "growth_phase": 13,         // Growth duration
@@ -207,25 +228,28 @@ jpi-methylation-simulation/
     "0": {
       "cells": [
         {
-          "cpg_sites": [0, 0, 1, ...],  // Methylation state
-          "cell_JSD": 0.0                // Cell's divergence
+          "cpg_sites": [0, 0, 1, ...],        // Methylation state
+          "cell_jsd": 0.0,                    // Cell's divergence
+          "age": 0,                            // Cell age
+          "gene_rate_groups": [[50, 0.004], [50, 0.006]],
+          "cell_methylation_proportion": 0.0,  // Proportion methylated
+          "n_methylated": 0                    // Count methylated
         }
       ],
-      "gene_jsd": [0.0, 0.0, ...]  // Optional: per-gene JSDs
+      "gene_jsd": [0.0, 0.0, ...]  // Optional: per-gene JSDs (if calculate_cell_jsds=True)
     }
   }
 }
 ```
 
-## Performance Flags
-- `calculate_cell_jsds=True`: Calculate individual cell JSDs
-- `track_gene_jsd=True`: Track population-level gene JSDs
-- CLI: `--no-cell-jsds`, `--no-gene-jsd`, `--no-jsds` (disable ALL)
+## Performance Note
+JSD calculations are always enabled. Both cell-level and gene-level JSDs are computed for all simulations.
 
 ## Dictionary Key Convention
 All history dictionaries use STRING keys for years to ensure JSON compatibility:
 - Always use `str(year)` when accessing dictionary values
 - Convert to int for sorting, then back to string for access
+- Pattern: `years = sorted([int(y) for y in history.keys()])`
 
 ## Biological Concepts
 
@@ -266,13 +290,3 @@ All test files and redundant configs removed. Core functionality preserved.
 - **Gene JSD**: Single method `calculate_gene_jsd()` - removed duplicate `calculate_gene_jsds()`
 - **Factory method**: Single `from_cells()` method handles both single cell and list inputs - removed `from_snapshot_cell()`
 - **Cleaner API**: No redundant properties or duplicate methods
-
-### Plot Phase1 Simulation Results
-```bash
-# NEW way (use phase3):
-cd phase3
-python plot_simulation.py ../phase1/data/*/simulation.json.gz
-
-# OLD way (deprecated):
-# cd phase1 && python plot_history.py simulation.json.gz
-```

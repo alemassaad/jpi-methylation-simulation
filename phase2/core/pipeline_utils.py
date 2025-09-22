@@ -128,8 +128,8 @@ def load_snapshot_as_cells(simulation_file: str, year: int,
     
     year_str = str(year)
     
-    # Extract parameters and history
-    params = data['parameters']
+    # Extract config/parameters and history (support both old and new format)
+    params = data.get('config', data.get('parameters', {}))
     history = data['history']
     
     if year_str not in history:
@@ -434,22 +434,15 @@ def load_petri_dish(filepath: str, include_cell_history: bool = False, include_g
     # Restore gene JSD history if requested and available
     if include_gene_jsd:
         # Use the helper to extract from either location
-        gene_jsd_hist, mean_hist, median_hist = extract_gene_jsd_from_history(data)
+        gene_jsd_hist = extract_gene_jsd_from_history(data)
         petri.gene_jsd_history = gene_jsd_hist
-        petri.mean_gene_jsd_history = mean_hist
-        petri.median_gene_jsd_history = median_hist
-        petri.track_gene_jsd = bool(gene_jsd_hist)  # Only True if we found data
     else:
         petri.gene_jsd_history = {}
-        petri.mean_gene_jsd_history = {}
-        petri.median_gene_jsd_history = {}
-        petri.track_gene_jsd = False
-        petri.history_enabled = False
     
     return petri
 
 
-def extract_gene_jsd_from_history(sim_data: dict) -> tuple:
+def extract_gene_jsd_from_history(sim_data: dict) -> dict:
     """
     Extract gene JSD data from simulation history structure.
     Reads from the correct location where phase1 stores the data (nested in history).
@@ -458,12 +451,9 @@ def extract_gene_jsd_from_history(sim_data: dict) -> tuple:
         sim_data: Simulation data dictionary
         
     Returns:
-        Tuple of (gene_jsd_history, mean_gene_jsd_history, median_gene_jsd_history)
-        All as dicts with int years as keys, or empty dicts if not found
+        Dict with string years as keys, or empty dict if not found
     """
     gene_jsd_history = {}
-    mean_gene_jsd_history = {}
-    median_gene_jsd_history = {}
     
     # Read from the correct location (nested in history)
     if 'history' in sim_data:
@@ -473,14 +463,8 @@ def extract_gene_jsd_from_history(sim_data: dict) -> tuple:
             
             if 'gene_jsd' in year_data:
                 gene_jsd_history[year_str] = year_data['gene_jsd']
-            
-            if 'mean_gene_jsd' in year_data:
-                mean_gene_jsd_history[year_str] = year_data['mean_gene_jsd']
-                
-            if 'median_gene_jsd' in year_data:
-                median_gene_jsd_history[year_str] = year_data['median_gene_jsd']
     
-    return gene_jsd_history, mean_gene_jsd_history, median_gene_jsd_history
+    return gene_jsd_history
 
 
 def load_all_petri_dishes(directory: str, include_cell_history: bool = False) -> List[PetriDish]:
@@ -684,8 +668,7 @@ def create_pure_snapshot_petri(snapshot_cells: List[Cell], n_cells: int = 5120,
         gene_rate_groups=first_cell.gene_rate_groups,
         n=first_cell.n,
         gene_size=first_cell.gene_size,
-        growth_phase=None,  # Static population - won't be aged
-        calculate_cell_jsds=True
+        growth_phase=None  # Static population - won't be aged
     )
     
     # Set metadata
@@ -771,8 +754,7 @@ def create_control2_with_uniform_base(
         gene_rate_groups=first_cell.gene_rate_groups,
         n=first_cell.n,
         gene_size=first_cell.gene_size,
-        growth_phase=None,  # Static population - won't be aged
-        calculate_cell_jsds=True
+        growth_phase=None  # Static population - won't be aged
     )
     
     # Set metadata
@@ -789,7 +771,7 @@ def create_control2_with_uniform_base(
 
 def grow_petri_for_years(petri: PetriDish, years: int, growth_phase: Optional[int] = None, 
                         verbose: bool = True, track_history: bool = False, 
-                        start_year: Optional[int] = None, track_gene_jsd: bool = False) -> None:
+                        start_year: Optional[int] = None) -> None:
     """
     Grow a PetriDish for specified years with optional homeostasis after growth phase.
     Now uses PetriDish's built-in grow_with_homeostasis method when history tracking is enabled.
@@ -801,14 +783,13 @@ def grow_petri_for_years(petri: PetriDish, years: int, growth_phase: Optional[in
         verbose: Print progress
         track_history: Enable cell history tracking
         start_year: Starting year for history tracking
-        track_gene_jsd: Enable gene JSD tracking
     """
     if growth_phase is not None and growth_phase > years:
         raise ValueError(f"growth_phase ({growth_phase}) cannot exceed total years ({years})")
     
     # If history tracking is enabled, use PetriDish's new method
     if track_history:
-        petri.enable_history_tracking(track_gene_jsd=track_gene_jsd)
+        petri.enable_history_tracking()
         petri.grow_with_homeostasis(years, growth_phase, verbose, record_history=True)
         return
     

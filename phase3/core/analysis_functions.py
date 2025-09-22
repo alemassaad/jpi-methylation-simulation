@@ -360,7 +360,6 @@ def plot_gene_jsd_distribution(snapshot_cells: List[Cell], bins: int, output_pat
         n=n,
         gene_size=gene_size,
         growth_phase=None,  # Static population
-        calculate_cell_jsds=False,  # Not needed for gene JSDs
         cells=snapshot_cells
     )
     
@@ -529,7 +528,6 @@ def plot_gene_methylation_proportion_histogram(snapshot_cells: List[Cell], bins:
         n=n,
         gene_size=gene_size,
         growth_phase=None,  # Static population
-        calculate_cell_jsds=False,  # Not needed for methylation proportions
         cells=snapshot_cells
     )
     

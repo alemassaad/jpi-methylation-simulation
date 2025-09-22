@@ -82,7 +82,7 @@ def create_petri_from_history(data: Dict[str, Any]) -> PetriDish:
     Returns:
         PetriDish object with history loaded
     """
-    params = data['parameters']
+    params = data.get('config', data.get('parameters', {}))  # Support both old and new format
     history = data['history']
     
     # Extract parameters
@@ -98,8 +98,7 @@ def create_petri_from_history(data: Dict[str, Any]) -> PetriDish:
         n=n,
         gene_size=gene_size,
         growth_phase=growth_phase,
-        seed=seed,
-        calculate_cell_jsds=False
+        seed=seed
     )
     
     # Load cell history
@@ -118,16 +117,6 @@ def create_petri_from_history(data: Dict[str, Any]) -> PetriDish:
             if isinstance(year_data, dict) and 'gene_jsd' in year_data:
                 petri.gene_jsd_history[year_str] = year_data['gene_jsd']
     
-    # Load mean and median gene JSD histories if available
-    if any('mean_gene_jsd' in year_data for year_data in history.values() if isinstance(year_data, dict)):
-        petri.mean_gene_jsd_history = {}
-        petri.median_gene_jsd_history = {}
-        for year_str, year_data in history.items():
-            if isinstance(year_data, dict):
-                if 'mean_gene_jsd' in year_data:
-                    petri.mean_gene_jsd_history[year_str] = year_data['mean_gene_jsd']
-                if 'median_gene_jsd' in year_data:
-                    petri.median_gene_jsd_history[year_str] = year_data['median_gene_jsd']
     
     # Set the year to the last year in history
     years = [int(y) for y in petri.cell_history.keys()]

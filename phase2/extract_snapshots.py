@@ -136,7 +136,7 @@ def main():
     with smart_open(args.simulation, 'r') as f:
         sim_data = json.load(f)
     
-    sim_params = sim_data['parameters']
+    sim_params = sim_data.get('config', sim_data.get('parameters', {}))  # Support both old and new format
     n_sites = sim_params.get('n', 1000)
     gene_size = sim_params.get('gene_size', 5)
     

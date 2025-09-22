@@ -18,13 +18,8 @@ simulation:
 output:
   directory: "data"              # Base directory for output
   filename: null                 # Output filename (auto-generated if null)
-  compress: false                 # Save as .json.gz if true, .json if false
+  compress: true                 # Save as .json.gz if true, .json if false
   save: true                     # Whether to save results
-
-# Performance options
-performance:
-  track_gene_jsd: true           # Track gene JSD history
-  calculate_cell_jsds: true      # Calculate cell JSDs (individual cell divergence)
 
 # Reproducibility
 seed: 42                         # Random seed (use -1 or null for random)

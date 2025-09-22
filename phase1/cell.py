@@ -320,7 +320,7 @@ class PetriDish:
     def __init__(self, rate: float = None, gene_rate_groups: List[Tuple[int, float]] = None,
                  n: int = N, gene_size: int = GENE_SIZE, 
                  seed: int = None, growth_phase: Optional[int] = DEFAULT_GROWTH_PHASE, 
-                 cells: List['Cell'] = None, calculate_cell_jsds: bool = True) -> None:
+                 cells: List['Cell'] = None) -> None:
         """
         Initialize petri dish with a single unmethylated cell or provided cells.
         
@@ -334,7 +334,6 @@ class PetriDish:
                          Use None for static populations (e.g., snapshots) that won't be aged.
             cells: Optional list of cells to start with (for phase2 compatibility).
                    All cells must have identical gene_rate_groups configuration and ages.
-            calculate_cell_jsds: Whether to calculate cell JSDs (for performance)
             
         Raises:
             ValueError: If provided cells have different gene_rate_groups configurations or ages
@@ -373,7 +372,6 @@ class PetriDish:
         self.seed = seed
         self.growth_phase = growth_phase
         self.target_population = 2 ** growth_phase if growth_phase is not None else None
-        self.calculate_cell_jsds = calculate_cell_jsds
         
         # Initialize cells - either provided or single unmethylated cell
         if cells is not None:
@@ -401,11 +399,8 @@ class PetriDish:
         # Cell history tracking (renamed for clarity)
         self.track_cell_history = True  # Renamed from history_enabled
         
-        # Gene JSD tracking
-        self.track_gene_jsd = False
+        # Gene JSD tracking (always enabled)
         self.gene_jsd_history = {}
-        self.mean_gene_jsd_history = {}    # Track mean gene JSD over time
-        self.median_gene_jsd_history = {}  # Track median gene JSD over time
         # Baseline must match gene_size + 1 bins
         self.BASELINE_GENE_DISTRIBUTION = [1.0] + [0.0] * self.gene_size
         
@@ -415,19 +410,14 @@ class PetriDish:
             year_key = str(self.year)
             self.cell_history = {year_key: [cell.to_dict() for cell in self.cells]}
             
-            # Initialize gene JSD at appropriate year if tracking
-            if self.track_gene_jsd and self.calculate_cell_jsds:
-                if self.year == 0:
-                    # Only initialize as zeros if truly year 0
-                    self.gene_jsd_history[year_key] = [0.0] * self.n_genes
-                    self.mean_gene_jsd_history[year_key] = 0.0
-                    self.median_gene_jsd_history[year_key] = 0.0
-                else:
-                    # Calculate actual gene JSDs for non-zero years
-                    gene_jsds = self.calculate_gene_jsd()
-                    self.gene_jsd_history[year_key] = gene_jsds
-                    self.mean_gene_jsd_history[year_key] = float(np.mean(gene_jsds)) if gene_jsds else 0.0
-                    self.median_gene_jsd_history[year_key] = float(np.median(gene_jsds)) if gene_jsds else 0.0
+            # Initialize gene JSD at appropriate year
+            if self.year == 0:
+                # Only initialize as zeros if truly year 0
+                self.gene_jsd_history[year_key] = [0.0] * self.n_genes
+            else:
+                # Calculate actual gene JSDs for non-zero years
+                gene_jsds = self.calculate_gene_jsd()
+                self.gene_jsd_history[year_key] = gene_jsds
         else:
             self.cell_history = {}
         
@@ -528,9 +518,6 @@ class PetriDish:
         """
         for cell in self.cells:
             cell.methylate()
-            # Only calculate JSD if enabled
-            if not self.calculate_cell_jsds:
-                cell.cell_jsd = 0.0
         print(f"  Methylation applied to {len(self.cells)} cells")
         
     def random_cull_cells(self) -> None:
@@ -702,15 +689,14 @@ class PetriDish:
         
         # Prepare data to save with new format
         save_data = {
-            'parameters': {
+            'config': {
                 'gene_rate_groups': self.gene_rate_groups,  # Only store this
                 'n': self.n,
                 'gene_size': self.gene_size,
                 'growth_phase': self.growth_phase,
                 'years': self.year,
                 'seed': self.seed,
-                'track_cell_history': self.track_cell_history,
-                'track_gene_jsd': self.track_gene_jsd
+                'track_cell_history': self.track_cell_history
             },
             'history': {}
         }
@@ -729,18 +715,6 @@ class PetriDish:
                     save_data['history'][year_str] = {}
                 save_data['history'][year_str]['gene_jsd'] = gene_jsds
         
-        # Add mean and median gene JSD histories
-        if hasattr(self, 'mean_gene_jsd_history') and self.mean_gene_jsd_history:
-            for year_str, mean_jsd in self.mean_gene_jsd_history.items():
-                if year_str not in save_data['history']:
-                    save_data['history'][year_str] = {}
-                save_data['history'][year_str]['mean_gene_jsd'] = mean_jsd
-        
-        if hasattr(self, 'median_gene_jsd_history') and self.median_gene_jsd_history:
-            for year_str, median_jsd in self.median_gene_jsd_history.items():
-                if year_str not in save_data['history']:
-                    save_data['history'][year_str] = {}
-                save_data['history'][year_str]['median_gene_jsd'] = median_jsd
         
         # Save with or without compression
         if compress:
@@ -763,19 +737,17 @@ class PetriDish:
     
     # ==================== Enhanced History Tracking Methods ====================
     
-    def enable_history_tracking(self, clear_history: bool = True, track_gene_jsd: bool = True) -> 'PetriDish':
+    def enable_history_tracking(self, clear_history: bool = True) -> 'PetriDish':
         """
         Enable history tracking.
         
         Args:
             clear_history: Whether to clear existing history
-            track_gene_jsd: Whether to also track gene JSD history
             
         Returns:
             Self for method chaining
         """
         self.track_cell_history = True
-        self.track_gene_jsd = track_gene_jsd
         if clear_history:
             self.cell_history = {}
             self.gene_jsd_history = {}
@@ -785,7 +757,6 @@ class PetriDish:
     def disable_history_tracking(self) -> 'PetriDish':
         """Disable history tracking to save memory."""
         self.track_cell_history = False
-        self.track_gene_jsd = False
         return self
     
     def _record_history(self, year: int = None) -> None:
@@ -802,18 +773,9 @@ class PetriDish:
         if self.track_cell_history:
             self.cell_history[str(year)] = [cell.to_dict() for cell in self.cells]
         
-        # Record gene JSD if enabled
-        if self.track_gene_jsd and self.calculate_cell_jsds:
-            gene_jsds = self.calculate_gene_jsd()
-            self.gene_jsd_history[str(year)] = gene_jsds
-            
-            # Calculate and store summary statistics
-            if gene_jsds:
-                self.mean_gene_jsd_history[str(year)] = sum(gene_jsds) / len(gene_jsds)
-                self.median_gene_jsd_history[str(year)] = statistics.median(gene_jsds)
-            else:
-                self.mean_gene_jsd_history[str(year)] = 0.0
-                self.median_gene_jsd_history[str(year)] = 0.0
+        # Record gene JSD (always enabled)
+        gene_jsds = self.calculate_gene_jsd()
+        self.gene_jsd_history[str(year)] = gene_jsds
     
     
     def increment_year(self, record_history: bool = True) -> 'PetriDish':
@@ -926,21 +888,6 @@ class PetriDish:
         
         return gene_means
     
-    @property
-    def mean_gene_jsd(self) -> float:
-        """Current mean JSD across all genes."""
-        if not self.cells:
-            return 0.0
-        gene_jsds = self.calculate_gene_jsd()
-        return sum(gene_jsds) / len(gene_jsds) if gene_jsds else 0.0
-    
-    @property
-    def median_gene_jsd(self) -> float:
-        """Current median JSD across all genes."""
-        if not self.cells:
-            return 0.0
-        gene_jsds = self.calculate_gene_jsd()
-        return statistics.median(gene_jsds) if gene_jsds else 0.0
     
     def grow_with_homeostasis(self, years: int, growth_phase: int = None,
                              verbose: bool = False, record_history: bool = True) -> 'PetriDish':
@@ -992,8 +939,7 @@ class PetriDish:
     # ==================== Professional Pipeline Methods ====================
     
     @classmethod
-    def from_cells(cls, cells, growth_phase: int = 7, 
-                   calculate_cell_jsds: bool = True,
+    def from_cells(cls, cells, growth_phase: int = 7,
                    metadata: Dict = None) -> 'PetriDish':
         """
         Create a PetriDish from cell(s).
@@ -1001,7 +947,6 @@ class PetriDish:
         Args:
             cells: Single Cell object or list of Cell objects to use as founding population
             growth_phase: The growth phase for this PetriDish
-            calculate_cell_jsds: Whether to calculate cell JSDs
             metadata: Optional metadata to attach to the PetriDish
             
         Returns:
@@ -1020,8 +965,7 @@ class PetriDish:
                 rate=first_cell.rate,
                 gene_size=first_cell.gene_size,
                 growth_phase=growth_phase,
-                seed=None,
-                calculate_cell_jsds=calculate_cell_jsds
+                seed=None
             )
         else:
             # Gene-specific rates
@@ -1031,8 +975,7 @@ class PetriDish:
                 gene_rate_groups=first_cell.gene_rate_groups,
                 gene_size=first_cell.gene_size,
                 growth_phase=growth_phase,
-                seed=None,
-                calculate_cell_jsds=calculate_cell_jsds
+                seed=None
             )
         
         # Set metadata if provided
@@ -1097,9 +1040,9 @@ class PetriDish:
             'mean_cell_jsd': statistics.mean([c.cell_jsd for c in self.cells]) if self.cells else 0.0
         }
         
-        # Add gene metrics if we can calculate them
-        if self.calculate_cell_jsds and self.cells:
-            stats['gene_jsds'] = self.calculate_gene_jsds()
+        # Add gene metrics
+        if self.cells:
+            stats['gene_jsds'] = self.calculate_gene_jsd()
             stats['gene_mean_methylation'] = self.calculate_gene_mean_methylation()
             stats['n_genes'] = self.n_genes
         
@@ -1169,7 +1112,7 @@ class PetriDish:
         save_data['metadata']['year'] = self.year
         
         # Add gene metrics if requested
-        if include_gene_metrics and self.calculate_cell_jsds:
+        if include_gene_metrics:
             save_data['metadata']['gene_jsds'] = current_stats.get('gene_jsds', [])
             save_data['metadata']['gene_mean_methylation'] = current_stats.get('gene_mean_methylation', [])
             save_data['metadata']['n_genes'] = self.n_genes

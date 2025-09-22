@@ -42,7 +42,6 @@ def create_individual(
     petri = PetriDish.from_cells(
         cell,
         growth_phase=growth_phase,
-        calculate_cell_jsds=True,
         metadata=metadata
     )
     

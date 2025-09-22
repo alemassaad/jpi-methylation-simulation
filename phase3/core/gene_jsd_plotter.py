@@ -352,8 +352,7 @@ def plot_gene_jsd_trajectory(petri: PetriDish, title: str = None, output_path: s
             gene_rate_groups=petri.gene_rate_groups,
             n=petri.n,  # Pass n to match actual cell sizes
             gene_size=petri.gene_size,  # Pass gene_size to match configuration
-            growth_phase=1,  # Not used for calculation
-            calculate_cell_jsds=False
+            growth_phase=1  # Not used for calculation
         )
         
         # Convert dictionary cells to Cell objects if needed

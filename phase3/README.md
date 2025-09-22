@@ -936,7 +936,7 @@ python run_analysis.py ... --config configs/quick_analysis.yaml
 **"Gene rate groups inconsistent"**
 ```bash
 # Check phase1 simulation parameters
-zcat {simulation_path} | jq '.parameters.gene_rate_groups'
+zcat {simulation_path} | jq '.config.gene_rate_groups'
 
 # Check phase2 metadata
 cat {phase2_dir}/snapshots/metadata.json | jq '.gene_rate_groups'
@@ -1055,7 +1055,7 @@ uname -a
 # Data structure information
 ls -la {phase2_dir}
 du -sh {phase2_dir}/*
-jq '.parameters' {simulation_file}
+jq '.config' {simulation_file}
 
 # Error logs
 # Run with verbose output and save logs

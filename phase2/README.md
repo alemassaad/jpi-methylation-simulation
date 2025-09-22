@@ -1,13 +1,13 @@
 # Phase 2: Data Generation Pipeline
 
-A modular pipeline for generating structured datasets from phase1 simulations. Phase2 creates cell populations and snapshot data for downstream analysis, with no plotting or visualization (moved to phase3).
+A modular pipeline for generating structured datasets from phase1 simulations. Phase2 creates cell populations with uniform mixing (all individuals receive the same snapshot cells) for reproducible analysis. All plotting and visualization has been moved to phase3.
 
 ## Current Structure (After Cleanup)
 
 Phase 2 now contains only essential data generation components (10 files total):
 - **Core Scripts**: `run_pipeline.py`, `extract_snapshots.py`, `simulate_individuals.py`, `create_control2.py`
 - **Core Modules**: `pipeline_utils.py`, `individual_helpers.py`, `path_utils.py`, `validation.py`
-- **Configuration**: `configs/config_default.yaml`
+- **Configuration**: `config_default.yaml` (loaded by default)
 
 All testing and plotting functionality has been removed for a clean, focused pipeline.
 
@@ -39,10 +39,8 @@ python run_pipeline.py \
     --individual-growth-phase 6 \
     --mix-ratio 70
 
-# Using default config
-python run_pipeline.py \
-    --config configs/config_default.yaml \
-    --simulation ../phase1/data/*/simulation.json.gz
+# Config is loaded automatically, CLI args override
+python run_pipeline.py --simulation ../phase1/data/*/simulation.json.gz
 ```
 
 ## Pipeline Stages
@@ -60,13 +58,13 @@ python run_pipeline.py \
   - Exponential growth phase
   - Homeostasis with random culling
 - **Stage 5**: Mix with snapshot cells
-  - Independent or uniform mixing modes
+  - Uniform mixing (all individuals get same cells)
   - Optional size normalization
 
 ### Stage 6: Create Control2 (`create_control2.py`)
 - Pure snapshot populations (no growth)
 - Matches mutant/control1 population sizes
-- Uses uniform pool if uniform mixing was applied
+- Uses uniform pool (always applied)
 
 ### Next Step: Analysis (Phase 3)
 - Use phase3 to analyze the generated data
@@ -94,34 +92,28 @@ python run_pipeline.py \
 - `--mix-ratio`: Percentage from second snapshot (default: 80)
 
 ### Advanced Options
-- `--uniform-mixing`: Use same snapshot cells for all individuals
 - `--normalize-size`: Normalize populations to same size before mixing
-- `--force-reload`: Force re-extraction of snapshots
-- `--force-recreate`: Force recreation of individuals
-- `--no-compress`: Save uncompressed JSON files
-- `--force-reload`: Force re-extraction of snapshots
-- `--force-recreate`: Force recreation of individuals
+- `--compress`: Compress output files (.json.gz)
+- `--no-compress`: Don't compress output files (.json) - default
 - `--seed`: Random seed for reproducibility (default: 42)
 
 ## Configuration Files
 
-Create YAML configuration files in `configs/`:
+The default configuration (`config_default.yaml`) is always loaded automatically from the phase2 directory. You can override defaults with command-line arguments or a custom config file:
 
 ```yaml
-# configs/my_config.yaml
-simulation: ../phase1/data/*/simulation.json.gz
-first_snapshot: 30
-second_snapshot: 50
-n_quantiles: 10
-cells_per_quantile: 3
-individual_growth_phase: 7
-mix_ratio: 80
-uniform_mixing: true
+# Custom config example
+first_snapshot: 25
+second_snapshot: 45
+n_quantiles: 5
+cells_per_quantile: 4
+individual_growth_phase: 8
+mix_ratio: 85
 normalize_size: true
-seed: 42
+seed: 123
 ```
 
-Use with: `python run_pipeline.py --config configs/my_config.yaml`
+Use with: `python run_pipeline.py --config my_custom.yaml --simulation ../phase1/data/*/simulation.json.gz`
 
 ## Running Individual Stages
 
@@ -175,17 +167,14 @@ data/{rate_info}/snap{Y1}to{Y2}-growth{G}-quant{Q}x{C}-mix{M}-seed{S}-{timestamp
 # For analysis results, use phase3
 ```
 
-## Mixing Modes
+## Mixing Mode
 
-### Independent Mixing (Default)
-- Each individual randomly samples from snapshot
-- Natural variation between individuals
-- Standard statistical analysis
-
-### Uniform Mixing (`--uniform-mixing`)
-- All individuals use same snapshot cells
-- Reduces sampling noise
-- Better for comparing growth effects
+### Uniform Mixing (Always Enabled)
+- All individuals receive the exact same snapshot cells
+- Eliminates sampling variation between individuals
+- Focuses analysis on biological differences rather than sampling noise
+- Directory suffix always includes 'u' (e.g., mix80u)
+- Provides reproducible, comparable results across batches
 
 ## Size Normalization
 
@@ -242,7 +231,7 @@ python run_pipeline.py \
 
 - Use compressed files (`.json.gz`) for large simulations
 - Run stages individually for debugging
-- Reuse snapshots with `--force-reload` only when needed
+- Snapshots are cached within each run directory
 - Generate data once, then run multiple analyses in phase3
 
 ## Migration from Old Pipeline

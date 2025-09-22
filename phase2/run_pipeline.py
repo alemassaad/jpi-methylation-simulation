@@ -26,14 +26,16 @@ from phase2.core.path_utils import parse_phase1_simulation_path, generate_phase2
 
 
 def load_config(config_path: Optional[str] = None) -> Dict[str, Any]:
-    """Load configuration from YAML file(s)."""
+    """Load configuration from YAML file(s). Always loads defaults first."""
     config = {}
     
     if yaml is None:
+        print("Warning: PyYAML not installed. Config file support disabled.")
+        print("Install with: pip install pyyaml")
         return config
     
-    # Load default config if it exists
-    default_path = os.path.join(os.path.dirname(__file__), "configs", "config_default.yaml")
+    # Always load default config first
+    default_path = os.path.join(os.path.dirname(__file__), "config_default.yaml")
     if os.path.exists(default_path):
         try:
             with open(default_path, 'r') as f:
@@ -41,17 +43,20 @@ def load_config(config_path: Optional[str] = None) -> Dict[str, Any]:
                 config.update(default_config)
         except Exception as e:
             print(f"Warning: Could not load default config: {e}")
+    else:
+        print(f"Warning: Default config not found at {default_path}")
     
-    # Load user config if provided
+    # Load user config if provided (overrides defaults)
     if config_path and os.path.exists(config_path):
         try:
             with open(config_path, 'r') as f:
                 user_config = yaml.safe_load(f) or {}
-                # Simple merge (no deep merge for simplicity)
                 config.update(user_config)
         except Exception as e:
             print(f"Error loading config file {config_path}: {e}")
             sys.exit(1)
+    elif config_path:
+        print(f"Warning: Specified config file not found: {config_path}")
     
     return config
 
@@ -149,52 +154,88 @@ def main():
                        help="Path to phase1 simulation file")
     
     # Snapshot parameters
-    parser.add_argument("--first-snapshot", type=int, default=30,
-                       help="First year to extract")
-    parser.add_argument("--second-snapshot", type=int, default=50,
-                       help="Second year to extract")
+    parser.add_argument("--first-snapshot", type=int, default=None,
+                       help="First year to extract (default from config: 30)")
+    parser.add_argument("--second-snapshot", type=int, default=None,
+                       help="Second year to extract (default from config: 50)")
     
     # Sampling parameters
-    parser.add_argument("--n-quantiles", type=int, default=10,
-                       help="Number of quantiles for sampling")
-    parser.add_argument("--cells-per-quantile", type=int, default=3,
-                       help="Cells to sample per quantile")
+    parser.add_argument("--n-quantiles", type=int, default=None,
+                       help="Number of quantiles for sampling (default from config: 4)")
+    parser.add_argument("--cells-per-quantile", type=int, default=None,
+                       help="Cells to sample per quantile (default from config: 2)")
     
     # Growth parameters
-    parser.add_argument("--individual-growth-phase", type=int, default=7,
-                       help="Years of exponential growth")
-    parser.add_argument("--mix-ratio", type=int, default=80,
-                       help="Percentage of second snapshot in mix")
+    parser.add_argument("--individual-growth-phase", type=int, default=None,
+                       help="Years of exponential growth (default from config: 6)")
+    parser.add_argument("--mix-ratio", type=int, default=None,
+                       help="Percentage of second snapshot in mix (default from config: 70)")
     
-    # Mixing options
-    parser.add_argument("--uniform-mixing", action='store_true',
-                       help="Use same snapshot cells for all individuals")
+    # Mixing options (uniform mixing is now always enabled)
     parser.add_argument("--normalize-size", action='store_true',
                        help="Normalize all individuals to same size")
     
-    # Visualization
-    parser.add_argument("--bins", type=int, default=200,
-                       help="Number of bins for histograms")
-    parser.add_argument("--max-gene-plots", type=int, default=None,
-                       help="Maximum number of gene plots")
-    
     # Other options
-    parser.add_argument("--seed", type=int, default=42,
-                       help="Random seed")
-    parser.add_argument("--output-dir", type=str, default="data",
-                       help="Output directory")
-    parser.add_argument("--no-compress", action='store_true',
-                       help="Save uncompressed JSON files")
-    parser.add_argument("--force-reload", action='store_true',
-                       help="Force reload of snapshots")
+    parser.add_argument("--seed", type=int, default=None,
+                       help="Random seed (default from config: 42)")
+    parser.add_argument("--output-dir", type=str, default=None,
+                       help="Output directory (default from config: data)")
+    
+    # Compression options (mutually exclusive)
+    compress_group = parser.add_mutually_exclusive_group()
+    compress_group.add_argument("--compress", action='store_true', dest='compress',
+                               help="Compress output files (.json.gz)")
+    compress_group.add_argument("--no-compress", action='store_false', dest='compress',
+                               help="Don't compress output files (.json)")
+    parser.set_defaults(compress=None)  # Let config decide
+    
     parser.add_argument("--force-recreate", action='store_true',
                        help="Force recreation of individuals")
     
     args = parser.parse_args()
     
-    # Load config and merge
-    config = load_config(args.config)
-    args = merge_config_and_args(config, args)
+    # Always load default config, then merge with CLI args
+    config = load_config(args.config)  # Now always loads defaults
+    
+    # Map config keys to CLI argument names
+    config_mapping = {
+        'first_snapshot': 'first_snapshot',
+        'second_snapshot': 'second_snapshot',
+        'n_quantiles': 'n_quantiles',
+        'cells_per_quantile': 'cells_per_quantile',
+        'individual_growth_phase': 'individual_growth_phase',
+        'mix_ratio': 'mix_ratio',
+        'normalize_size': 'normalize_size',
+        'seed': 'seed',
+        'output_dir': 'output_dir',
+        'compress': 'compress',
+        'verbose': 'verbose'
+    }
+    
+    # Apply config values where CLI args are None
+    for config_key, arg_name in config_mapping.items():
+        if config_key in config and hasattr(args, arg_name) and getattr(args, arg_name) is None:
+            setattr(args, arg_name, config[config_key])
+    
+    # Ensure required values have defaults if not specified
+    if args.first_snapshot is None:
+        args.first_snapshot = 30
+    if args.second_snapshot is None:
+        args.second_snapshot = 50
+    if args.n_quantiles is None:
+        args.n_quantiles = 4
+    if args.cells_per_quantile is None:
+        args.cells_per_quantile = 2
+    if args.individual_growth_phase is None:
+        args.individual_growth_phase = 6
+    if args.mix_ratio is None:
+        args.mix_ratio = 70
+    if args.seed is None:
+        args.seed = 42
+    if args.output_dir is None:
+        args.output_dir = "data"
+    if args.compress is None:
+        args.compress = False  # Default if not in config
     
     # Handle glob patterns
     args.simulation = handle_glob_patterns(args.simulation)
@@ -224,7 +265,7 @@ def main():
     print(f"Snapshots: year {args.first_snapshot}, year {args.second_snapshot}")
     print(f"Growth phase: {args.individual_growth_phase} years")
     print(f"Mix ratio: {args.mix_ratio}%")
-    print(f"Uniform mixing: {args.uniform_mixing}")
+    print(f"Uniform mixing: Always enabled")
     print(f"Normalize size: {args.normalize_size}")
     print(f"Seed: {args.seed}")
     print("=" * 80)
@@ -239,9 +280,9 @@ def main():
         '--second-snapshot', str(args.second_snapshot),
         '--output-dir', base_dir,
     ]
-    if args.force_reload:
-        extract_cmd.append('--force-reload')
-    if args.no_compress:
+    if args.compress:
+        extract_cmd.append('--compress')
+    else:
         extract_cmd.append('--no-compress')
     
     if not run_command(extract_cmd, "Extract Snapshots (Stages 1-2)"):
@@ -257,8 +298,7 @@ def main():
         '--mix-ratio', str(args.mix_ratio),
         '--seed', str(args.seed),
     ]
-    if args.uniform_mixing:
-        simulate_cmd.append('--uniform-mixing')
+    # Uniform mixing is now always enabled
     if args.normalize_size:
         simulate_cmd.append('--normalize-size')
     if args.force_recreate:

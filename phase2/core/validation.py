@@ -407,12 +407,12 @@ class PipelineValidator:
                                   mutant_dishes: List[PetriDish],
                                   control1_dishes: List[PetriDish],
                                   mix_ratio: int,
-                                  uniform_mixing: bool,
+                                  uniform_mixing: bool,  # Kept for compatibility, always True now
                                   second_snapshot_year: int) -> None:
         """
         Validate populations after mixing.
         """
-        self._log(f"Validating mixed populations (ratio: {mix_ratio}%)")
+        self._log(f"Validating mixed populations (ratio: {mix_ratio}%, uniform mixing)")
         
         # Calculate expected composition
         grown_fraction = (100 - mix_ratio) / 100.0
@@ -462,8 +462,8 @@ class PipelineValidator:
                 #             "warning"
                 #         )
             
-            # Check uniform mixing consistency
-            if uniform_mixing and len(set(cell_counts)) > 1:
+            # Check uniform mixing consistency (always enabled now)
+            if len(set(cell_counts)) > 1:
                 self._log(
                     f"{batch_name}: Non-uniform sizes in uniform mixing: {set(cell_counts)}",
                     "warning"

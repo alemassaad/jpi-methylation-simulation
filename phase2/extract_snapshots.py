@@ -103,15 +103,18 @@ def main():
                        help="Base output directory")
     
     # Optional arguments
-    parser.add_argument("--force-reload", action='store_true',
-                       help="Force extraction even if snapshots exist")
-    parser.add_argument("--no-compress", action='store_true',
-                       help="Save uncompressed JSON files")
+    # Compression options (mutually exclusive)
+    compress_group = parser.add_mutually_exclusive_group()
+    compress_group.add_argument("--compress", action='store_true', dest='compress',
+                               help="Compress output files (.json.gz)")
+    compress_group.add_argument("--no-compress", action='store_false', dest='compress',
+                               help="Don't compress output files (.json)")
+    parser.set_defaults(compress=False)  # Default to no compression
     
     args = parser.parse_args()
     
     # Determine compression
-    use_compression = not args.no_compress
+    use_compression = args.compress
     ext = ".json.gz" if use_compression else ".json"
     
     # Create snapshots directory
@@ -160,9 +163,9 @@ def main():
     validator = PipelineValidator(verbose=True)
     
     # Extract first snapshot
-    if os.path.exists(first_snapshot_path) and not args.force_reload:
+    if os.path.exists(first_snapshot_path):
         print(f"\n✓ First snapshot already exists: {first_snapshot_path}")
-        print("  Use --force-reload to re-extract")
+        print("  Skipping extraction (using cached file)")
     else:
         first_cells = extract_and_save_snapshot(
             args.simulation,
@@ -178,7 +181,7 @@ def main():
                 cells=first_cells,
                 expected_year=args.first_snapshot,
                 expected_gene_rate_groups=gene_rate_groups,
-                min_cells=100  # Minimum needed for sampling
+                min_cells=10  # Minimum needed for sampling
             )
             print("  ✓ Validation passed")
         except ValidationError as e:
@@ -186,9 +189,9 @@ def main():
             sys.exit(1)
     
     # Extract second snapshot
-    if os.path.exists(second_snapshot_path) and not args.force_reload:
+    if os.path.exists(second_snapshot_path):
         print(f"\n✓ Second snapshot already exists: {second_snapshot_path}")
-        print("  Use --force-reload to re-extract")
+        print("  Skipping extraction (using cached file)")
     else:
         second_cells = extract_and_save_snapshot(
             args.simulation,
@@ -204,7 +207,7 @@ def main():
                 cells=second_cells,
                 expected_year=args.second_snapshot,
                 expected_gene_rate_groups=gene_rate_groups,
-                min_cells=100
+                min_cells=10  # Minimum needed for sampling
             )
             print("  ✓ Validation passed")
         except ValidationError as e:

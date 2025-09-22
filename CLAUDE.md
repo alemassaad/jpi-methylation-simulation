@@ -85,8 +85,12 @@ python run_simulation.py --gene-rate-groups "50:0.004,50:0.005,50:0.006" --gene-
 ```bash
 cd phase2
 
-# Complete pipeline with defaults
+# Complete pipeline (config loaded automatically, uniform mixing always enabled)
 python run_pipeline.py --simulation ../phase1/data/*/simulation.json.gz
+
+# With custom parameters (override config defaults)
+python run_pipeline.py --simulation ../phase1/data/*/simulation.json.gz \
+    --n-quantiles 10 --cells-per-quantile 3 --mix-ratio 80
 
 # Run individual stages (for debugging/custom workflows)
 python extract_snapshots.py --simulation ../phase1/data/*/simulation.json.gz --output-dir data/my_run
@@ -185,8 +189,7 @@ jpi-methylation-simulation/
 ├── phase2/ (10 files)
 │   ├── README.md
 │   ├── __init__.py
-│   ├── configs/
-│   │   └── config_default.yaml # Default configuration
+│   ├── config_default.yaml     # Default configuration (loaded automatically)
 │   ├── core/ (5 files)
 │   │   ├── __init__.py
 │   │   ├── individual_helpers.py  # Individual creation helpers

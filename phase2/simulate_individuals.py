@@ -37,7 +37,6 @@ def load_metadata(base_dir: str) -> Dict:
 
 def save_mixing_metadata(
     base_dir: str,
-    uniform_mixing: bool,
     mix_ratio: int,
     normalized_size: Optional[int] = None,
     normalization_threshold: Optional[int] = None,
@@ -45,7 +44,7 @@ def save_mixing_metadata(
 ) -> None:
     """Save mixing metadata for control2 creation."""
     metadata = {
-        'uniform_mixing': uniform_mixing,
+        'uniform_mixing': True,  # Always true now
         'mix_ratio': mix_ratio,
         'normalized_size': normalized_size,
         'normalization_threshold': normalization_threshold,
@@ -163,14 +162,11 @@ def main():
                        help="Percentage of second snapshot in mix (0-100)")
     
     # Optional arguments
-    parser.add_argument("--uniform-mixing", action='store_true',
-                       help="Use same snapshot cells for all individuals")
     parser.add_argument("--normalize-size", action='store_true',
                        help="Normalize all individuals to same size before mixing")
     parser.add_argument("--seed", type=int, default=42,
                        help="Random seed for reproducibility")
-    parser.add_argument("--force-recreate", action='store_true',
-                       help="Force recreation even if individuals exist")
+    # Removed force-recreate since we always use timestamped directories
     
     args = parser.parse_args()
     
@@ -202,7 +198,7 @@ def main():
     print(f"Growth: {timeline_duration} years ({args.growth_phase} growth + {homeostasis_years} homeostasis)")
     print(f"Target population: {expected_population} cells")
     print(f"Mix ratio: {args.mix_ratio}% year {second_year}, {100-args.mix_ratio}% grown")
-    print(f"Uniform mixing: {args.uniform_mixing}")
+    print(f"Uniform mixing: Always enabled")
     print(f"Normalize size: {args.normalize_size}")
     print(f"Seed: {args.seed}")
     print("=" * 60)
@@ -357,101 +353,54 @@ def main():
         
         print(f"  Normalized all individuals to {normalization_threshold} cells")
     
-    # Apply mixing
-    if args.uniform_mixing:
-        print("\n  === UNIFORM MIXING MODE ===")
-        
-        # Normalize for uniform mixing
-        print(f"  Step 1: Normalizing individuals for uniform mixing...")
-        normalized_mutant, normalized_control1, normalized_size = normalize_individuals_for_uniform_mixing(
-            mutant_dishes, control1_dishes, seed=args.seed + 999
-        )
-        
-        mutant_dishes = normalized_mutant
-        control1_dishes = normalized_control1
-        
-        # Create uniform pool
-        print(f"\n  Step 2: Creating uniform mixing pool...")
-        uniform_pool, uniform_indices = create_uniform_mixing_pool(
-            second_snapshot_cells,
-            normalized_size,
-            args.mix_ratio / 100,
-            seed=args.seed + 1000
-        )
-        uniform_pool_indices = uniform_indices.tolist()
-        
-        # Mix all individuals
-        print(f"\n  Step 3: Mixing with uniform pool...")
-        
-        for i, petri in enumerate(mutant_dishes):
-            individual_id = i + 1
-            initial_size = len(petri.cells)
-            final_size = mix_petri_uniform(petri, uniform_pool, args.mix_ratio / 100)
-            print(f"    Mutant {individual_id:02d}: {initial_size} → {final_size} cells")
-            
-            if not hasattr(petri, 'metadata'):
-                petri.metadata = {}
-            petri.metadata['mixed'] = True
-            petri.metadata['mix_mode'] = 'uniform'
-            petri.metadata['mix_ratio'] = args.mix_ratio
-        
-        for i, petri in enumerate(control1_dishes):
-            individual_id = i + 1
-            initial_size = len(petri.cells)
-            final_size = mix_petri_uniform(petri, uniform_pool, args.mix_ratio / 100)
-            print(f"    Control1 {individual_id:02d}: {initial_size} → {final_size} cells")
-            
-            if not hasattr(petri, 'metadata'):
-                petri.metadata = {}
-            petri.metadata['mixed'] = True
-            petri.metadata['mix_mode'] = 'uniform'
-            petri.metadata['mix_ratio'] = args.mix_ratio
+    # Apply uniform mixing (always enabled now)
+    print("\n  === UNIFORM MIXING ===")
     
-    else:
-        print("\n  === INDEPENDENT MIXING MODE ===")
+    # Normalize for uniform mixing
+    print(f"  Step 1: Normalizing individuals for uniform mixing...")
+    normalized_mutant, normalized_control1, normalized_size = normalize_individuals_for_uniform_mixing(
+        mutant_dishes, control1_dishes, seed=args.seed + 999
+    )
+    
+    mutant_dishes = normalized_mutant
+    control1_dishes = normalized_control1
+    
+    # Create uniform pool
+    print(f"\n  Step 2: Creating uniform mixing pool...")
+    uniform_pool, uniform_indices = create_uniform_mixing_pool(
+        second_snapshot_cells,
+        normalized_size,
+        args.mix_ratio / 100,
+        seed=args.seed + 1000
+    )
+    uniform_pool_indices = uniform_indices  # Already a list
+    
+    # Mix all individuals
+    print(f"\n  Step 3: Mixing with uniform pool...")
+    
+    for i, petri in enumerate(mutant_dishes):
+        individual_id = i + 1
+        initial_size = len(petri.cells)
+        final_size = mix_petri_uniform(petri, uniform_pool, args.mix_ratio / 100)
+        print(f"    Mutant {individual_id:02d}: {initial_size} → {final_size} cells")
         
-        grown_cells = expected_population
-        grown_fraction = (100 - args.mix_ratio) / 100
-        expected_final_cells = int(grown_cells / grown_fraction)
+        if not hasattr(petri, 'metadata'):
+            petri.metadata = {}
+        petri.metadata['mixed'] = True
+        petri.metadata['mix_mode'] = 'uniform'
+        petri.metadata['mix_ratio'] = args.mix_ratio
+    
+    for i, petri in enumerate(control1_dishes):
+        individual_id = i + 1
+        initial_size = len(petri.cells)
+        final_size = mix_petri_uniform(petri, uniform_pool, args.mix_ratio / 100)
+        print(f"    Control1 {individual_id:02d}: {initial_size} → {final_size} cells")
         
-        print(f"  Target size after mixing: {expected_final_cells} cells")
-        
-        # Mix mutant individuals
-        process_batch_mixing(
-            dishes=mutant_dishes,
-            batch_name='mutant',
-            snapshot_cells=second_snapshot_cells,
-            mix_ratio=args.mix_ratio,
-            expected_population=expected_population,
-            expected_final_cells=expected_final_cells,
-            base_seed=args.seed + 100
-        )
-        
-        # Mix control1 individuals
-        process_batch_mixing(
-            dishes=control1_dishes,
-            batch_name='control1',
-            snapshot_cells=second_snapshot_cells,
-            mix_ratio=args.mix_ratio,
-            expected_population=expected_population,
-            expected_final_cells=expected_final_cells,
-            base_seed=args.seed + 200
-        )
-        
-        # Ensure all individuals are marked as mixed
-        for petri in mutant_dishes:
-            if not hasattr(petri, 'metadata'):
-                petri.metadata = {}
-            petri.metadata['mixed'] = True
-            petri.metadata['mix_mode'] = 'independent'
-            petri.metadata['mix_ratio'] = args.mix_ratio
-        
-        for petri in control1_dishes:
-            if not hasattr(petri, 'metadata'):
-                petri.metadata = {}
-            petri.metadata['mixed'] = True
-            petri.metadata['mix_mode'] = 'independent'
-            petri.metadata['mix_ratio'] = args.mix_ratio
+        if not hasattr(petri, 'metadata'):
+            petri.metadata = {}
+        petri.metadata['mixed'] = True
+        petri.metadata['mix_mode'] = 'uniform'
+        petri.metadata['mix_ratio'] = args.mix_ratio
     
     # Validate mixed populations
     try:
@@ -459,7 +408,7 @@ def main():
             mutant_dishes=mutant_dishes,
             control1_dishes=control1_dishes,
             mix_ratio=args.mix_ratio,
-            uniform_mixing=args.uniform_mixing,
+            uniform_mixing=True,  # Always true now
             second_snapshot_year=second_year
         )
         print("  ✓ Mixing validation passed")
@@ -495,7 +444,6 @@ def main():
     # Save mixing metadata
     save_mixing_metadata(
         args.base_dir,
-        args.uniform_mixing,
         args.mix_ratio,
         normalized_size,
         normalization_threshold,

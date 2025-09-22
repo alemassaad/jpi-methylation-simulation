@@ -1,0 +1,27 @@
+# Default configuration for Phase 2 pipeline
+# This file defines default values for all pipeline parameters
+# Can be overridden by command-line arguments
+
+# Required input
+simulation: null                 # Path to phase1 simulation file (REQUIRED)
+
+# Snapshot configuration
+first_snapshot: 30               # First snapshot year
+second_snapshot: 50              # Second snapshot year  
+
+# Individual simulation parameters
+individual_growth_phase: 6       # Individual growth phase in years (2^6 = 64 cells)
+n_quantiles: 4                   # Number of quantiles for sampling (e.g., 4 = quartiles, 10 = deciles)
+cells_per_quantile: 3            # Cells sampled per quantile
+
+# Mixing configuration (uniform mixing is now always enabled)
+mix_ratio: 70                    # Percentage of snapshot cells in final mix (0-100)
+normalize_size: true             # Normalize all individuals to same size before mixing
+
+# Output configuration
+output_dir: "data"               # Base output directory
+compress: false                  # Save as .json.gz if true, .json if false
+
+# Other settings
+seed: 42                         # Random seed (use -1 or null for random)
+verbose: true                    # Enable verbose output

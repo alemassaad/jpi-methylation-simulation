@@ -69,18 +69,10 @@ def calculate_expected_final_cells(mixing_metadata: Optional[Dict]) -> int:
         # Default if no mixing metadata
         return 640
     
-    if mixing_metadata.get('uniform_mixing'):
-        # With uniform mixing, use normalized size
-        normalized_size = mixing_metadata.get('normalized_size', 128)
-        mix_ratio = mixing_metadata.get('mix_ratio', 80) / 100
-        expected_final_cells = int(normalized_size / (1 - mix_ratio))
-    else:
-        # Standard calculation
-        mix_ratio = mixing_metadata.get('mix_ratio', 80) / 100
-        # Assume standard growth to 128 cells
-        grown_cells = 128
-        grown_fraction = 1 - mix_ratio
-        expected_final_cells = int(grown_cells / grown_fraction)
+    # Uniform mixing is always true now
+    normalized_size = mixing_metadata.get('normalized_size', 128)
+    mix_ratio = mixing_metadata.get('mix_ratio', 80) / 100
+    expected_final_cells = int(normalized_size / (1 - mix_ratio))
     
     return expected_final_cells
 
@@ -98,8 +90,7 @@ def main():
     # Optional arguments
     parser.add_argument("--seed", type=int, default=342,
                        help="Random seed for reproducibility (default: 342)")
-    parser.add_argument("--force-recreate", action='store_true',
-                       help="Force recreation even if control2 exists")
+    # Removed force-recreate since we always use timestamped directories
     
     args = parser.parse_args()
     
@@ -122,7 +113,7 @@ def main():
     print(f"Seed: {args.seed}")
     
     if mixing_metadata:
-        print(f"Mixing mode: {'uniform' if mixing_metadata['uniform_mixing'] else 'independent'}")
+        print(f"Mixing mode: Uniform (always enabled)")
         print(f"Mix ratio: {mixing_metadata['mix_ratio']}%")
         if mixing_metadata.get('normalized_size'):
             print(f"Normalized size: {mixing_metadata['normalized_size']}")
@@ -149,9 +140,9 @@ def main():
     # Check if control2 already exists
     control2_state = check_petri_files_state(control2_dir, expected_final_cells)
     
-    if control2_state['total_files'] >= num_control2 and not args.force_recreate:
+    if control2_state['total_files'] >= num_control2:
         print(f"\n✓ Control2 individuals already exist ({control2_state['total_files']} files)")
-        print("  Use --force-recreate to regenerate")
+        print("  Skipping creation")
         return
     
     print(f"\n✓ Creating {num_control2} control2 individuals...")
@@ -175,14 +166,13 @@ def main():
     # Create control2 individuals
     control2_dishes = []
     
-    # Get uniform pool if it was used
+    # Get uniform pool (always used now)
     uniform_pool = None
     uniform_indices = None
-    if mixing_metadata and mixing_metadata.get('uniform_mixing'):
-        if mixing_metadata.get('uniform_pool_indices'):
-            uniform_indices = np.array(mixing_metadata['uniform_pool_indices'])
-            uniform_pool = [second_snapshot_cells[i] for i in uniform_indices]
-            print(f"  Using uniform base with {len(uniform_pool)} cells")
+    if mixing_metadata and mixing_metadata.get('uniform_pool_indices'):
+        uniform_indices = np.array(mixing_metadata['uniform_pool_indices'])
+        uniform_pool = [second_snapshot_cells[i] for i in uniform_indices]
+        print(f"  Using uniform base with {len(uniform_pool)} cells")
     
     for i in range(num_control2):
         print(f"  Creating individual {i+1}/{num_control2}")

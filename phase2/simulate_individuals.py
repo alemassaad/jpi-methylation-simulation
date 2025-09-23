@@ -19,7 +19,7 @@ sys.path.append(os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__f
 from cell import PetriDish, Cell
 from core.pipeline_utils import (
     load_snapshot_cells, sample_by_quantiles, sample_uniform,
-    normalize_populations, normalize_individuals_for_uniform_mixing,
+    normalize_populations,
     create_uniform_mixing_pool, mix_petri_uniform, save_all_individuals
 )
 from core.individual_helpers import (
@@ -38,8 +38,7 @@ def load_metadata(base_dir: str) -> Dict:
 def save_mixing_metadata(
     base_dir: str,
     mix_ratio: int,
-    normalized_size: Optional[int] = None,
-    normalization_threshold: Optional[int] = None,
+    normalized_size: int,  # No longer optional
     uniform_pool_indices: Optional[List[int]] = None
 ) -> None:
     """Save mixing metadata for control2 creation."""
@@ -47,7 +46,7 @@ def save_mixing_metadata(
         'uniform_mixing': True,  # Always true now
         'mix_ratio': mix_ratio,
         'normalized_size': normalized_size,
-        'normalization_threshold': normalization_threshold,
+        'normalization_threshold': normalized_size,  # Keep for backwards compat in Control2
         'uniform_pool_indices': uniform_pool_indices
     }
     
@@ -162,8 +161,6 @@ def main():
                        help="Percentage of second snapshot in mix (0-100)")
     
     # Optional arguments
-    parser.add_argument("--normalize-size", action='store_true',
-                       help="Normalize all individuals to same size before mixing")
     parser.add_argument("--seed", type=int, default=42,
                        help="Random seed for reproducibility")
     # Removed force-recreate since we always use timestamped directories
@@ -199,7 +196,7 @@ def main():
     print(f"Target population: {expected_population} cells")
     print(f"Mix ratio: {args.mix_ratio}% year {second_year}, {100-args.mix_ratio}% grown")
     print(f"Uniform mixing: Always enabled")
-    print(f"Normalize size: {args.normalize_size}")
+    print(f"Normalization: Always enabled (median - 0.5σ)")
     print(f"Seed: {args.seed}")
     print("=" * 60)
     
@@ -322,51 +319,37 @@ def main():
     print(f"  Loaded {len(second_snapshot_cells)} cells")
     
     # Variables for mixing metadata
-    normalized_size = None
-    normalization_threshold = None
     uniform_pool_indices = None
     
-    # Apply normalization if requested
-    if args.normalize_size:
-        print("\n  === APPLYING SIZE NORMALIZATION ===")
-        print("  Using median - 0.5σ threshold")
-        
-        mutant_dishes, control1_dishes, normalization_threshold = normalize_populations(
-            mutant_dishes, control1_dishes,
-            seed=args.seed + 5000
-        )
-        
-        # Update metadata
-        for new_id, dish in enumerate(mutant_dishes, 1):
-            if not hasattr(dish, 'metadata'):
-                dish.metadata = {}
-            dish.metadata['individual_id'] = new_id
-            dish.metadata['normalized'] = True
-            dish.metadata['normalization_threshold'] = normalization_threshold
-        
-        for new_id, dish in enumerate(control1_dishes, 1):
-            if not hasattr(dish, 'metadata'):
-                dish.metadata = {}
-            dish.metadata['individual_id'] = new_id
-            dish.metadata['normalized'] = True
-            dish.metadata['normalization_threshold'] = normalization_threshold
-        
-        print(f"  Normalized all individuals to {normalization_threshold} cells")
+    # Apply normalization (always mandatory now)
+    print("\n  === APPLYING SIZE NORMALIZATION ===")
+    print("  Using median - 0.5σ threshold")
     
-    # Apply uniform mixing (always enabled now)
-    print("\n  === UNIFORM MIXING ===")
-    
-    # Normalize for uniform mixing
-    print(f"  Step 1: Normalizing individuals for uniform mixing...")
-    normalized_mutant, normalized_control1, normalized_size = normalize_individuals_for_uniform_mixing(
-        mutant_dishes, control1_dishes, seed=args.seed + 999
+    mutant_dishes, control1_dishes, normalized_size = normalize_populations(
+        mutant_dishes, control1_dishes,
+        seed=args.seed + 5000
     )
     
-    mutant_dishes = normalized_mutant
-    control1_dishes = normalized_control1
+    # Update metadata
+    for new_id, dish in enumerate(mutant_dishes, 1):
+        if not hasattr(dish, 'metadata'):
+            dish.metadata = {}
+        dish.metadata['individual_id'] = new_id
+        dish.metadata['normalized'] = True
+        dish.metadata['normalization_threshold'] = normalized_size
+    
+    for new_id, dish in enumerate(control1_dishes, 1):
+        if not hasattr(dish, 'metadata'):
+            dish.metadata = {}
+        dish.metadata['individual_id'] = new_id
+        dish.metadata['normalized'] = True
+        dish.metadata['normalization_threshold'] = normalized_size
+    
+    print(f"  Normalized all individuals to {normalized_size} cells")
     
     # Create uniform pool
-    print(f"\n  Step 2: Creating uniform mixing pool...")
+    print("\n  === UNIFORM MIXING ===")
+    print(f"  Creating uniform mixing pool...")
     uniform_pool, uniform_indices = create_uniform_mixing_pool(
         second_snapshot_cells,
         normalized_size,
@@ -376,7 +359,7 @@ def main():
     uniform_pool_indices = uniform_indices  # Already a list
     
     # Mix all individuals
-    print(f"\n  Step 3: Mixing with uniform pool...")
+    print(f"\n  Mixing with uniform pool...")
     
     for i, petri in enumerate(mutant_dishes):
         individual_id = i + 1
@@ -446,7 +429,6 @@ def main():
         args.base_dir,
         args.mix_ratio,
         normalized_size,
-        normalization_threshold,
         uniform_pool_indices
     )
     

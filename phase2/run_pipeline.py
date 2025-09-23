@@ -172,8 +172,6 @@ def main():
                        help="Percentage of second snapshot in mix (default from config: 70)")
     
     # Mixing options (uniform mixing is now always enabled)
-    parser.add_argument("--normalize-size", action='store_true',
-                       help="Normalize all individuals to same size")
     
     # Other options
     parser.add_argument("--seed", type=int, default=None,
@@ -205,7 +203,6 @@ def main():
         'cells_per_quantile': 'cells_per_quantile',
         'individual_growth_phase': 'individual_growth_phase',
         'mix_ratio': 'mix_ratio',
-        'normalize_size': 'normalize_size',
         'seed': 'seed',
         'output_dir': 'output_dir',
         'compress': 'compress',
@@ -266,7 +263,7 @@ def main():
     print(f"Growth phase: {args.individual_growth_phase} years")
     print(f"Mix ratio: {args.mix_ratio}%")
     print(f"Uniform mixing: Always enabled")
-    print(f"Normalize size: {args.normalize_size}")
+    print(f"Normalization: Always enabled (median - 0.5σ)")
     print(f"Seed: {args.seed}")
     print("=" * 80)
     
@@ -299,8 +296,6 @@ def main():
         '--seed', str(args.seed),
     ]
     # Uniform mixing is now always enabled
-    if args.normalize_size:
-        simulate_cmd.append('--normalize-size')
     if args.force_recreate:
         simulate_cmd.append('--force-recreate')
     

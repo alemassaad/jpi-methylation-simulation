@@ -41,7 +41,7 @@ def load_mixing_metadata(base_dir: str) -> Optional[Dict]:
     return None
 
 
-def determine_control2_count(base_dir: str, normalize_size: bool) -> int:
+def determine_control2_count(base_dir: str) -> int:
     """Determine how many control2 individuals to create."""
     individuals_dir = os.path.join(base_dir, "individuals")
     
@@ -49,16 +49,10 @@ def determine_control2_count(base_dir: str, normalize_size: bool) -> int:
     mutant_count = len(glob.glob(os.path.join(individuals_dir, "mutant", "individual_*.json*")))
     control1_count = len(glob.glob(os.path.join(individuals_dir, "control1", "individual_*.json*")))
     
-    if normalize_size:
-        # After normalization, use average
-        num_control2 = (mutant_count + control1_count) // 2
-        print(f"  Control2 count: {num_control2}")
-        print(f"    (Average of {mutant_count} mutant + {control1_count} control1)")
-    else:
-        # Use the larger count
-        num_control2 = max(mutant_count, control1_count)
-        print(f"  Control2 count: {num_control2}")
-        print(f"    (Based on {mutant_count} mutant, {control1_count} control1)")
+    # After normalization, use average
+    num_control2 = (mutant_count + control1_count) // 2
+    print(f"  Control2 count: {num_control2}")
+    print(f"    (Average of {mutant_count} mutant + {control1_count} control1)")
     
     return num_control2
 
@@ -130,8 +124,7 @@ def main():
     ext = ".json.gz" if use_compression else ".json"
     
     # Determine how many control2 individuals to create
-    normalize_size = mixing_metadata and mixing_metadata.get('normalization_threshold') is not None
-    num_control2 = determine_control2_count(args.base_dir, normalize_size)
+    num_control2 = determine_control2_count(args.base_dir)
     
     # Calculate expected final cells
     expected_final_cells = calculate_expected_final_cells(mixing_metadata)

@@ -146,10 +146,8 @@ def generate_phase2_output_dir(args, sim_params: Dict) -> str:
               f"years{sim_params['sim_years']}")
     
     # Level 2: Pipeline params in logical flow order
-    # Build mix suffix: always 'u' for uniform, add 'n' if normalized
+    # Build mix suffix: always 'u' for uniform (normalization is always on)
     mix_suffix = "u"  # Always uniform now
-    if hasattr(args, 'normalize_size') and args.normalize_size:
-        mix_suffix += "n"
     
     params_str = (f"snap{args.first_snapshot}to{args.second_snapshot}-"
                   f"growth{args.individual_growth_phase}-"

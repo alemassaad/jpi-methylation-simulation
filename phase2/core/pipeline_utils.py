@@ -987,87 +987,6 @@ def print_mixing_statistics(mutant_stats: Dict, control1_stats: Dict, combined_m
     print("  " + "="*50)
 
 
-def normalize_individuals_for_uniform_mixing(
-    mutant_dishes: List[PetriDish],
-    control1_dishes: List[PetriDish], 
-    seed: Optional[int] = None
-) -> Tuple[List[PetriDish], List[PetriDish], int]:
-    """
-    Normalize all individuals to the same size by sampling down to minimum.
-    This ensures fair uniform mixing by eliminating size variation between individuals.
-    
-    Args:
-        mutant_dishes: List of mutant PetriDish objects
-        control1_dishes: List of control1 PetriDish objects  
-        seed: Random seed for reproducibility
-        
-    Returns:
-        Tuple of (normalized_mutant_dishes, normalized_control1_dishes, normalized_size)
-    """
-    if seed is not None:
-        random.seed(seed)
-        np.random.seed(seed)
-    
-    # Collect all sizes
-    all_dishes = mutant_dishes + control1_dishes
-    all_sizes = [len(dish.cells) for dish in all_dishes]
-    
-    if not all_sizes:
-        print("  WARNING: No individuals to normalize for uniform mixing!")
-        return [], [], 0
-    
-    # Find minimum size to normalize to
-    min_size = min(all_sizes)
-    max_size = max(all_sizes)
-    
-    print(f"\n  === NORMALIZING INDIVIDUALS FOR UNIFORM MIXING ===")
-    print(f"  Individual sizes: min={min_size}, max={max_size}")
-    print(f"  Normalizing all individuals to {min_size} cells")
-    
-    def normalize_dish(dish: PetriDish) -> PetriDish:
-        """Normalize a single dish by random sampling."""
-        current_size = len(dish.cells)
-        if current_size == min_size:
-            # Already correct size, just deep copy
-            normalized_cells = [copy.deepcopy(cell) for cell in dish.cells]
-        else:
-            # Randomly sample down to min_size
-            sampled_indices = random.sample(range(current_size), min_size)
-            normalized_cells = [copy.deepcopy(dish.cells[idx]) for idx in sampled_indices]
-        
-        # Create new PetriDish with normalized cells
-        normalized_dish = PetriDish(
-            rate=dish.methylation_rate if hasattr(dish, 'methylation_rate') else 0.005,
-            n=len(normalized_cells[0].cpg_sites) if normalized_cells else 1000,
-            gene_size=normalized_cells[0].gene_size if normalized_cells else 5,
-            seed=None
-        )
-        normalized_dish.cells = normalized_cells
-        normalized_dish.year = dish.year
-        
-        # CRITICAL: Preserve metadata (includes individual_id)
-        if hasattr(dish, 'metadata'):
-            normalized_dish.metadata = copy.deepcopy(dish.metadata)
-        
-        # Preserve history if it exists
-        if hasattr(dish, 'cell_history'):
-            normalized_dish.cell_history = dish.cell_history
-        
-        return normalized_dish
-    
-    # Normalize all dishes
-    normalized_mutant = [normalize_dish(dish) for dish in mutant_dishes]
-    normalized_control1 = [normalize_dish(dish) for dish in control1_dishes]
-    
-    # Verify normalization
-    new_sizes = [len(dish.cells) for dish in normalized_mutant + normalized_control1]
-    if any(size != min_size for size in new_sizes):
-        print(f"  ⚠️ ERROR: Normalization failed! Sizes: {set(new_sizes)}")
-    else:
-        print(f"  ✓ Successfully normalized {len(new_sizes)} individuals to {min_size} cells each")
-    
-    return normalized_mutant, normalized_control1, min_size
-
 
 def create_uniform_mixing_pool(snapshot_cells: List[Cell], 
                                normalized_size: int, 
@@ -1123,11 +1042,11 @@ def mix_petri_uniform(petri: PetriDish,
                       target_ratio: float) -> int:
     """
     Mix PetriDish with cells from uniform pool.
-    Now simplified: all individuals are already normalized, just add the entire pool.
+    All individuals have been normalized to same size, just add the entire pool.
     
     Args:
-        petri: PetriDish to mix into (already normalized)
-        uniform_pool: Pre-sampled shared cells (sized exactly for the normalized individuals)
+        petri: PetriDish to mix into (normalized to threshold size)
+        uniform_pool: Pre-sampled shared cells (sized for the threshold-normalized individuals)
         target_ratio: What fraction should be from pool (used for 100% edge case only)
         
     Returns:
@@ -1144,7 +1063,7 @@ def mix_petri_uniform(petri: PetriDish,
         petri.update_metadata({'num_cells': len(new_cells)})
         return len(petri.cells)
     
-    # Normal case: individuals are already normalized, just add the entire pool
+    # Normal case: individuals are normalized to threshold, just add the entire pool
     added_cells = [copy.deepcopy(cell) for cell in uniform_pool]
     petri.cells.extend(added_cells)
     

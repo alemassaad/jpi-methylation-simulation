@@ -229,8 +229,6 @@ python run_pipeline.py \
     --n-quantiles 10 \              # Number of quantiles for sampling
     --cells-per-quantile 3 \        # Cells sampled per quantile
     --mix-ratio 80 \                # % of snapshot cells in final mix
-    --uniform-mixing \              # Use same snapshot cells for all (optional)
-    --normalize-size \              # Normalize to same size before mixing (optional)
     --seed 42                       # Random seed for reproducibility
 ```
 
@@ -373,14 +371,13 @@ petri.random_cull_cells()  # Homeostatic culling
 - Useful for focusing on biological variation rather than sampling noise
 - Directory suffix: 'u' (e.g., mix80u)
 
-#### Size Normalization (`--normalize-size`)
+#### Size Normalization (Always Applied)
 - Normalizes all individuals to the same cell count before mixing
 - Uses median - 0.5σ threshold to determine target size
 - Excludes individuals below threshold, trims those above
 - Addresses variation from homeostasis stochasticity
 - Typically retains ~67% of individuals
-- Directory suffix: 'n' (e.g., mix80n)
-- Works best combined with uniform mixing (mix80un)
+- Ensures fair comparison between individuals
 
 #### Homeostasis in Individual Growth
 - `--individual-growth-phase`: Years of exponential growth before homeostasis

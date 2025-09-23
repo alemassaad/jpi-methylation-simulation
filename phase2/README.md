@@ -80,20 +80,19 @@ python run_pipeline.py --simulation ../phase1/data/*/simulation.json.gz
 - `--simulation`: Path to phase1 simulation file (supports wildcards)
 
 ### Snapshot Parameters
-- `--first-snapshot`: First year to extract (default: 30)
-- `--second-snapshot`: Second year to extract (default: 50)
+- `--first-snapshot`: First year to extract (default: 20)
+- `--second-snapshot`: Second year to extract (default: 30)
 
 ### Sampling Parameters
-- `--n-quantiles`: Number of quantiles for mutant sampling (default: 10)
-- `--cells-per-quantile`: Cells to sample per quantile (default: 3)
+- `--n-quantiles`: Number of quantiles for mutant sampling (default: 3)
+- `--cells-per-quantile`: Cells to sample per quantile (default: 2)
 
 ### Growth Parameters
-- `--individual-growth-phase`: Years of exponential growth (default: 7)
+- `--individual-growth-phase`: Years of exponential growth (default: 5)
   - 6 = 64 cells, 7 = 128 cells, 8 = 256 cells
-- `--mix-ratio`: Percentage from second snapshot (default: 80)
+- `--mix-ratio`: Percentage from second snapshot (default: 60)
 
 ### Advanced Options
-- `--normalize-size`: Normalize populations to same size before mixing
 - `--compress`: Compress output files (.json.gz)
 - `--no-compress`: Don't compress output files (.json) - default
 - `--seed`: Random seed for reproducibility (default: 42)
@@ -110,7 +109,6 @@ n_quantiles: 5
 cells_per_quantile: 4
 individual_growth_phase: 8
 mix_ratio: 85
-normalize_size: true
 seed: 123
 ```
 
@@ -179,15 +177,11 @@ data/{rate_info}/snap{Y1}to{Y2}-growth{G}-quant{Q}x{C}-mix{M}-seed{S}-{timestamp
 
 ## Size Normalization
 
-### Without Normalization (Default)
-- Natural size variation from growth stochasticity
-- Some individuals may go extinct
-- Realistic population dynamics
-
-### With Normalization (`--normalize-size`)
-- All populations normalized to median - 0.5σ
-- Removes extinct individuals
-- Better for comparing methylation patterns
+### Population Normalization (Always Applied)
+- All populations normalized to median - 0.5σ threshold
+- Removes outlier individuals below threshold
+- Ensures fair comparison between individuals
+- Better for analyzing methylation patterns
 
 ## Gene-Specific Rates
 

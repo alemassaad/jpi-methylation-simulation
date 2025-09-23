@@ -16,10 +16,10 @@ simulation:
 
 # Output configuration
 output:
-  directory: "data"              # Base directory for output
+  directory: "../data"              # Base directory for output
   filename: null                 # Output filename (auto-generated if null)
   compress: false                 # Save as .json.gz if true, .json if false
   save: true                     # Whether to save results
 
 # Reproducibility
-seed: 42                         # Random seed (use -1 or null for random)
+seed: 24                         # Random seed (use -1 or null for random)

@@ -345,7 +345,11 @@ def main():
     output_filename = out_config.get('filename')
     
     if save_results:
-        filepath = petri_dish.save_history(filename=output_filename, compress=compress)
+        filepath = petri_dish.save_history(
+            filename=output_filename, 
+            directory=out_config.get('directory', 'data'),
+            compress=compress
+        )
         print(f"\nResults saved to: {filepath}")
     else:
         print("\nResults not saved (save disabled in config)")

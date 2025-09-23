@@ -20,7 +20,7 @@ from cell import PetriDish, Cell
 from core.pipeline_utils import (
     load_snapshot_cells, sample_by_quantiles, sample_uniform,
     normalize_populations,
-    create_uniform_mixing_pool, mix_petri_uniform, save_all_individuals
+    create_common_mixing_pool, mix_petri_common, save_all_individuals
 )
 from core.individual_helpers import (
     create_individual, process_batch_growth, process_batch_mixing
@@ -42,7 +42,7 @@ def save_mixing_metadata(
 ) -> None:
     """Save mixing metadata for control2 creation."""
     metadata = {
-        'uniform_mixing': True,  # Always true now
+        'common_mixing': True,  # Always true now
         'mix_ratio': mix_ratio,
         'normalized_size': normalized_size,
         'normalization_threshold': normalized_size  # Keep for backwards compat in Control2
@@ -193,7 +193,7 @@ def main():
     print(f"Growth: {timeline_duration} years ({args.growth_phase} growth + {homeostasis_years} homeostasis)")
     print(f"Target population: {expected_population} cells")
     print(f"Mix ratio: {args.mix_ratio}% year {second_year}, {100-args.mix_ratio}% grown")
-    print(f"Uniform mixing: Always enabled")
+    print(f"Common mixing: Always enabled")
     print(f"Normalization: Always enabled (median - 0.5σ)")
     print(f"Seed: {args.seed}")
     print("=" * 60)
@@ -340,48 +340,48 @@ def main():
     
     print(f"  Normalized all individuals to {normalized_size} cells")
     
-    # Create uniform pool
-    print("\n  === UNIFORM MIXING ===")
-    print(f"  Creating uniform mixing pool...")
-    uniform_pool = create_uniform_mixing_pool(
+    # Create common pool
+    print("\n  === COMMON MIXING ===")
+    print(f"  Creating common mixing pool...")
+    common_pool = create_common_mixing_pool(
         second_snapshot_cells,
         normalized_size,
         args.mix_ratio / 100,
         seed=args.seed + 1000
     )
     
-    # Save the uniform pool to file
-    from phase2.core.pipeline_utils import save_uniform_pool
-    save_uniform_pool(uniform_pool, args.base_dir, compress=use_compression)
+    # Save the common pool to file
+    from phase2.core.pipeline_utils import save_common_pool
+    save_common_pool(common_pool, args.base_dir, compress=use_compression)
     
     # Validate the pool
-    validator.validate_uniform_pool(uniform_pool, len(uniform_pool), second_year)
+    validator.validate_common_pool(common_pool, len(common_pool), second_year)
     
     # Mix all individuals
-    print(f"\n  Mixing with uniform pool...")
+    print(f"\n  Mixing with common pool...")
     
     for i, petri in enumerate(mutant_dishes):
         individual_id = i + 1
         initial_size = len(petri.cells)
-        final_size = mix_petri_uniform(petri, uniform_pool, args.mix_ratio / 100)
+        final_size = mix_petri_common(petri, common_pool, args.mix_ratio / 100)
         print(f"    Mutant {individual_id:02d}: {initial_size} → {final_size} cells")
         
         if not hasattr(petri, 'metadata'):
             petri.metadata = {}
         petri.metadata['mixed'] = True
-        petri.metadata['mix_mode'] = 'uniform'
+        petri.metadata['mix_mode'] = 'common'
         petri.metadata['mix_ratio'] = args.mix_ratio
     
     for i, petri in enumerate(control1_dishes):
         individual_id = i + 1
         initial_size = len(petri.cells)
-        final_size = mix_petri_uniform(petri, uniform_pool, args.mix_ratio / 100)
+        final_size = mix_petri_common(petri, common_pool, args.mix_ratio / 100)
         print(f"    Control1 {individual_id:02d}: {initial_size} → {final_size} cells")
         
         if not hasattr(petri, 'metadata'):
             petri.metadata = {}
         petri.metadata['mixed'] = True
-        petri.metadata['mix_mode'] = 'uniform'
+        petri.metadata['mix_mode'] = 'common'
         petri.metadata['mix_ratio'] = args.mix_ratio
     
     # Validate mixed populations
@@ -390,7 +390,7 @@ def main():
             mutant_dishes=mutant_dishes,
             control1_dishes=control1_dishes,
             mix_ratio=args.mix_ratio,
-            uniform_mixing=True,  # Always true now
+            common_mixing=True,  # Always true now
             second_snapshot_year=second_year
         )
         print("  ✓ Mixing validation passed")

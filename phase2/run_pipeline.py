@@ -171,7 +171,7 @@ def main():
     parser.add_argument("--mix-ratio", type=int, default=None,
                        help="Percentage of second snapshot in mix (default from config: 70)")
     
-    # Mixing options (uniform mixing is now always enabled)
+    # Mixing options (common mixing is now always enabled)
     
     # Other options
     parser.add_argument("--seed", type=int, default=None,
@@ -256,7 +256,7 @@ def main():
     print(f"Snapshots: year {args.first_snapshot}, year {args.second_snapshot}")
     print(f"Growth phase: {args.individual_growth_phase} years")
     print(f"Mix ratio: {args.mix_ratio}%")
-    print(f"Uniform mixing: Always enabled")
+    print(f"Common mixing: Always enabled")
     print(f"Normalization: Always enabled (median - 0.5σ)")
     print(f"Seed: {args.seed}")
     print("=" * 80)
@@ -289,7 +289,7 @@ def main():
         '--mix-ratio', str(args.mix_ratio),
         '--seed', str(args.seed),
     ]
-    # Uniform mixing is now always enabled
+    # Common mixing is now always enabled
     if args.force_recreate:
         simulate_cmd.append('--force-recreate')
     

@@ -25,7 +25,7 @@ python run_simulation.py --gene-rate-groups "50:0.004,50:0.005,50:0.006" --gene-
 cd phase2
 
 # Phase 2 outputs directly to Phase 1 directory - no output-dir needed!
-# Complete pipeline (uniform mixing always enabled)
+# Complete pipeline (common mixing always enabled)
 python run_pipeline.py --simulation ../phase1/data/gene_rates_*/size*-seed*-*/simulation.json
 
 # With custom parameters (override config defaults)
@@ -71,7 +71,7 @@ python plot_simulation.py ../phase1/data/*/simulation.json.gz
 ### Phase 2 Pipeline Architecture
 
 #### Overview
-Phase 2 generates structured datasets from Phase 1 simulations through a 6-stage pipeline. All individuals receive uniform mixing (same snapshot cells) for reproducible analysis.
+Phase 2 generates structured datasets from Phase 1 simulations through a 6-stage pipeline. All individuals receive common mixing (same snapshot cells) for reproducible analysis.
 
 #### Pipeline Stages
 
@@ -99,12 +99,12 @@ Phase 2 generates structured datasets from Phase 1 simulations through a 6-stage
 ###### Stage 3: Create Initial Individuals
 **Mutant Creation**:
 - Uses quantile-based sampling for systematic coverage
-- Cells sorted by methylation, divided into quantiles
+- Cells sorted by cell JSD, divided into quantiles
 - Sample specified cells per quantile
 - Creates `n_quantiles × cells_per_quantile` individuals
 
 **Control1 Creation**:
-- Uses uniform random sampling
+- Uses common random sampling
 - Creates same number as mutant individuals
 - No quantile structure, pure random selection
 
@@ -116,16 +116,16 @@ Phase 2 generates structured datasets from Phase 1 simulations through a 6-stage
 5. Tracks full history during growth
 
 ###### Stage 5: Mix Populations
-**Uniform Mixing Process**:
+**Common Mixing Process**:
 1. **Normalize individuals**: All populations set to same size
-2. **Create uniform pool**: Select cells from second snapshot
+2. **Create common pool**: Select cells from second snapshot
 3. **Apply mixing**: Each individual gets identical snapshot cells
 4. **Final composition**: `mix_ratio%` from snapshot, rest from grown
 
 ##### Stage 6: Create Control2 (`create_control2.py`)
 1. Determine count based on mutant/control1 populations
-2. Load uniform pool from `uniform_pool.json`
-3. Apply same uniform pool to all individuals
+2. Load common pool from `common_pool.json`
+3. Apply same common pool to all individuals
 4. Fill remaining slots with random sampling if needed
 5. No growth phase - pure snapshot cells
 
@@ -152,17 +152,17 @@ Phase 2 generates structured datasets from Phase 1 simulations through a 6-stage
   "n_quantiles": 10,              # For mutant only
   "initial_year": 30,
   "mixed": true,
-  "mix_mode": "uniform",
+  "mix_mode": "common",
   "mix_ratio": 80,
   "normalized": true,              # If size normalization applied
   "normalization_threshold": 128
 }
 ```
 
-### Phase 2 Uniform Mixing System
+### Phase 2 Common Mixing System
 
 #### Overview
-Phase 2 implements a sophisticated uniform mixing system where all individuals receive identical snapshot cells. This ensures reproducibility and eliminates sampling variation between individuals. The uniform pool is saved to a file for reuse by Control2.
+Phase 2 implements a sophisticated common mixing system where all individuals receive identical snapshot cells. This ensures reproducibility and eliminates sampling variation between individuals. The common pool is saved to a file for reuse by Control2.
 
 #### Mixing Implementation Flow
 
@@ -184,13 +184,13 @@ threshold_size = median(all_sizes) - 0.5 * std_dev(all_sizes)
 4. Create deep copies to preserve originals
 5. Update metadata with normalization info
 
-##### Step 2: Create and Save Uniform Mixing Pool
-**Location**: `phase2/core/pipeline_utils.py:991-1046` (`create_uniform_mixing_pool()`)
+##### Step 2: Create and Save Common Mixing Pool
+**Location**: `phase2/core/pipeline_utils.py:991-1046` (`create_common_mixing_pool()`)
 
 **Key Features (2025-09-23)**:
 - No longer returns indices (only pool cells)
 - Throws `ValidationError` if insufficient cells (no sampling with replacement)
-- Pool is saved to `uniform_pool.json` file
+- Pool is saved to `common_pool.json` file
 
 **Pool Size Calculation**:
 ```python
@@ -201,13 +201,13 @@ else:
     n_snapshot_cells = int(target_total * mix_ratio)
 ```
 
-##### Step 3: Apply Uniform Pool to All Individuals
-**Location**: `phase2/core/pipeline_utils.py:1172-1214` (`mix_petri_uniform()`)
+##### Step 3: Apply Common Pool to All Individuals
+**Location**: `phase2/core/pipeline_utils.py:1172-1214` (`mix_petri_common()`)
 
 **Process**:
 1. Validate pool compatibility with target cells
 2. For 100% mix ratio: Replace all cells with snapshot
-3. Otherwise: Add entire uniform pool to normalized individual
+3. Otherwise: Add entire common pool to normalized individual
 4. Shuffle cells for thorough mixing
 5. Update metadata with mixing parameters
 
@@ -218,14 +218,14 @@ else:
 - `dict_to_cell()`: Convert JSON to Cell objects with gene_rate_groups
 - `load_snapshot_cells()`: Load snapshots with year key handling
 - `sample_by_quantiles()`: Quantile-based sampling for mutants
-- `sample_uniform()`: Random uniform sampling for control1
+- `sample_common()`: Random common sampling for control1
 - `normalize_populations()`: Normalize to consistent size
-- `create_uniform_mixing_pool()`: Create shared pool of snapshot cells
-- `save_uniform_pool()`: Save uniform pool to file for Control2 reuse
-- `load_uniform_pool()`: Load uniform pool from saved file
+- `create_common_mixing_pool()`: Create shared pool of snapshot cells
+- `save_common_pool()`: Save common pool to file for Control2 reuse
+- `load_common_pool()`: Load common pool from saved file
 - `validate_pool_compatibility()`: Validate pool/target cell compatibility
-- `mix_petri_uniform()`: Apply uniform pool to individual
-- `create_control2_with_uniform_base()`: Control2 with uniform base
+- `mix_petri_common()`: Apply common pool to individual
+- `create_control2_with_common_base()`: Control2 with common base
 
 #### individual_helpers.py
 - `create_individual()`: Initialize PetriDish
@@ -258,7 +258,7 @@ phase1/data/gene_rates_*/size*-seed*-{phase1_timestamp}/      # Phase 1 director
         │   └── individual_*.json[.gz]     # Control1 populations
         ├── control2/
         │   └── individual_*.json[.gz]     # Control2 populations
-        ├── uniform_pool.json[.gz]          # Shared snapshot cells
+        ├── common_pool.json[.gz]          # Shared snapshot cells
         └── mixing_metadata.json            # Mixing parameters
 ```
 
@@ -332,7 +332,7 @@ Required dependencies:
 ### September 2025 Changes
 - **Phase 2 Output Structure**: Phase 2 now outputs directly to Phase 1 simulation directory
 - Removed `--output-dir` argument from Phase 2 pipeline
-- Uniform mixing system improvements in Phase 2
+- Common mixing system improvements in Phase 2
 - Pool saved to file instead of indices
 - Added validation for pool compatibility
 - Improved error handling for insufficient snapshot cells
@@ -425,7 +425,7 @@ Cytosine-guanine dinucleotides where methylation occurs in DNA:
 
 ## Critical Implementation Details
 
-### Uniform Mixing Implementation
+### Common Mixing Implementation
 - Mandatory size normalization always applied
 - Uses median - 0.5σ threshold method
 - Excludes individuals below threshold

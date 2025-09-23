@@ -19,7 +19,7 @@ sys.path.append(os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__f
 from cell import PetriDish, Cell
 from core.pipeline_utils import (
     load_snapshot_cells, create_pure_snapshot_petri,
-    create_control2_with_uniform_base, save_petri_dish,
+    create_control2_with_common_base, save_petri_dish,
     check_petri_files_state
 )
 from core.validation import PipelineValidator, ValidationError
@@ -63,7 +63,7 @@ def calculate_expected_final_cells(mixing_metadata: Optional[Dict]) -> int:
         # Default if no mixing metadata
         return 640
     
-    # Uniform mixing is always true now
+    # Common mixing is always true now
     normalized_size = mixing_metadata.get('normalized_size', 128)
     mix_ratio = mixing_metadata.get('mix_ratio', 80) / 100
     expected_final_cells = int(normalized_size / (1 - mix_ratio))
@@ -107,7 +107,7 @@ def main():
     print(f"Seed: {args.seed}")
     
     if mixing_metadata:
-        print(f"Mixing mode: Uniform (always enabled)")
+        print(f"Mixing mode: Common (always enabled)")
         print(f"Mix ratio: {mixing_metadata['mix_ratio']}%")
         if mixing_metadata.get('normalized_size'):
             print(f"Normalized size: {mixing_metadata['normalized_size']}")
@@ -159,17 +159,17 @@ def main():
     # Create control2 individuals
     control2_dishes = []
     
-    # Note: uniform pool is now loaded from file inside create_control2_with_uniform_base
-    print(f"  Using uniform base from saved pool file")
+    # Note: common pool is now loaded from file inside create_control2_with_common_base
+    print(f"  Using common base from saved pool file")
     
     for i in range(num_control2):
         print(f"  Creating individual {i+1}/{num_control2}")
         
         file_index = i + 1
         
-        # Create PetriDish using saved uniform pool
+        # Create PetriDish using saved common pool
         # The function will load the pool from file internally
-        petri = create_control2_with_uniform_base(
+        petri = create_control2_with_common_base(
             second_snapshot_cells,
             args.base_dir,  # Pass base_dir instead of pool and indices
             actual_control2_size,
@@ -182,8 +182,8 @@ def main():
         petri.metadata.update({
             'individual_id': file_index,
             'individual_type': 'control2',
-            'source': f'uniform_base_plus_snapshot_year{second_year}',
-            'uniform_base': True
+            'source': f'common_base_plus_snapshot_year{second_year}',
+            'common_base': True
         })
         
         control2_dishes.append(petri)

@@ -402,12 +402,12 @@ class PipelineValidator:
         total_kept = len(mutant_after) + len(control1_after)
         self._log(f"✓ Normalization validation passed: {total_kept} individuals kept (threshold: {threshold} cells)")
     
-    def validate_uniform_pool(self, pool: List, expected_size: int, snapshot_year: int):
+    def validate_common_pool(self, pool: List, expected_size: int, snapshot_year: int):
         """
-        Validate uniform pool consistency.
+        Validate common pool consistency.
         
         Args:
-            pool: List of Cell objects in the uniform pool
+            pool: List of Cell objects in the common pool
             expected_size: Expected number of cells in pool
             snapshot_year: Expected age of all cells in pool
             
@@ -415,7 +415,7 @@ class PipelineValidator:
             ValidationError: If pool is invalid
         """
         if not pool:
-            raise ValidationError("Uniform pool is empty")
+            raise ValidationError("Common pool is empty")
         
         # Check pool size
         if len(pool) != expected_size:
@@ -446,18 +446,18 @@ class PipelineValidator:
                             f"Pool cell {i} has different gene_rate_groups than cell 0"
                         )
         
-        print(f"  ✓ Uniform pool validation passed ({len(pool)} cells)")
+        print(f"  ✓ Common pool validation passed ({len(pool)} cells)")
     
     def validate_mixed_populations(self,
                                   mutant_dishes: List[PetriDish],
                                   control1_dishes: List[PetriDish],
                                   mix_ratio: int,
-                                  uniform_mixing: bool,  # Kept for compatibility, always True now
+                                  common_mixing: bool,  # Kept for compatibility, always True now
                                   second_snapshot_year: int) -> None:
         """
         Validate populations after mixing.
         """
-        self._log(f"Validating mixed populations (ratio: {mix_ratio}%, uniform mixing)")
+        self._log(f"Validating mixed populations (ratio: {mix_ratio}%, common mixing)")
         
         # Calculate expected composition
         grown_fraction = (100 - mix_ratio) / 100.0

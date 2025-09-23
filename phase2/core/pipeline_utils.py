@@ -658,40 +658,40 @@ def create_pure_snapshot_petri(snapshot_cells: List[Cell], n_cells: int = 5120,
     return petri
 
 
-def create_control2_with_uniform_base(
+def create_control2_with_common_base(
     snapshot_cells: List[Cell],
     base_dir: str,
     target_size: int,
     seed: Optional[int] = None
 ) -> PetriDish:
     """
-    Create Control2 individual with uniform base + additional snapshot cells.
+    Create Control2 individual with common base + additional snapshot cells.
     
-    When using uniform mixing, Control2 shares the same base cells as
+    When using common mixing, Control2 shares the same base cells as
     mutant and control1, plus additional random snapshot cells if needed.
     Uses gene_rate_groups from the cells themselves.
     
     Args:
         snapshot_cells: Full second snapshot cells to sample additional from
-        base_dir: Base directory to load uniform pool from
+        base_dir: Base directory to load common pool from
         target_size: Total number of cells needed
         seed: Random seed for additional sampling
     
     Returns:
-        PetriDish with uniform base + additional unique snapshot cells
+        PetriDish with common base + additional unique snapshot cells
     """
     if seed is not None:
         random.seed(seed)
         np.random.seed(seed)
     
-    # Load the uniform pool from file
-    uniform_pool = load_uniform_pool(base_dir)
+    # Load the common pool from file
+    common_pool = load_common_pool(base_dir)
     
-    # Start with the uniform pool (deep copy to avoid reference issues)
-    combined_cells = [copy.deepcopy(cell) for cell in uniform_pool]
+    # Start with the common pool (deep copy to avoid reference issues)
+    combined_cells = [copy.deepcopy(cell) for cell in common_pool]
     
     # Calculate how many additional cells needed
-    n_additional = target_size - len(uniform_pool)
+    n_additional = target_size - len(common_pool)
     
     if n_additional > 0:
         # Sample additional cells randomly from snapshot
@@ -705,15 +705,15 @@ def create_control2_with_uniform_base(
             raise ValidationError(
                 f"Insufficient snapshot cells for Control2: "
                 f"need {n_additional} additional cells but only {len(snapshot_cells)} available. "
-                f"This shouldn't happen with proper uniform mixing setup."
+                f"This shouldn't happen with proper common mixing setup."
             )
         
         # Add the additional cells
         additional_cells = [copy.deepcopy(snapshot_cells[idx]) for idx in additional_indices]
         combined_cells.extend(additional_cells)
     elif n_additional < 0:
-        # Edge case: uniform pool is larger than target (e.g., 100% mix ratio)
-        # Just use subset of uniform pool
+        # Edge case: common pool is larger than target (e.g., 100% mix ratio)
+        # Just use subset of common pool
         combined_cells = combined_cells[:target_size]
     
     # Validate all cells have same gene_rate_groups
@@ -736,8 +736,8 @@ def create_control2_with_uniform_base(
     
     # Set metadata
     petri.metadata = {
-        'creation_method': 'uniform_base_plus_snapshot',
-        'uniform_base_size': len(uniform_pool),
+        'creation_method': 'common_base_plus_snapshot',
+        'common_base_size': len(common_pool),
         'additional_cells': n_additional if n_additional > 0 else 0,
         'target_size': target_size,
         'num_cells': len(combined_cells)
@@ -979,12 +979,12 @@ def print_mixing_statistics(mutant_stats: Dict, control1_stats: Dict, combined_m
 
 
 
-def create_uniform_mixing_pool(snapshot_cells: List[Cell], 
-                               normalized_size: int, 
-                               mix_ratio: float,
-                               seed: Optional[int] = None) -> List[Cell]:
+def create_common_mixing_pool(snapshot_cells: List[Cell], 
+                              normalized_size: int, 
+                              mix_ratio: float,
+                              seed: Optional[int] = None) -> List[Cell]:
     """
-    Create a shared pool of snapshot cells for uniform mixing.
+    Create a shared pool of snapshot cells for common mixing.
     
     Args:
         snapshot_cells: Available cells to sample from
@@ -1013,7 +1013,7 @@ def create_uniform_mixing_pool(snapshot_cells: List[Cell],
         target_total = int(normalized_size / (1 - mix_ratio))
         n_snapshot_cells = int(target_total * mix_ratio)
     
-    print(f"    Creating uniform mixing pool:")
+    print(f"    Creating common mixing pool:")
     print(f"      Normalized individual size: {normalized_size} cells")
     print(f"      Target total size: {target_total} cells")
     print(f"      Snapshot cells needed: {n_snapshot_cells} cells")
@@ -1037,9 +1037,9 @@ def create_uniform_mixing_pool(snapshot_cells: List[Cell],
     return pool
 
 
-def save_uniform_pool(pool: List[Cell], base_dir: str, compress: bool = False):
+def save_common_pool(pool: List[Cell], base_dir: str, compress: bool = False):
     """
-    Save the uniform mixing pool to a file for reuse by Control2.
+    Save the common mixing pool to a file for reuse by Control2.
     
     Args:
         pool: List of Cell objects to save
@@ -1054,25 +1054,21 @@ def save_uniform_pool(pool: List[Cell], base_dir: str, compress: bool = False):
     
     # Determine filename
     ext = '.json.gz' if compress else '.json'
-    pool_path = os.path.join(individuals_dir, f'uniform_pool{ext}')
+    pool_path = os.path.join(individuals_dir, f'common_pool{ext}')
     
-    # Convert cells to dicts
-    pool_data = {
-        'pool': [cell.to_dict() for cell in pool],
-        'n_cells': len(pool),
-        'timestamp': datetime.now().isoformat()
-    }
+    # Convert cells to dicts - just save the list directly
+    pool_data = [cell.to_dict() for cell in pool]
     
     # Save
-    print(f"    Saving uniform pool to: {pool_path}")
+    print(f"    Saving common pool to: {pool_path}")
     with smart_open(pool_path, 'w') as f:
         json.dump(pool_data, f, indent=2)
-    print(f"      Saved {len(pool)} cells to uniform pool")
+    print(f"      Saved {len(pool_data)} cells to common pool")
 
 
-def load_uniform_pool(base_dir: str) -> List[Cell]:
+def load_common_pool(base_dir: str) -> List[Cell]:
     """
-    Load the uniform mixing pool from file.
+    Load the common mixing pool from file.
     
     Args:
         base_dir: Base directory for the phase2 run
@@ -1088,23 +1084,23 @@ def load_uniform_pool(base_dir: str) -> List[Cell]:
     
     # Look for pool file (could be compressed or not)
     individuals_dir = os.path.join(base_dir, 'individuals')
-    pool_files = glob.glob(os.path.join(individuals_dir, 'uniform_pool.json*'))
+    pool_files = glob.glob(os.path.join(individuals_dir, 'common_pool.json*'))
     
     if not pool_files:
         raise FileNotFoundError(
-            f"No uniform pool file found in {individuals_dir}. "
-            f"Expected uniform_pool.json or uniform_pool.json.gz"
+            f"No common pool file found in {individuals_dir}. "
+            f"Expected common_pool.json or common_pool.json.gz"
         )
     
     pool_path = pool_files[0]  # Take first match
-    print(f"    Loading uniform pool from: {pool_path}")
+    print(f"    Loading common pool from: {pool_path}")
     
     with smart_open(pool_path, 'r') as f:
         pool_data = json.load(f)
     
-    # Convert dicts back to Cell objects
-    pool = [dict_to_cell(cell_dict) for cell_dict in pool_data['pool']]
-    print(f"      Loaded {len(pool)} cells from uniform pool")
+    # Convert dicts back to Cell objects (now just a list)
+    pool = [dict_to_cell(cell_dict) for cell_dict in pool_data]
+    print(f"      Loaded {len(pool)} cells from common pool")
     
     return pool
 
@@ -1160,16 +1156,16 @@ def validate_pool_compatibility(pool: List[Cell], target_cells: List[Cell]):
     # (e.g., grown cells have different ages than snapshot cells)
 
 
-def mix_petri_uniform(petri: PetriDish, 
-                      uniform_pool: List[Cell],
-                      target_ratio: float) -> int:
+def mix_petri_common(petri: PetriDish, 
+                     common_pool: List[Cell],
+                     target_ratio: float) -> int:
     """
-    Mix PetriDish with cells from uniform pool.
+    Mix PetriDish with cells from common pool.
     All individuals have been normalized to same size, just add the entire pool.
     
     Args:
         petri: PetriDish to mix into (normalized to threshold size)
-        uniform_pool: Pre-sampled shared cells (sized for the threshold-normalized individuals)
+        common_pool: Pre-sampled shared cells (sized for the threshold-normalized individuals)
         target_ratio: What fraction should be from pool (used for 100% edge case only)
         
     Returns:
@@ -1179,13 +1175,13 @@ def mix_petri_uniform(petri: PetriDish,
         ValidationError: If pool and petri cells are incompatible
     """
     # Validate compatibility before mixing
-    validate_pool_compatibility(uniform_pool, petri.cells)
+    validate_pool_compatibility(common_pool, petri.cells)
     
     # Handle edge case: 100% mix ratio means replace all cells
     if target_ratio >= 1.0:
         # Replace all cells with snapshot cells
         current_size = len(petri.cells)
-        new_cells = [copy.deepcopy(cell) for cell in uniform_pool[:current_size]]
+        new_cells = [copy.deepcopy(cell) for cell in common_pool[:current_size]]
         random.shuffle(new_cells)
         petri.cells = new_cells
         # Update metadata to reflect change
@@ -1193,7 +1189,7 @@ def mix_petri_uniform(petri: PetriDish,
         return len(petri.cells)
     
     # Normal case: individuals are normalized to threshold, just add the entire pool
-    added_cells = [copy.deepcopy(cell) for cell in uniform_pool]
+    added_cells = [copy.deepcopy(cell) for cell in common_pool]
     petri.cells.extend(added_cells)
     
     # Shuffle to mix

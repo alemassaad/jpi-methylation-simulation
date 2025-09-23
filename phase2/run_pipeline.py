@@ -176,8 +176,6 @@ def main():
     # Other options
     parser.add_argument("--seed", type=int, default=None,
                        help="Random seed (default from config: 42)")
-    parser.add_argument("--output-dir", type=str, default=None,
-                       help="Output directory (default from config: data)")
     
     # Compression options (mutually exclusive)
     compress_group = parser.add_mutually_exclusive_group()
@@ -204,7 +202,6 @@ def main():
         'individual_growth_phase': 'individual_growth_phase',
         'mix_ratio': 'mix_ratio',
         'seed': 'seed',
-        'output_dir': 'output_dir',
         'compress': 'compress',
         'verbose': 'verbose'
     }
@@ -229,8 +226,6 @@ def main():
         args.mix_ratio = 70
     if args.seed is None:
         args.seed = 42
-    if args.output_dir is None:
-        args.output_dir = "data"
     if args.compress is None:
         args.compress = False  # Default if not in config
     
@@ -328,7 +323,7 @@ def main():
     print(f"  - individuals/  : Simulated populations")
     print("\nNext step: Run phase3 for analysis")
     print(f"  cd ../phase3")
-    print(f"  python run_analysis.py --phase2-dir ../{base_dir} --simulation {args.simulation}")
+    print(f"  python run_analysis.py --phase2-dir {base_dir} --simulation {args.simulation}")
     print("=" * 80)
 
 

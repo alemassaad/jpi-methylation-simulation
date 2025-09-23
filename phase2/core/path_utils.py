@@ -104,48 +104,23 @@ def parse_phase1_simulation_path(filepath: str) -> Optional[Dict]:
 
 def generate_phase2_output_dir(args, sim_params: Dict) -> str:
     """
-    Generate hierarchical output directory for phase2.
+    Generate output directory for phase2 under the phase1 simulation directory.
     
     Structure:
-    data/rate_0.00500-grow13-sites100-years100/snap50to60-growth7-quant10x3-mix80-seed42-HASH/
+    {phase1_simulation_dir}/snap30to50-growth7-quant10x3-mix80u-seed42-TIMESTAMP/
     
     Args:
-        args: Command line arguments with pipeline parameters
-        sim_params: Dictionary from parse_phase1_simulation_path
+        args: Command line arguments with pipeline parameters (must include simulation path)
+        sim_params: Dictionary from parse_phase1_simulation_path (not used anymore but kept for compatibility)
         
     Returns:
-        Full path to output directory
+        Full path to output directory under the phase1 simulation directory
     """
-    # Level 1: Rate and source simulation params
-    # Generate rate string based on configuration
-    if hasattr(args, 'gene_rate_groups') and args.gene_rate_groups:
-        # Parse and format gene rate groups
-        groups = []
-        for group in args.gene_rate_groups.split(','):
-            n, rate = group.split(':')
-            groups.append(f"{n}x{float(rate):.5f}")
-        rate_str = "gene_rates_" + "_".join(groups)
-        # Truncate if too long to avoid filesystem issues
-        if len(rate_str) > 50:
-            rate_str = rate_str[:47] + "..."
-    elif hasattr(args, 'rate') and args.rate:
-        rate_str = f"rate_{args.rate:.5f}"
-    else:
-        # No rate specified - must have been inferred from simulation
-        # Extract from simulation path
-        import re
-        match = re.search(r'(gene_rates_[^/]+|rate_[\d.]+)', args.simulation)
-        if match:
-            rate_str = match.group(1)
-        else:
-            rate_str = "rate_inferred"
+    # Extract the parent directory of the simulation file
+    # This is where phase1 stored its output
+    simulation_dir = os.path.dirname(os.path.abspath(args.simulation))
     
-    level1 = (f"{rate_str}-"
-              f"simgrow{sim_params['growth_phase']}-"
-              f"sites{sim_params['n_sites']}-"
-              f"years{sim_params['sim_years']}")
-    
-    # Level 2: Pipeline params in logical flow order
+    # Build phase2-specific directory name with parameters
     # Build mix suffix: always 'u' for uniform (normalization is always on)
     mix_suffix = "u"  # Always uniform now
     
@@ -156,9 +131,11 @@ def generate_phase2_output_dir(args, sim_params: Dict) -> str:
                   f"seed{args.seed}")
     
     # Add timestamp for uniqueness (YYYYMMDDHHMMSS format)
+    # This allows multiple phase2 runs with same parameters
     timestamp = datetime.now().strftime("%Y%m%d%H%M%S")
-    level2 = f"{params_str}-{timestamp}"
+    phase2_subdir = f"{params_str}-{timestamp}"
     
-    return os.path.join(args.output_dir, level1, level2)
+    # Return path under the simulation directory
+    return os.path.join(simulation_dir, phase2_subdir)
 
 

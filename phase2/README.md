@@ -13,14 +13,16 @@ All testing and plotting functionality has been removed for a clean, focused pip
 
 ## Quick Start
 
+**Important Update (Sept 2025)**: Phase 2 now outputs directly to the Phase 1 simulation directory. No need to specify an output directory - it's automatic!
+
 ```bash
 # Run complete pipeline with defaults
 cd phase2
-python run_pipeline.py --simulation ../phase1/data/*/simulation.json.gz
+python run_pipeline.py --simulation ../data/gene_rates_*/size*-seed*-*/simulation.json
 
 # Standard analysis
 python run_pipeline.py \
-    --simulation ../phase1/data/*/simulation.json.gz \
+    --simulation ../data/gene_rates_*/size*-seed*-*/simulation.json \
     --first-snapshot 30 \
     --second-snapshot 50 \
     --n-quantiles 10 \
@@ -31,7 +33,7 @@ python run_pipeline.py \
 
 # Quick test (smaller parameters)
 python run_pipeline.py \
-    --simulation ../phase1/data/*/simulation.json.gz \
+    --simulation ../data/gene_rates_*/size*-seed*-*/simulation.json \
     --first-snapshot 30 \
     --second-snapshot 50 \
     --n-quantiles 4 \
@@ -40,7 +42,7 @@ python run_pipeline.py \
     --mix-ratio 70
 
 # Config is loaded automatically, CLI args override
-python run_pipeline.py --simulation ../phase1/data/*/simulation.json.gz
+python run_pipeline.py --simulation ../data/gene_rates_*/size*-seed*-*/simulation.json
 ```
 
 ## Pipeline Stages
@@ -72,9 +74,31 @@ python run_pipeline.py --simulation ../phase1/data/*/simulation.json.gz
 - All plotting and visualization moved to phase3
 - Multiple analyses possible on same phase2 data
 
+## Output Directory Structure
+
+**New in Sept 2025**: Phase 2 outputs are now created as subdirectories within the Phase 1 simulation directory:
+
+```
+data/gene_rates_*/size*-seed*-TIMESTAMP/            # Phase 1 directory
+├── simulation.json                                 # Phase 1 simulation
+└── snap30to50-growth7-quant10x3-mix80u-seed42-TIMESTAMP/  # Phase 2 output
+    ├── snapshots/
+    │   ├── year30_snapshot.json
+    │   ├── year50_snapshot.json
+    │   └── metadata.json
+    └── individuals/
+        ├── mutant/
+        ├── control1/
+        ├── control2/
+        ├── uniform_pool.json
+        └── mixing_metadata.json
+```
+
+Multiple Phase 2 runs with the same or different parameters will each get their own timestamped subdirectory, preventing collisions.
+
 ## Command-Line Options
 
-**Note**: Phase 2 no longer includes plotting options. For visualization, use phase3 after running phase2.
+**Note**: Phase 2 no longer includes plotting options or output directory specification.
 
 ### Required Arguments
 - `--simulation`: Path to phase1 simulation file (supports wildcards)

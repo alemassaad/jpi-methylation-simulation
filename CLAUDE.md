@@ -38,18 +38,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - When making breaking changes, document them clearly but don't maintain old behavior
 
 ### Testing Commands
-**Run tests with `python` (not python3) from the test directory:**
-```bash
-# Phase 1 Tests
-cd phase1/tests
-python test_small.py           # Quick validation
-python test_comprehensive.py   # Full feature tests
-
-# Phase 2 Tests  
-cd phase2/tests
-python test_validation.py      # Data validation functions
-python test_pipeline_with_config.py  # Pipeline with config
-```
+**Note: Test files were removed in the 2025-01-20 cleanup. Tests are currently not available.**
 
 ## Installation
 ```bash
@@ -268,6 +257,23 @@ for petri in mutant_dishes:
    - Verify snapshot has sufficient cells
    - Ensure growth parameters are reasonable
 
+## Recent Updates (2025)
+
+### September 2025 Changes
+- **Phase 2 Output Structure**: Phase 2 now outputs directly to Phase 1 simulation directory
+- Removed `--output-dir` argument from Phase 2 pipeline
+- Uniform mixing system improvements in Phase 2
+- Pool saved to file instead of indices
+- Added validation for pool compatibility
+- Improved error handling for insufficient snapshot cells
+
+### January 2025 Major Refactoring
+- Removed ~100+ files, reduced to 24 essential files
+- Moved all plotting from phase1 to phase3 (55% code reduction)
+- Consolidated duplicate methods (single `calculate_gene_jsd()`, single `from_cells()`)
+- Removed all test files as part of cleanup
+- Clear separation: phase1 = simulation, phase3 = visualization
+
 ## Commands
 
 ### Run Simulation (Phase 1)
@@ -290,11 +296,12 @@ python run_simulation.py --gene-rate-groups "50:0.004,50:0.005,50:0.006" --gene-
 ```bash
 cd phase2
 
+# Phase 2 now outputs directly to Phase 1 directory - no output-dir needed!
 # Complete pipeline (uniform mixing always enabled)
-python run_pipeline.py --simulation ../phase1/data/*/simulation.json.gz
+python run_pipeline.py --simulation ../data/gene_rates_*/size*-seed*-*/simulation.json
 
 # With custom parameters (override config defaults)
-python run_pipeline.py --simulation ../phase1/data/*/simulation.json.gz \
+python run_pipeline.py --simulation ../data/gene_rates_*/size*-seed*-*/simulation.json \
     --n-quantiles 10 --cells-per-quantile 3 --mix-ratio 80
 
 # Run individual stages (for debugging/custom workflows)
@@ -466,21 +473,24 @@ Always loaded automatically. Key parameters:
 2. Custom config file overrides defaults
 3. Command-line arguments override everything
 
-### Output Directory Structure
+### Output Directory Structure (Updated Sept 2025)
 ```
-data/{rate_info}/snap{Y1}to{Y2}-growth{G}-quant{Q}x{C}-mix{M}u-seed{S}-{timestamp}/
-├── snapshots/
-│   ├── year30_snapshot.json[.gz]      # First snapshot cells
-│   ├── year50_snapshot.json[.gz]      # Second snapshot cells
-│   └── metadata.json                  # Gene rates, parameters
-├── individuals/
-│   ├── mutant/
-│   │   └── individual_*.json[.gz]     # Mutant populations
-│   ├── control1/
-│   │   └── individual_*.json[.gz]     # Control1 populations
-│   ├── control2/
-│   │   └── individual_*.json[.gz]     # Control2 populations
-│   └── mixing_metadata.json           # Mixing parameters, uniform pool
+data/gene_rates_*/size*-seed*-{phase1_timestamp}/      # Phase 1 directory
+├── simulation.json                                    # Phase 1 simulation
+└── snap{Y1}to{Y2}-growth{G}-quant{Q}x{C}-mix{M}u-seed{S}-{phase2_timestamp}/
+    ├── snapshots/
+    │   ├── year30_snapshot.json[.gz]      # First snapshot cells
+    │   ├── year50_snapshot.json[.gz]      # Second snapshot cells
+    │   └── metadata.json                  # Gene rates, parameters
+    └── individuals/
+        ├── mutant/
+        │   └── individual_*.json[.gz]     # Mutant populations
+        ├── control1/
+        │   └── individual_*.json[.gz]     # Control1 populations
+        ├── control2/
+        │   └── individual_*.json[.gz]     # Control2 populations
+        ├── uniform_pool.json[.gz]          # Shared snapshot cells
+        └── mixing_metadata.json            # Mixing parameters
 ```
 
 ### Validation System
@@ -571,7 +581,7 @@ Note: `save_snapshot_cells()` removed - snapshots are now direct copies saved by
 
 #### path_utils.py
 - `parse_phase1_simulation_path()`: Extract simulation parameters
-- `generate_phase2_output_dir()`: Create output path with timestamp
+- `generate_phase2_output_dir()`: Create output path under Phase 1 directory with timestamp
 
 #### validation.py
 - `ValidationError`: Critical failures
@@ -785,23 +795,3 @@ Cytosine-guanine dinucleotides where methylation occurs in DNA:
 - **Slow simulation**: Reduce sites with `--sites 100` or years with `--years 50`
 - **ImportError in phase2/phase3**: Ensure sys.path additions are correct (see Import Structure section)
 
-## Cleanup Summary (2025-01-20)
-Repository simplified from ~100+ files to 24 essential files:
-- **Phase 1**: Reduced from 27 to 5 files (81% reduction)
-- **Phase 2**: Reduced from 70+ to 10 files (86% reduction)  
-- **Phase 3**: Already minimal with 9 files
-
-All test files and redundant configs removed. Core functionality preserved.
-
-## Major Refactoring (2025-01-20)
-
-### Plotting Separation
-- **Moved all plotting from phase1 to phase3**: phase1/cell.py reduced from 2,831 to 1,278 lines (55% reduction)
-- **PetriDishPlotter**: Now in phase3/core/petri_dish_plotter.py
-- **plot_history.py**: Functionality moved to phase3/plot_simulation.py
-- **Clear separation**: phase1 = simulation, phase3 = visualization
-
-### Method Consolidation
-- **Gene JSD**: Single method `calculate_gene_jsd()` - removed duplicate `calculate_gene_jsds()`
-- **Factory method**: Single `from_cells()` method handles both single cell and list inputs - removed `from_snapshot_cell()`
-- **Cleaner API**: No redundant properties or duplicate methods

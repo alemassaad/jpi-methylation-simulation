@@ -4,6 +4,7 @@ A biologically realistic simulation framework for modeling DNA methylation patte
 
 ## 🚨 Breaking Changes (Latest)
 
+- **Phase 2 Output Structure** (Sept 2025): Phase 2 now outputs directly to Phase 1 simulation directory
 - **New Lean JSON Format**: ~90% file size reduction, no backward compatibility with old format
 - **Config File Support**: YAML configuration files now preferred over complex CLI commands
 - **Renamed Flag**: `calculate_jsds` → `calculate_cell_jsds` for clarity
@@ -37,6 +38,7 @@ The complete pipeline is now organized into three distinct phases:
 - Implement quantile-based sampling strategies
 - Generate mutant and control populations
 - Full reproducibility with comprehensive seeding
+- **Outputs directly to Phase 1 simulation directory** (no separate data folder)
 
 ### Phase 3: Analysis and Visualization
 - Pure analysis pipeline (no simulation)
@@ -101,52 +103,53 @@ python run_simulation.py --rate 0.005 --no-compress
 ```bash
 cd phase2
 
-# Using config file (recommended)
-python run_pipeline.py --config configs/quick_test.yaml \
-    --simulation ../phase1/data/*/simulation.json.gz
+# Phase 2 now outputs directly to the Phase 1 simulation directory!
+# No need to specify output directory - it's automatic
 
-# Standard data generation (30 individuals from 10 deciles)
+# Using config file (recommended)
 python run_pipeline.py \
-    --simulation ../phase1/data/*/simulation.json.gz \
+    --simulation ../data/gene_rates_*/size*-seed*-*/simulation.json
+
+# Standard data generation (uses config defaults)
+python run_pipeline.py \
+    --simulation ../data/gene_rates_*/size*-seed*-*/simulation.json \
     --first-snapshot 30 --second-snapshot 50 \
     --individual-growth-phase 7 --seed 42
 
 # Quick test (8 individuals from quartiles, short growth)
 python run_pipeline.py \
-    --simulation ../phase1/data/*/simulation.json.gz \
+    --simulation ../data/gene_rates_*/size*-seed*-*/simulation.json \
     --first-snapshot 30 --second-snapshot 50 \
     --individual-growth-phase 4 \
     --n-quantiles 4 --cells-per-quantile 2
 
-# Output structure:
-# data/gene_rates_*/snap30to50-growth7-quant10x3-mix80-seed42-XXXX/
-#   ├── snapshots/     # Extracted cell snapshots
-#   └── individuals/   # Mutant, Control1, Control2 populations
-#       ├── mutant/
-#       ├── control1/
-#       ├── control2/
-#       └── mixing_metadata.json
+# Output goes directly into Phase 1 directory:
+# data/gene_rates_*/size*-seed*-TIMESTAMP/          # Phase 1 dir
+#   ├── simulation.json                             # Phase 1 output
+#   └── snap30to50-growth7-quant10x3-mix80u-seed42-TIMESTAMP/  # Phase 2 output
+#       ├── snapshots/     # Extracted cell snapshots
+#       └── individuals/   # Mutant, Control1, Control2 populations
 ```
 
 ### Phase 3: Analysis and Visualization
 ```bash
 cd phase3
 
-# Analyze phase2 data
+# Analyze phase2 data (now from unified directory)
 python run_analysis.py \
-    --phase2-dir ../phase2/data/{run_directory}/ \
-    --simulation ../phase1/data/{sim}/simulation.json.gz
+    --phase2-dir ../data/{phase1_dir}/{phase2_subdir}/ \
+    --simulation ../data/{phase1_dir}/simulation.json
 
 # Using config file
 python run_analysis.py \
-    --phase2-dir ../phase2/data/{run_directory}/ \
-    --simulation ../phase1/data/{sim}/simulation.json.gz \
+    --phase2-dir ../data/{phase1_dir}/{phase2_subdir}/ \
+    --simulation ../data/{phase1_dir}/simulation.json \
     --config configs/quick_analysis.yaml
 
 # Custom analysis parameters
 python run_analysis.py \
-    --phase2-dir ../phase2/data/{run_directory}/ \
-    --simulation ../phase1/data/{sim}/simulation.json.gz \
+    --phase2-dir ../data/{phase1_dir}/{phase2_subdir}/ \
+    --simulation ../data/{phase1_dir}/simulation.json \
     --bins 150 --max-gene-plots 10
 
 # Output structure:
@@ -298,26 +301,24 @@ python run_analysis.py \
 
 ## Key Features
 
-### Hierarchical Directory Structure
+### Unified Directory Structure (Sept 2025 Update)
 ```
-Phase 1 output:
+Combined Phase 1 & 2 output:
 data/gene_rates_200x0.00500/size8192-sites1000-genesize5-years100-seed42-YYYYMMDDHHMMSS/
-├── simulation.json.gz           # Complete simulation history
-├── jsd_history.png             # Cell JSD timeline
-└── methylation_history.png     # Methylation timeline
-
-Phase 2 output:
-data/gene_rates_200x0.00500-grow9-sites1000-years100/
-  └── snap30to50-growth7-quant10x3-mix80[u][n]-seed42-YYYYMMDDHHMMSS/
-      ├── snapshots/            # Extracted cell snapshots
-      │   ├── year30_snapshot.json.gz
-      │   ├── year50_snapshot.json.gz
-      │   └── metadata.json
-      └── individuals/          # Generated populations
-          ├── mutant/
-          ├── control1/
-          ├── control2/
-          └── mixing_metadata.json
+├── simulation.json.gz           # Phase 1: Complete simulation history
+├── jsd_history.png             # Phase 1: Cell JSD timeline
+├── methylation_history.png     # Phase 1: Methylation timeline
+└── snap30to50-growth7-quant10x3-mix80u-seed42-YYYYMMDDHHMMSS/  # Phase 2 output
+    ├── snapshots/              # Extracted cell snapshots
+    │   ├── year30_snapshot.json
+    │   ├── year50_snapshot.json
+    │   └── metadata.json
+    └── individuals/            # Generated populations
+        ├── mutant/
+        ├── control1/
+        ├── control2/
+        ├── uniform_pool.json   # Shared snapshot cells
+        └── mixing_metadata.json
 
 Phase 3 output:
 data/analysis_bins200_YYYYMMDDHHMMSS/
@@ -334,11 +335,13 @@ data/analysis_bins200_YYYYMMDDHHMMSS/
       │   └── timeline/
       └── metadata/
       
-Phase 2 suffix indicators:
-  mix80   - Standard mixing (independent sampling)
-  mix80u  - Uniform mixing (shared snapshot cells)
-  mix80n  - Size normalization (median - 0.5σ threshold)
-  mix80un - Both uniform mixing and normalization
+Phase 2 directory naming:
+  snap{Y1}to{Y2} - Snapshot years
+  growth{N}      - Individual growth phase
+  quant{Q}x{C}   - Quantiles × cells per quantile  
+  mix{R}u        - Mix ratio with uniform mixing (always 'u')
+  seed{S}        - Random seed
+  TIMESTAMP      - Unique timestamp for multiple runs
 ```
 
 ### Full Reproducibility

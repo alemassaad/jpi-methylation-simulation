@@ -71,16 +71,15 @@ class ValidationConfig:
 class PipelineValidator:
     """Main validation orchestrator for the pipeline."""
     
-    def __init__(self, config: Optional[ValidationConfig] = None, verbose: bool = True):
+    def __init__(self, config: Optional[ValidationConfig] = None):
         self.config = config or ValidationConfig()
-        self.verbose = verbose
         self.warnings = []
         self.metrics = {}
         
     def _log(self, message: str, level: str = "info"):
         """Internal logging helper."""
-        if self.verbose:
-            print(f"  [{level.upper()}] {message}")
+        # Always print validation messages
+        print(f"  [{level.upper()}] {message}")
         
         if level == "warning":
             self.warnings.append(ValidationWarning(message))

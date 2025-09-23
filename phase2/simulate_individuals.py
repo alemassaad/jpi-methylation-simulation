@@ -207,7 +207,7 @@ def main():
         os.makedirs(dir_path, exist_ok=True)
     
     # Initialize validator
-    validator = PipelineValidator(verbose=True)
+    validator = PipelineValidator()
     
     # Determine compression from snapshot files
     snapshots_dir = os.path.join(args.base_dir, "snapshots")
@@ -273,8 +273,7 @@ def main():
         years=timeline_duration,
         growth_phase=args.growth_phase,
         expected_population=expected_population,
-        start_year=first_year,
-        verbose=True
+        start_year=first_year
     )
     
     # Grow control1 individuals
@@ -284,8 +283,7 @@ def main():
         years=timeline_duration,
         growth_phase=args.growth_phase,
         expected_population=expected_population,
-        start_year=first_year,
-        verbose=True
+        start_year=first_year
     )
     
     # Validate grown individuals

@@ -22,4 +22,4 @@ compress: false                  # Save as .json.gz if true, .json if false
 
 # Other settings
 seed: 24                         # Random seed (use -1 or null for random)
-verbose: true                    # Enable verbose output
+# Note: Verbose output is always enabled in phase2 pipeline

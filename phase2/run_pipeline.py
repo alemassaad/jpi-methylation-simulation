@@ -202,8 +202,7 @@ def main():
         'individual_growth_phase': 'individual_growth_phase',
         'mix_ratio': 'mix_ratio',
         'seed': 'seed',
-        'compress': 'compress',
-        'verbose': 'verbose'
+        'compress': 'compress'
     }
     
     # Apply config values where CLI args are None

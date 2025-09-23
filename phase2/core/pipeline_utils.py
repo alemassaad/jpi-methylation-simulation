@@ -747,7 +747,7 @@ def create_control2_with_uniform_base(
 
 
 def grow_petri_for_years(petri: PetriDish, years: int, growth_phase: Optional[int] = None, 
-                        verbose: bool = True, track_history: bool = False, 
+                        track_history: bool = False, 
                         start_year: Optional[int] = None) -> None:
     """
     Grow a PetriDish for specified years with optional homeostasis after growth phase.
@@ -757,7 +757,6 @@ def grow_petri_for_years(petri: PetriDish, years: int, growth_phase: Optional[in
         petri: PetriDish to grow (modified in place)
         years: Total number of years to simulate
         growth_phase: Years of exponential growth before homeostasis (None = pure exponential)
-        verbose: Print progress
         track_history: Enable cell history tracking
         start_year: Starting year for history tracking
     """
@@ -767,7 +766,7 @@ def grow_petri_for_years(petri: PetriDish, years: int, growth_phase: Optional[in
     # If history tracking is enabled, use PetriDish's new method
     if track_history:
         petri.enable_history_tracking()
-        petri.grow_with_homeostasis(years, growth_phase, verbose, record_history=True)
+        petri.grow_with_homeostasis(years, growth_phase, verbose=True, record_history=True)
         return
     
     # Otherwise, use the original implementation (for backward compatibility)
@@ -777,41 +776,32 @@ def grow_petri_for_years(petri: PetriDish, years: int, growth_phase: Optional[in
         
         if growth_phase is None or current_year <= growth_phase:
             # Growth phase: divide + methylate
-            if not verbose:
+            # Temporarily redirect print output
+            import io
+            from contextlib import redirect_stdout
+            
+            f = io.StringIO()
+            with redirect_stdout(f):
                 petri.divide_cells()
                 petri.methylate_cells()
-            else:
-                # Temporarily redirect print output
-                import io
-                from contextlib import redirect_stdout
-                
-                f = io.StringIO()
-                with redirect_stdout(f):
-                    petri.divide_cells()
-                    petri.methylate_cells()
-                
-                final_count = len(petri.cells)
-                print(f"      Year {current_year} (growth): {initial_count} → {final_count} cells")
+            
+            final_count = len(petri.cells)
+            print(f"      Year {current_year} (growth): {initial_count} → {final_count} cells")
         else:
             # Homeostasis phase: divide + cull + methylate
-            if not verbose:
+            # Temporarily redirect print output
+            import io
+            from contextlib import redirect_stdout
+            
+            f = io.StringIO()
+            with redirect_stdout(f):
                 petri.divide_cells()
+                intermediate_count = len(petri.cells)
                 petri.random_cull_cells()
                 petri.methylate_cells()
-            else:
-                # Temporarily redirect print output
-                import io
-                from contextlib import redirect_stdout
-                
-                f = io.StringIO()
-                with redirect_stdout(f):
-                    petri.divide_cells()
-                    intermediate_count = len(petri.cells)
-                    petri.random_cull_cells()
-                    petri.methylate_cells()
-                
-                final_count = len(petri.cells)
-                print(f"      Year {current_year} (homeostasis): {initial_count} → {final_count} cells")
+            
+            final_count = len(petri.cells)
+            print(f"      Year {current_year} (homeostasis): {initial_count} → {final_count} cells")
         
         petri.year += 1
 

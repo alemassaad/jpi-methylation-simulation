@@ -52,7 +52,6 @@ def grow_individual(
     petri: PetriDish,
     years: int,
     growth_phase: int,
-    verbose: bool = True,
     start_year: Optional[int] = None
 ) -> None:
     """
@@ -62,13 +61,11 @@ def grow_individual(
         petri: PetriDish to grow
         years: Number of years to grow
         growth_phase: Years of exponential growth
-        verbose: Print progress
         start_year: Starting year for history tracking
     """
     # Grow with history tracking
     grow_petri_for_years(
         petri, years, growth_phase,
-        verbose=verbose,
         track_history=True,
         start_year=start_year
     )
@@ -117,8 +114,7 @@ def process_batch_growth(
     years: int,
     growth_phase: int,
     expected_population: int,
-    start_year: int,
-    verbose: bool = True
+    start_year: int
 ) -> None:
     """
     Process growth for a batch of individuals (mutant or control1) in memory.
@@ -130,7 +126,6 @@ def process_batch_growth(
         growth_phase: Years of exponential growth
         expected_population: Expected cell count after growth
         start_year: Starting year for history
-        verbose: Print progress
     """
     print(f"\n  ✓ Growing {batch_name} individuals to ~{expected_population} cells...")
     
@@ -142,8 +137,7 @@ def process_batch_growth(
             # Fresh individual, needs full growth
             print(f"    Individual {individual_id:02d}: Growing for {years} years (target ~{expected_population} cells)")
             grow_individual(
-                petri, years, growth_phase,
-                verbose, start_year
+                petri, years, growth_phase, start_year
             )
         elif expected_population * 0.5 <= current_cells <= expected_population * 1.5:
             # Already grown (with homeostasis variation)

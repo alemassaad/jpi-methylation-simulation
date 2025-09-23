@@ -200,7 +200,7 @@ def main():
     print(f"\n✓ Created and saved {len(control2_dishes)} control2 individuals")
     
     # Validate control2
-    validator = PipelineValidator(verbose=True)
+    validator = PipelineValidator()
     try:
         validator.validate_control2(
             control2_dishes=control2_dishes,

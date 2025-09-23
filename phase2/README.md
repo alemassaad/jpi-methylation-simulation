@@ -121,6 +121,8 @@ Multiple Phase 2 runs with the same or different parameters will each get their 
 - `--no-compress`: Don't compress output files (.json) - default
 - `--seed`: Random seed for reproducibility (default: 42)
 
+**Note**: Verbose output is always enabled in phase2 pipeline to provide detailed progress and validation information.
+
 ## Configuration Files
 
 The default configuration (`config_default.yaml`) is always loaded automatically from the phase2 directory. You can override defaults with command-line arguments or a custom config file:

@@ -38,16 +38,14 @@ def load_metadata(base_dir: str) -> Dict:
 def save_mixing_metadata(
     base_dir: str,
     mix_ratio: int,
-    normalized_size: int,  # No longer optional
-    uniform_pool_indices: Optional[List[int]] = None
+    normalized_size: int  # No longer optional
 ) -> None:
     """Save mixing metadata for control2 creation."""
     metadata = {
         'uniform_mixing': True,  # Always true now
         'mix_ratio': mix_ratio,
         'normalized_size': normalized_size,
-        'normalization_threshold': normalized_size,  # Keep for backwards compat in Control2
-        'uniform_pool_indices': uniform_pool_indices
+        'normalization_threshold': normalized_size  # Keep for backwards compat in Control2
     }
     
     metadata_path = os.path.join(base_dir, "individuals", "mixing_metadata.json")
@@ -318,9 +316,6 @@ def main():
     second_snapshot_cells = load_snapshot_cells(second_snapshot_path)
     print(f"  Loaded {len(second_snapshot_cells)} cells")
     
-    # Variables for mixing metadata
-    uniform_pool_indices = None
-    
     # Apply normalization (always mandatory now)
     print("\n  === APPLYING SIZE NORMALIZATION ===")
     print("  Using median - 0.5σ threshold")
@@ -350,13 +345,19 @@ def main():
     # Create uniform pool
     print("\n  === UNIFORM MIXING ===")
     print(f"  Creating uniform mixing pool...")
-    uniform_pool, uniform_indices = create_uniform_mixing_pool(
+    uniform_pool = create_uniform_mixing_pool(
         second_snapshot_cells,
         normalized_size,
         args.mix_ratio / 100,
         seed=args.seed + 1000
     )
-    uniform_pool_indices = uniform_indices  # Already a list
+    
+    # Save the uniform pool to file
+    from phase2.core.pipeline_utils import save_uniform_pool
+    save_uniform_pool(uniform_pool, args.base_dir, compress=use_compression)
+    
+    # Validate the pool
+    validator.validate_uniform_pool(uniform_pool, len(uniform_pool), second_year)
     
     # Mix all individuals
     print(f"\n  Mixing with uniform pool...")
@@ -428,8 +429,7 @@ def main():
     save_mixing_metadata(
         args.base_dir,
         args.mix_ratio,
-        normalized_size,
-        uniform_pool_indices
+        normalized_size
     )
     
     print("\n" + "=" * 60)

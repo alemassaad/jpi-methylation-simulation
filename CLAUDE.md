@@ -63,185 +63,210 @@ Required dependencies:
 - `plotly` (>=5.0.0, <6.0.0): For interactive visualizations
 - `kaleido` (0.2.1): For PNG export from plotly
 
-## Phase 2 Normalization Process - Detailed Breakdown
+## Phase 2 Mixing System - Complete Architecture
 
 ### Overview
-The normalization process in Phase 2 ensures fair and reproducible mixing of grown populations with snapshot cells. It consists of two distinct normalization steps that work together to eliminate variation and bias.
+Phase 2 implements a sophisticated uniform mixing system where all individuals receive identical snapshot cells. This ensures reproducibility and eliminates sampling variation between individuals. The uniform pool is saved to a file for reuse by Control2.
 
-### Two-Step Normalization Architecture
+### Mixing Implementation Flow
 
-#### Step 1: Optional Size Normalization (--normalize-size flag)
-**Location**: `phase2/core/pipeline_utils.py:1160-1295` (`normalize_populations()`)
+The mixing system is implemented in `phase2/simulate_individuals.py` (lines 319-433) and consists of:
 
-**Purpose**: Reduce population size variation before mixing by excluding outliers and trimming large populations.
+#### Step 1: Mandatory Size Normalization
+**Location**: `phase2/core/pipeline_utils.py:1217-1351` (`normalize_populations()`)
 
-**Algorithm (Median - 0.5σ Method)**:
+**Purpose**: Normalize all individuals to consistent size using median - 0.5σ threshold method
+
+**Algorithm**:
 ```python
 threshold_size = median(all_sizes) - 0.5 * std_dev(all_sizes)
 ```
 
-**Detailed Process**:
-1. **Calculate statistics**: Compute median and standard deviation of all population sizes
-2. **Set threshold**: median - 0.5σ (less aggressive than 1σ, excludes mild outliers)
-3. **Process each individual**:
-   - Size < threshold: EXCLUDE (remove from dataset)
-   - Size = threshold: KEEP AS IS (no modification)
-   - Size > threshold: TRIM (random sample to threshold size)
-4. **Deep copy preservation**: Creates new PetriDish objects when trimming
-5. **Metadata update**: Adds `normalized=True` and `normalization_threshold` to metadata
+**Process**:
+1. Calculate median and standard deviation of all population sizes
+2. Set threshold = median - 0.5σ (excludes mild outliers)
+3. Process each individual:
+   - Size < threshold: EXCLUDE from dataset
+   - Size = threshold: KEEP AS IS
+   - Size > threshold: TRIM to threshold size (random sampling)
+4. Create deep copies to preserve originals
+5. Update metadata with normalization info
 
-**Example Execution**:
+**Implementation** (`simulate_individuals.py:323-343`):
+```python
+mutant_dishes, control1_dishes, normalized_size = normalize_populations(
+    mutant_dishes, control1_dishes,
+    seed=args.seed + 5000
+)
+# Update metadata for all normalized individuals
 ```
-Input: [120, 125, 130, 135, 140, 145, 150, 155, 160] cells
-Median: 140, Std Dev: 14.14
-Threshold: 140 - 0.5*14.14 = 133 cells
-Actions: Exclude [120, 125, 130], Keep [135], Trim [140→133, 145→133, 150→133, 155→133, 160→133]
-Output: 6 individuals, all with 133 cells
-```
 
-#### Step 2: Mandatory Uniform Mixing Normalization (ALWAYS runs)
-**Location**: `phase2/core/pipeline_utils.py:990-1069` (`normalize_individuals_for_uniform_mixing()`)
+#### Step 2: Create and Save Uniform Mixing Pool
+**Location**: `phase2/core/pipeline_utils.py:991-1046` (`create_uniform_mixing_pool()`)
 
-**Purpose**: Ensure ALL individuals have EXACTLY the same size for uniform pool mixing.
+**Purpose**: Generate a shared pool of snapshot cells that all individuals will receive
 
-**Algorithm**: Normalize to minimum size across all individuals.
-
-**Detailed Process**:
-1. **Find minimum**: Determine smallest population size
-2. **Sample down**: For each individual > min_size, randomly sample to min_size
-3. **Deep copy**: Create new PetriDish objects with sampled cells
-4. **Preserve metadata**: CRITICAL - maintains individual_id, quantile info, etc.
-5. **Preserve history**: Carries forward growth history if present
-
-**Why This Step Is Mandatory**:
-- Uniform mixing requires identical base sizes
-- Pool size calculation: `normalized_size × mix_ratio / (1 - mix_ratio)`
-- Without this, mixing ratios would vary between individuals
-
-### Uniform Pool Creation and Mixing
-
-#### Pool Creation
-**Location**: `phase2/core/pipeline_utils.py:1072-1118` (`create_uniform_mixing_pool()`)
+**Key Changes (2025-09-23)**:
+- No longer returns indices (only pool cells)
+- Throws `ValidationError` if insufficient cells (no sampling with replacement)
+- Pool is saved to `uniform_pool.json` file
 
 **Pool Size Calculation**:
 ```python
 if mix_ratio >= 1.0:
     n_snapshot_cells = normalized_size  # Complete replacement
 else:
-    target_total = normalized_size / (1 - mix_ratio)
-    n_snapshot_cells = target_total * mix_ratio
+    target_total = int(normalized_size / (1 - mix_ratio))
+    n_snapshot_cells = int(target_total * mix_ratio)
 ```
 
-**Example**: 
-- Normalized size: 100 cells
-- Mix ratio: 80%
-- Target total: 100 / (1 - 0.8) = 500 cells
-- Snapshot cells needed: 500 * 0.8 = 400 cells
-
-**Sampling Strategy**:
-- If needed > available: Sample WITH replacement
-- If needed <= available: Sample WITHOUT replacement
-- Returns both cells AND indices (for Control2 creation)
-
-#### Mixing Application
-**Location**: `phase2/core/pipeline_utils.py:1121-1157` (`mix_petri_uniform()`)
-
-**Process**:
-1. **Edge case (100% mix)**: Replace all cells with snapshot
-2. **Normal case**: Add entire uniform pool to normalized individual
-3. **Shuffle**: Random shuffle for thorough mixing
-4. **Update metadata**: Record final cell count
-
-### Complete Flow in simulate_individuals.py
-
-**Stage 5 Implementation** (lines 313-404):
-
+**Error Handling**:
 ```python
-# 1. Optional normalization (line 330)
-if args.normalize_size:
-    mutant_dishes, control1_dishes, normalization_threshold = normalize_populations(
-        mutant_dishes, control1_dishes, seed=args.seed + 5000
+if n_snapshot_cells > len(snapshot_cells):
+    raise ValidationError(
+        f"Insufficient snapshot cells for uniform mixing: "
+        f"need {n_snapshot_cells}, have {len(snapshot_cells)}. "
+        f"Reduce mix_ratio or use a larger snapshot."
     )
-    # Update metadata with normalization info (lines 340-352)
+```
 
-# 2. Mandatory uniform normalization (line 361)
-normalized_mutant, normalized_control1, normalized_size = normalize_individuals_for_uniform_mixing(
-    mutant_dishes, control1_dishes, seed=args.seed + 999
-)
-
-# 3. Create uniform pool (line 370)
-uniform_pool, uniform_indices = create_uniform_mixing_pool(
+**Implementation** (`simulate_individuals.py:348-360`):
+```python
+uniform_pool = create_uniform_mixing_pool(
     second_snapshot_cells,
     normalized_size,
     args.mix_ratio / 100,
     seed=args.seed + 1000
 )
 
-# 4. Apply to each individual (lines 381-403)
-for petri in all_dishes:
-    mix_petri_uniform(petri, uniform_pool, args.mix_ratio / 100)
-    # Update metadata with mixing info
+# Save the uniform pool to file
+save_uniform_pool(uniform_pool, args.base_dir, compress=use_compression)
+
+# Validate the pool
+validator.validate_uniform_pool(uniform_pool, len(uniform_pool), second_year)
 ```
 
-### Metadata Tracking
+#### Step 3: Apply Uniform Pool to All Individuals
+**Location**: `phase2/core/pipeline_utils.py:1172-1214` (`mix_petri_uniform()`)
 
-**After normalization, each PetriDish contains**:
+**Purpose**: Mix each individual with the exact same pool of snapshot cells
+
+**Key Changes (2025-09-23)**:
+- Added validation before mixing via `validate_pool_compatibility()`
+- Checks age consistency and gene_rate_groups compatibility
+
+**Process**:
+1. Validate pool compatibility with target cells
+2. For 100% mix ratio: Replace all cells with snapshot
+3. Otherwise: Add entire uniform pool to normalized individual
+4. Shuffle cells for thorough mixing
+5. Update metadata with mixing parameters
+
+**Implementation** (`simulate_individuals.py:363-387`):
+```python
+for petri in mutant_dishes:
+    final_size = mix_petri_uniform(petri, uniform_pool, args.mix_ratio / 100)
+    petri.metadata['mixed'] = True
+    petri.metadata['mix_mode'] = 'uniform'
+    petri.metadata['mix_ratio'] = args.mix_ratio
+```
+
+### Key Mixing Functions
+
+#### `normalize_populations()`
+- **Purpose**: Normalize populations to consistent size
+- **Returns**: `(normalized_mutant, normalized_control1, threshold_size)`
+- **Key feature**: Deep copies preserve original data
+
+#### `create_uniform_mixing_pool()` *(Updated 2025-09-23)*
+- **Purpose**: Create shared pool of snapshot cells
+- **Returns**: `List[Cell]` (pool cells only, no indices)
+- **Key features**: 
+  - Throws error if insufficient cells (no sampling with replacement)
+  - Returns cells for direct saving to file
+
+#### `save_uniform_pool()` *(New 2025-09-23)*
+- **Purpose**: Save uniform pool to file for Control2 reuse
+- **Location**: `pipeline_utils.py:1049-1079`
+- **Saves to**: `individuals/uniform_pool.json[.gz]`
+- **Includes**: Pool cells, cell count, timestamp
+
+#### `load_uniform_pool()` *(New 2025-09-23)*
+- **Purpose**: Load uniform pool from saved file
+- **Location**: `pipeline_utils.py:1082-1118`
+- **Returns**: `List[Cell]` from saved pool
+
+#### `validate_pool_compatibility()` *(New 2025-09-23)*
+- **Purpose**: Validate pool/target cell compatibility
+- **Location**: `pipeline_utils.py:1121-1169`
+- **Validates**: Age consistency, gene_rate_groups matching
+
+#### `mix_petri_uniform()` *(Updated 2025-09-23)*
+- **Purpose**: Apply uniform pool to individual
+- **Returns**: Total cells after mixing
+- **Key features**: 
+  - Validates compatibility before mixing
+  - Special handling for 100% mix ratio
+
+### Metadata Tracking *(Updated 2025-09-23)*
+
+**mixing_metadata.json Structure**:
+```json
+{
+    "uniform_mixing": true,
+    "mix_ratio": 80,
+    "normalized_size": 100,
+    "normalization_threshold": 133
+}
+```
+*Note: `uniform_pool_indices` removed - pool saved directly to file*
+
+**uniform_pool.json Structure** *(New)*:
+```json
+{
+    "pool": [/* array of cell objects */],
+    "n_cells": 400,
+    "timestamp": "2025-09-23T00:18:52.345366"
+}
+```
+
+**Individual PetriDish Metadata**:
 ```python
 {
     'individual_id': 1,
     'individual_type': 'mutant',
-    'source_quantile': 3,  # For mutants only
-    'normalized': True,  # If size normalization applied
-    'normalization_threshold': 133,  # If normalized
+    'source_quantile': 3,        # For mutants only
+    'normalized': True,
+    'normalization_threshold': 133,
     'mixed': True,
     'mix_mode': 'uniform',
     'mix_ratio': 80
 }
 ```
 
-**mixing_metadata.json saves**:
-```json
-{
-    "uniform_mixing": true,
-    "mix_ratio": 80,
-    "normalized_size": 100,  # After uniform mixing normalization
-    "normalization_threshold": 133,  # After optional size normalization
-    "uniform_pool_indices": [23, 45, 67, ...]  # For Control2 creation
-}
-```
+### Edge Cases and Validation
 
-### Key Implementation Details
-
-1. **Deep Copying**: All normalization creates new objects, preserving originals
-2. **Metadata Preservation**: Individual IDs and quantile info maintained throughout
-3. **Random Seeds**: Each operation uses offset seeds for reproducibility
-4. **Edge Case Handling**:
-   - No individuals: Return empty lists
-   - Single individual: Skip normalization
-   - All excluded: Trigger validation failure
-   - 100% mix ratio: Complete replacement logic
+1. **No individuals**: Return empty lists
+2. **Single individual**: Skip normalization
+3. **All excluded**: Trigger validation failure
+4. **100% mix ratio**: Complete replacement logic
+5. **Insufficient snapshot cells**: Sample with replacement
+6. **High CV (>20%)**: Warning displayed
 
 ### Common Issues and Solutions
 
-1. **High population variation (CV > 20%)**:
-   - Enable --normalize-size flag
-   - Adjust growth parameters
-   - Check for extinction events
-
-2. **Too many individuals excluded**:
-   - Threshold too aggressive
-   - Check growth phase settings
-   - Verify extinction handling
-
-3. **Insufficient snapshot cells**:
-   - Automatic sampling with replacement
-   - Warning displayed but continues
-   - Consider smaller mix ratios
-
-4. **Memory issues with large populations**:
+1. **High population variation**:
+   - Normalization automatically applied
+   - Check growth parameters if variation persists
+   
+2. **Memory issues**:
    - Reduce cells_per_quantile
    - Use compression (--compress)
-   - Process in smaller batches
+   
+3. **Validation failures**:
+   - Check extinction rates
+   - Verify snapshot has sufficient cells
+   - Ensure growth parameters are reasonable
 
 ## Commands
 
@@ -265,7 +290,7 @@ python run_simulation.py --gene-rate-groups "50:0.004,50:0.005,50:0.006" --gene-
 ```bash
 cd phase2
 
-# Complete pipeline (config loaded automatically, uniform mixing always enabled)
+# Complete pipeline (uniform mixing always enabled)
 python run_pipeline.py --simulation ../phase1/data/*/simulation.json.gz
 
 # With custom parameters (override config defaults)
@@ -277,7 +302,7 @@ python extract_snapshots.py --simulation ../phase1/data/*/simulation.json.gz --o
 python simulate_individuals.py --base-dir data/my_run --n-quantiles 10 --cells-per-quantile 3
 python create_control2.py --base-dir data/my_run
 
-# Debug mixing (normalization is always applied)
+# Debug mixing
 python simulate_individuals.py --base-dir data/my_run \
     --n-quantiles 4 --cells-per-quantile 3 \
     --growth-phase 6 --mix-ratio 80
@@ -388,7 +413,7 @@ homeostasis_years = timeline_duration - growth_phase
 
 **Process**:
 1. Determine count based on mutant/control1 populations
-2. If uniform mixing was used, apply same uniform base
+2. Apply same uniform pool (from mixing_metadata.json)
 3. Fill remaining slots with random sampling
 4. No growth phase - pure snapshot cells
 5. Matches experimental population sizes
@@ -458,18 +483,6 @@ data/{rate_info}/snap{Y1}to{Y2}-growth{G}-quant{Q}x{C}-mix{M}u-seed{S}-{timestam
 │   └── mixing_metadata.json           # Mixing parameters, uniform pool
 ```
 
-#### mixing_metadata.json Structure
-```json
-{
-  "uniform_mixing": true,              # Always true (uniform mixing enabled)
-  "mix_ratio": 80,                    # Percentage from second snapshot
-  "normalized_size": 128,              # Size after uniform mixing normalization
-  "normalization_threshold": 145,      # Size after optional median-0.5σ normalization
-  "uniform_pool_indices": [23, 45, ...] # Indices of cells used in uniform pool
-}
-```
-This file is critical for Control2 creation - it ensures Control2 uses the exact same uniform pool as mutant and control1.
-
 ### Validation System
 
 #### PipelineValidator Class
@@ -498,7 +511,7 @@ Comprehensive validation at each stage:
 
 ### Core Module Functions
 
-#### pipeline_utils.py (Mixing & Normalization Focus)
+#### pipeline_utils.py (Mixing & Normalization Focus - Updated 2025-09-23)
 
 **Normalization Functions**:
 - `normalize_populations(mutant_dishes, control1_dishes, seed)`:
@@ -506,24 +519,38 @@ Comprehensive validation at each stage:
   - Excludes individuals below threshold (extinction handling)
   - Trims larger individuals to threshold size
   - Returns: (normalized_mutant, normalized_control1, threshold_size)
-  
-- `normalize_individuals_for_uniform_mixing(mutant_dishes, control1_dishes, seed)`:
-  - Finds minimum size across all individuals
-  - Samples down all individuals to this minimum
-  - Preserves metadata including individual_id
-  - Returns: (normalized_mutant, normalized_control1, normalized_size)
 
 **Mixing Functions**:
 - `create_uniform_mixing_pool(snapshot_cells, normalized_size, mix_ratio, seed)`:
   - Calculates required pool size from normalized size and ratio
-  - Handles edge cases (100% mix ratio, insufficient cells)
-  - Returns: (pool_cells, indices_used)
+  - **Updated**: Throws ValidationError if insufficient cells (no sampling with replacement)
+  - **Updated**: Returns only pool cells (no indices)
+  
+- `save_uniform_pool(pool, base_dir, compress)` *(New)*:
+  - Saves pool cells to `individuals/uniform_pool.json[.gz]`
+  - Includes timestamp and cell count metadata
+  
+- `load_uniform_pool(base_dir)` *(New)*:
+  - Loads pool from saved file
+  - Converts dicts back to Cell objects
+  
+- `validate_pool_compatibility(pool, target_cells)` *(New)*:
+  - Validates age consistency within pool
+  - Validates gene_rate_groups compatibility
   
 - `mix_petri_uniform(petri, uniform_pool, target_ratio)`:
-  - Applies uniform pool to normalized individual
+  - **Updated**: Validates compatibility before mixing
   - Special handling for 100% mix ratio (complete replacement)
   - Shuffles cells for thorough mixing
   - Returns: total_cells_after_mixing
+
+- `create_control2_with_uniform_base(snapshot_cells, base_dir, target_size, seed)`:
+  - **Updated**: Loads pool from file instead of using indices
+  - Creates Control2 with uniform base plus additional cells
+
+**Statistics Functions**:
+- `calculate_population_statistics(dishes, group_name)`: Calculate size statistics
+- `print_mixing_statistics(mutant_stats, control1_stats, combined_median)`: Display pre-mixing stats
 
 **Other Key Functions**:
 - `smart_open()`: Handle .json and .json.gz files
@@ -532,14 +559,15 @@ Comprehensive validation at each stage:
 - `sample_by_quantiles()`: Quantile-based sampling for mutants
 - `sample_uniform()`: Random uniform sampling for control1
 - `save_all_individuals()`: Batch save after all processing complete
+
 Note: `save_snapshot_cells()` removed - snapshots are now direct copies saved by extract_snapshots.py
 
 #### individual_helpers.py
 - `create_individual()`: Initialize PetriDish
 - `grow_individual()`: Simulate growth
-- `mix_individual()`: Mix with snapshot
+- `mix_individual()`: Mix with snapshot (deprecated - use uniform mixing)
 - `process_batch_growth()`: Batch growth processing
-- `process_batch_mixing()`: Batch mixing processing
+- `process_batch_mixing()`: Batch mixing processing (deprecated)
 
 #### path_utils.py
 - `parse_phase1_simulation_path()`: Extract simulation parameters
@@ -556,20 +584,19 @@ Note: `save_snapshot_cells()` removed - snapshots are now direct copies saved by
 #### Uniform Mixing Implementation
 
 **Normalization Process**:
-**Mandatory Size Normalization** (always applied):
-   - Uses median - 0.5σ threshold method (`normalize_populations()`)
-   - Excludes individuals below threshold
-   - Trims larger individuals to threshold size
-   - Ensures all individuals have exactly the same size
-   - Eliminates variation for fair mixing and analysis
+- Mandatory size normalization always applied
+- Uses median - 0.5σ threshold method
+- Excludes individuals below threshold
+- Trims larger individuals to threshold size
+- Ensures all individuals have exactly the same size
 
-**Uniform Pool Creation** (`create_uniform_mixing_pool()`):
-- Calculates pool size: `normalized_size × mix_ratio / (1 - mix_ratio)`
-- Edge case handling: 100% mix ratio replaces all cells
+**Uniform Pool Creation**:
+- Calculates pool size based on normalized size and mix ratio
+- Edge case handling for 100% mix ratio
 - Samples from second snapshot with or without replacement
 - Returns both cells and indices for Control2 creation
 
-**Mixing Application** (`mix_petri_uniform()`):
+**Mixing Application**:
 - Adds entire uniform pool to each normalized individual
 - Shuffles cells for thorough mixing
 - Updates metadata with mixing parameters
@@ -754,7 +781,7 @@ Cytosine-guanine dinucleotides where methylation occurs in DNA:
 ## Common Issues and Solutions
 - **"No module named 'yaml'"**: Run `pip install pyyaml`
 - **Plots not generating**: Install with `pip install plotly kaleido`
-- **Out of memory**: Use `--no-jsds` flag to skip JSD calculations
+- **Out of memory**: Use smaller parameters or compression
 - **Slow simulation**: Reduce sites with `--sites 100` or years with `--years 50`
 - **ImportError in phase2/phase3**: Ensure sys.path additions are correct (see Import Structure section)
 

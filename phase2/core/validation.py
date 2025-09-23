@@ -403,6 +403,52 @@ class PipelineValidator:
         total_kept = len(mutant_after) + len(control1_after)
         self._log(f"✓ Normalization validation passed: {total_kept} individuals kept (threshold: {threshold} cells)")
     
+    def validate_uniform_pool(self, pool: List, expected_size: int, snapshot_year: int):
+        """
+        Validate uniform pool consistency.
+        
+        Args:
+            pool: List of Cell objects in the uniform pool
+            expected_size: Expected number of cells in pool
+            snapshot_year: Expected age of all cells in pool
+            
+        Raises:
+            ValidationError: If pool is invalid
+        """
+        if not pool:
+            raise ValidationError("Uniform pool is empty")
+        
+        # Check pool size
+        if len(pool) != expected_size:
+            raise ValidationWarning(
+                f"Pool size mismatch: expected {expected_size}, got {len(pool)}"
+            )
+        
+        # Check all cells have same age
+        ages = set(cell.age for cell in pool)
+        if len(ages) > 1:
+            raise ValidationError(
+                f"Pool cells have inconsistent ages: {sorted(ages)}. "
+                f"All pool cells should have age {snapshot_year}."
+            )
+        
+        if ages and list(ages)[0] != snapshot_year:
+            raise ValidationWarning(
+                f"Pool cells have age {list(ages)[0]}, expected {snapshot_year}"
+            )
+        
+        # Check all cells have same gene_rate_groups
+        if hasattr(pool[0], 'gene_rate_groups'):
+            ref_groups = pool[0].gene_rate_groups
+            for i, cell in enumerate(pool[1:], 1):
+                if hasattr(cell, 'gene_rate_groups'):
+                    if cell.gene_rate_groups != ref_groups:
+                        raise ValidationError(
+                            f"Pool cell {i} has different gene_rate_groups than cell 0"
+                        )
+        
+        print(f"  ✓ Uniform pool validation passed ({len(pool)} cells)")
+    
     def validate_mixed_populations(self,
                                   mutant_dishes: List[PetriDish],
                                   control1_dishes: List[PetriDish],

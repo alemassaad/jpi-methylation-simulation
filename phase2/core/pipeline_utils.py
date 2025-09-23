@@ -11,6 +11,7 @@ import os
 import sys
 import glob
 import copy
+from datetime import datetime
 from typing import List, Dict, Tuple, Optional, Any, Union, TextIO
 
 # Add parent directory to path to import from phase1
@@ -659,22 +660,20 @@ def create_pure_snapshot_petri(snapshot_cells: List[Cell], n_cells: int = 5120,
 
 def create_control2_with_uniform_base(
     snapshot_cells: List[Cell],
-    uniform_pool: List[Cell],
-    uniform_indices: List[int],
+    base_dir: str,
     target_size: int,
     seed: Optional[int] = None
 ) -> PetriDish:
     """
     Create Control2 individual with uniform base + additional snapshot cells.
     
-    When using --uniform-mixing, Control2 shares the same 80% base cells as
-    mutant and control1, plus additional random snapshot cells for the remaining 20%.
+    When using uniform mixing, Control2 shares the same base cells as
+    mutant and control1, plus additional random snapshot cells if needed.
     Uses gene_rate_groups from the cells themselves.
     
     Args:
         snapshot_cells: Full second snapshot cells to sample additional from
-        uniform_pool: The shared cells used in all individuals (e.g., 80%)
-        uniform_indices: Indices of cells already used in uniform pool
+        base_dir: Base directory to load uniform pool from
         target_size: Total number of cells needed
         seed: Random seed for additional sampling
     
@@ -685,6 +684,9 @@ def create_control2_with_uniform_base(
         random.seed(seed)
         np.random.seed(seed)
     
+    # Load the uniform pool from file
+    uniform_pool = load_uniform_pool(base_dir)
+    
     # Start with the uniform pool (deep copy to avoid reference issues)
     combined_cells = [copy.deepcopy(cell) for cell in uniform_pool]
     
@@ -692,20 +694,19 @@ def create_control2_with_uniform_base(
     n_additional = target_size - len(uniform_pool)
     
     if n_additional > 0:
-        # Create set of available indices (excluding those already used)
-        all_indices = set(range(len(snapshot_cells)))
-        used_indices = set(uniform_indices)
-        available_indices = list(all_indices - used_indices)
+        # Sample additional cells randomly from snapshot
+        # Since we're not tracking indices anymore, just sample randomly
+        additional_indices = random.sample(range(len(snapshot_cells)), 
+                                         min(n_additional, len(snapshot_cells)))
         
-        if len(available_indices) >= n_additional:
-            # Sample from available indices
-            additional_indices = random.sample(available_indices, n_additional)
-        else:
-            # Not enough unique cells, need to sample with replacement
-            print(f"      ⚠️ Not enough unique cells for Control2 additional sampling")
-            print(f"         Need {n_additional} but only {len(available_indices)} available")
-            print(f"         Sampling with replacement from available cells")
-            additional_indices = [random.choice(available_indices) for _ in range(n_additional)]
+        if n_additional > len(snapshot_cells):
+            # Need more cells than available - error instead of sampling with replacement
+            from .validation import ValidationError
+            raise ValidationError(
+                f"Insufficient snapshot cells for Control2: "
+                f"need {n_additional} additional cells but only {len(snapshot_cells)} available. "
+                f"This shouldn't happen with proper uniform mixing setup."
+            )
         
         # Add the additional cells
         additional_cells = [copy.deepcopy(snapshot_cells[idx]) for idx in additional_indices]
@@ -991,7 +992,7 @@ def print_mixing_statistics(mutant_stats: Dict, control1_stats: Dict, combined_m
 def create_uniform_mixing_pool(snapshot_cells: List[Cell], 
                                normalized_size: int, 
                                mix_ratio: float,
-                               seed: Optional[int] = None) -> Tuple[List[Cell], List[int]]:
+                               seed: Optional[int] = None) -> List[Cell]:
     """
     Create a shared pool of snapshot cells for uniform mixing.
     
@@ -1002,8 +1003,13 @@ def create_uniform_mixing_pool(snapshot_cells: List[Cell],
         seed: Random seed
         
     Returns:
-        Tuple of (cells to be shared across all individuals, indices used from snapshot)
+        List of cells to be shared across all individuals
+    
+    Raises:
+        ValidationError: If insufficient snapshot cells available
     """
+    from .validation import ValidationError
+    
     if seed is not None:
         random.seed(seed)
         np.random.seed(seed)
@@ -1022,19 +1028,146 @@ def create_uniform_mixing_pool(snapshot_cells: List[Cell],
     print(f"      Target total size: {target_total} cells")
     print(f"      Snapshot cells needed: {n_snapshot_cells} cells")
     
-    # Sample the cells
+    # Check if we have enough cells
     if n_snapshot_cells > len(snapshot_cells):
-        print(f"      ⚠️ Sampling with replacement ({n_snapshot_cells} > {len(snapshot_cells)})")
-        indices = [random.randint(0, len(snapshot_cells)-1) for _ in range(n_snapshot_cells)]
-    else:
-        indices = random.sample(range(len(snapshot_cells)), n_snapshot_cells)
+        raise ValidationError(
+            f"Insufficient snapshot cells for uniform mixing: "
+            f"need {n_snapshot_cells}, have {len(snapshot_cells)}. "
+            f"Reduce mix_ratio (currently {mix_ratio:.1%}) or use a larger snapshot."
+        )
+    
+    # Sample the cells
+    indices = random.sample(range(len(snapshot_cells)), n_snapshot_cells)
     
     # Create deep copies
     pool = [copy.deepcopy(snapshot_cells[idx]) for idx in indices]
     
     print(f"      Created pool of {len(pool)} cells")
     
-    return pool, indices
+    return pool
+
+
+def save_uniform_pool(pool: List[Cell], base_dir: str, compress: bool = False):
+    """
+    Save the uniform mixing pool to a file for reuse by Control2.
+    
+    Args:
+        pool: List of Cell objects to save
+        base_dir: Base directory for the phase2 run
+        compress: Whether to compress the output file
+    """
+    import os
+    
+    # Create individuals directory if it doesn't exist
+    individuals_dir = os.path.join(base_dir, 'individuals')
+    os.makedirs(individuals_dir, exist_ok=True)
+    
+    # Determine filename
+    ext = '.json.gz' if compress else '.json'
+    pool_path = os.path.join(individuals_dir, f'uniform_pool{ext}')
+    
+    # Convert cells to dicts
+    pool_data = {
+        'pool': [cell.to_dict() for cell in pool],
+        'n_cells': len(pool),
+        'timestamp': datetime.now().isoformat()
+    }
+    
+    # Save
+    print(f"    Saving uniform pool to: {pool_path}")
+    with smart_open(pool_path, 'w') as f:
+        json.dump(pool_data, f, indent=2)
+    print(f"      Saved {len(pool)} cells to uniform pool")
+
+
+def load_uniform_pool(base_dir: str) -> List[Cell]:
+    """
+    Load the uniform mixing pool from file.
+    
+    Args:
+        base_dir: Base directory for the phase2 run
+        
+    Returns:
+        List of Cell objects from the saved pool
+        
+    Raises:
+        FileNotFoundError: If pool file doesn't exist
+    """
+    import os
+    import glob
+    
+    # Look for pool file (could be compressed or not)
+    individuals_dir = os.path.join(base_dir, 'individuals')
+    pool_files = glob.glob(os.path.join(individuals_dir, 'uniform_pool.json*'))
+    
+    if not pool_files:
+        raise FileNotFoundError(
+            f"No uniform pool file found in {individuals_dir}. "
+            f"Expected uniform_pool.json or uniform_pool.json.gz"
+        )
+    
+    pool_path = pool_files[0]  # Take first match
+    print(f"    Loading uniform pool from: {pool_path}")
+    
+    with smart_open(pool_path, 'r') as f:
+        pool_data = json.load(f)
+    
+    # Convert dicts back to Cell objects
+    pool = [dict_to_cell(cell_dict) for cell_dict in pool_data['pool']]
+    print(f"      Loaded {len(pool)} cells from uniform pool")
+    
+    return pool
+
+
+def validate_pool_compatibility(pool: List[Cell], target_cells: List[Cell]):
+    """
+    Validate that pool cells are compatible with target cells for mixing.
+    
+    Args:
+        pool: Uniform pool cells
+        target_cells: Cells to be mixed with (e.g., grown individuals)
+        
+    Raises:
+        ValidationError: If ages or gene_rate_groups don't match
+    """
+    from .validation import ValidationError
+    
+    if not pool or not target_cells:
+        return  # Nothing to validate if either is empty
+    
+    # Check pool internal consistency - all pool cells should have same age
+    pool_ages = set(cell.age for cell in pool)
+    if len(pool_ages) > 1:
+        raise ValidationError(
+            f"Pool cells have inconsistent ages: {sorted(pool_ages)}. "
+            f"All pool cells should have the same age."
+        )
+    
+    # Check gene_rate_groups consistency
+    # Get first cell's gene_rate_groups as reference
+    ref_groups = pool[0].gene_rate_groups if hasattr(pool[0], 'gene_rate_groups') else None
+    
+    if ref_groups is not None:
+        # Check all pool cells have same gene_rate_groups
+        for i, cell in enumerate(pool[1:], 1):
+            if hasattr(cell, 'gene_rate_groups'):
+                if cell.gene_rate_groups != ref_groups:
+                    raise ValidationError(
+                        f"Pool cell {i} has different gene_rate_groups than cell 0. "
+                        f"All pool cells must have identical gene_rate_groups."
+                    )
+        
+        # Check target cells have compatible gene_rate_groups
+        for cell in target_cells:
+            if hasattr(cell, 'gene_rate_groups'):
+                if cell.gene_rate_groups != ref_groups:
+                    raise ValidationError(
+                        f"Target cells have incompatible gene_rate_groups with pool. "
+                        f"Pool: {ref_groups}, Target: {cell.gene_rate_groups}"
+                    )
+    
+    # Note: We don't validate ages between pool and target as they may differ
+    # (e.g., grown cells have different ages than snapshot cells)
 
 
 def mix_petri_uniform(petri: PetriDish, 
@@ -1051,7 +1184,13 @@ def mix_petri_uniform(petri: PetriDish,
         
     Returns:
         Total cells after mixing
+        
+    Raises:
+        ValidationError: If pool and petri cells are incompatible
     """
+    # Validate compatibility before mixing
+    validate_pool_compatibility(uniform_pool, petri.cells)
+    
     # Handle edge case: 100% mix ratio means replace all cells
     if target_ratio >= 1.0:
         # Replace all cells with snapshot cells

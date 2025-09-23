@@ -159,55 +159,32 @@ def main():
     # Create control2 individuals
     control2_dishes = []
     
-    # Get uniform pool (always used now)
-    uniform_pool = None
-    uniform_indices = None
-    if mixing_metadata and mixing_metadata.get('uniform_pool_indices'):
-        uniform_indices = np.array(mixing_metadata['uniform_pool_indices'])
-        uniform_pool = [second_snapshot_cells[i] for i in uniform_indices]
-        print(f"  Using uniform base with {len(uniform_pool)} cells")
+    # Note: uniform pool is now loaded from file inside create_control2_with_uniform_base
+    print(f"  Using uniform base from saved pool file")
     
     for i in range(num_control2):
         print(f"  Creating individual {i+1}/{num_control2}")
         
         file_index = i + 1
         
-        # Create PetriDish based on mixing mode
-        if uniform_pool is not None:
-            # Use uniform base + additional sampling
-            petri = create_control2_with_uniform_base(
-                second_snapshot_cells,
-                uniform_pool,
-                uniform_indices,
-                actual_control2_size,
-                seed=args.seed + i
-            )
-            
-            # Add metadata
-            if not hasattr(petri, 'metadata'):
-                petri.metadata = {}
-            petri.metadata.update({
-                'individual_id': file_index,
-                'individual_type': 'control2',
-                'source': f'uniform_base_plus_snapshot_year{second_year}',
-                'uniform_base': True
-            })
-        else:
-            # Random sampling
-            petri = create_pure_snapshot_petri(
-                second_snapshot_cells,
-                n_cells=actual_control2_size,
-                seed=args.seed + i
-            )
-            
-            # Add metadata
-            if not hasattr(petri, 'metadata'):
-                petri.metadata = {}
-            petri.metadata.update({
-                'individual_id': file_index,
-                'individual_type': 'control2',
-                'source': f'pure_year{second_year}'
-            })
+        # Create PetriDish using saved uniform pool
+        # The function will load the pool from file internally
+        petri = create_control2_with_uniform_base(
+            second_snapshot_cells,
+            args.base_dir,  # Pass base_dir instead of pool and indices
+            actual_control2_size,
+            seed=args.seed + i
+        )
+        
+        # Add metadata
+        if not hasattr(petri, 'metadata'):
+            petri.metadata = {}
+        petri.metadata.update({
+            'individual_id': file_index,
+            'individual_type': 'control2',
+            'source': f'uniform_base_plus_snapshot_year{second_year}',
+            'uniform_base': True
+        })
         
         control2_dishes.append(petri)
         

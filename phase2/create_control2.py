@@ -176,14 +176,14 @@ def main():
             seed=args.seed + i
         )
         
-        # Add metadata
+        # Add minimal metadata
         if not hasattr(petri, 'metadata'):
             petri.metadata = {}
         petri.metadata.update({
             'individual_id': file_index,
             'individual_type': 'control2',
-            'source': f'common_base_plus_snapshot_year{second_year}',
-            'common_base': True
+            'mix_ratio': mixing_metadata.get('mix_ratio') if mixing_metadata else 0,
+            'normalized_size': mixing_metadata.get('normalized_size') if mixing_metadata else 0
         })
         
         control2_dishes.append(petri)
@@ -193,7 +193,7 @@ def main():
         save_petri_dish(
             petri, filepath,
             include_cell_history=False,  # No history needed
-            include_gene_metrics=True,
+            include_gene_metrics=False,  # No longer saving gene metrics
             compress=use_compression
         )
     

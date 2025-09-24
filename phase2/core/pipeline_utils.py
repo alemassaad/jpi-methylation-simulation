@@ -274,13 +274,13 @@ def save_petri_dish(petri: PetriDish, filepath: str, metadata: Optional[Dict] = 
         metadata: Extra metadata dict
         include_cell_history: Whether to save cell history
         include_gene_jsd: Whether to save gene JSD history
-        include_gene_metrics: Whether to calculate and save gene-level JSD and mean methylation
+        include_gene_metrics: Deprecated, ignored (gene metrics no longer saved)
         compress: If True, save as .json.gz; if False, save as .json
     """
     os.makedirs(os.path.dirname(filepath), exist_ok=True)
     
-    # Always use the professional prepare_for_save method - no fallback
-    data = petri.prepare_for_save(include_gene_metrics=include_gene_metrics)
+    # Use prepare_for_save without gene_metrics (now ignored)
+    data = petri.prepare_for_save()
     
     # Add cell history if requested
     if include_cell_history and hasattr(petri, 'cell_history') and petri.cell_history:

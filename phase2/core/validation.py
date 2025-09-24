@@ -387,13 +387,7 @@ class PipelineValidator:
                         f"Size {cell_count} != threshold {threshold}"
                     )
                 
-                # Check metadata updated
-                if not dish.metadata.get('normalized'):
-                    self._log(
-                        f"{batch_name} {dish.metadata.get('individual_id')}: "
-                        f"Missing 'normalized' flag",
-                        "warning"
-                    )
+                # No need to check 'normalized' flag anymore
         
         # Check retention
         if len(mutant_after) == 0 and len(control1_after) == 0:
@@ -473,17 +467,16 @@ class PipelineValidator:
                 cell_count = len(dish.cells)
                 cell_counts.append(cell_count)
                 
-                # Check metadata
-                if not dish.metadata.get('mixed'):
+                # Check mix_ratio exists and matches
+                if 'mix_ratio' not in dish.metadata:
                     raise ValidationError(
-                        f"{batch_name} {dish.metadata.get('individual_id')}: Not marked as mixed"
-                    )
-                
-                if dish.metadata.get('mix_ratio') != mix_ratio:
-                    self._log(
                         f"{batch_name} {dish.metadata.get('individual_id')}: "
-                        f"Wrong mix_ratio in metadata",
-                        "warning"
+                        f"Missing mix_ratio in metadata"
+                    )
+                if dish.metadata.get('mix_ratio') != mix_ratio:
+                    raise ValidationError(
+                        f"{batch_name} {dish.metadata.get('individual_id')}: "
+                        f"Wrong mix_ratio: expected {mix_ratio}, got {dish.metadata.get('mix_ratio')}"
                     )
                 
                 # Check age distribution 

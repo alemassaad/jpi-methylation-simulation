@@ -507,10 +507,6 @@ class PetriDish:
         self.cells = new_cells
         print(f"  Division: {len(self.cells)//2} → {len(self.cells)} cells")
         
-        # Update metadata if it exists
-        if hasattr(self, 'metadata'):
-            self.metadata['num_cells'] = len(self.cells)
-        
     def methylate_cells(self) -> None:
         """
         Apply stochastic methylation to all cells.
@@ -532,10 +528,6 @@ class PetriDish:
                 survivors.append(cell)
         self.cells = survivors
         print(f"  Random cull: {initial_count} → {len(self.cells)} cells")
-        
-        # Update metadata if it exists
-        if hasattr(self, 'metadata'):
-            self.metadata['num_cells'] = len(self.cells)
         
     def age_cells_growth_phase(self) -> None:
         """
@@ -984,11 +976,7 @@ class PetriDish:
         else:
             petri.metadata = {}
         
-        # Ensure critical metadata is set
-        petri.update_metadata({
-            'num_cells': len(cells_list),
-            'creation_method': 'from_cells'
-        })
+        # Don't auto-add metadata - let phase2 control what's stored
         
         return petri
     
@@ -1063,8 +1051,8 @@ class PetriDish:
             self.metadata = {}
         
         if preserve_keys is None:
-            # By default, preserve critical calculated values
-            preserve_keys = ['num_cells', 'gene_jsds', 'gene_mean_methylation']
+            # By default, preserve nothing - let caller decide
+            preserve_keys = []
         
         # Save values to preserve
         preserved = {}
@@ -1079,49 +1067,27 @@ class PetriDish:
         # Restore preserved values
         self.metadata.update(preserved)
         
-        # Always ensure num_cells is accurate
-        self.metadata['num_cells'] = len(self.cells)
-        
         return self
     
-    def prepare_for_save(self, include_gene_metrics: bool = True) -> Dict:
+    def prepare_for_save(self, include_gene_metrics: bool = False) -> Dict:
         """
-        Prepare the PetriDish data for saving, ensuring all metadata is current.
+        Prepare the PetriDish data for saving with minimal metadata.
         
         Args:
-            include_gene_metrics: Whether to include gene-level metrics
+            include_gene_metrics: Whether to include gene-level metrics (deprecated, ignored)
             
         Returns:
             Dictionary ready for JSON serialization
         """
-        # Get fresh stats
-        current_stats = self.get_current_stats()
-        
         # Build the save data
         save_data = {
             'cells': [cell.to_dict() for cell in self.cells],
             'metadata': {}
         }
         
-        # Start with existing metadata
+        # Only include explicitly set metadata
         if hasattr(self, 'metadata'):
             save_data['metadata'] = self.metadata.copy()
-        
-        # Update with fresh values
-        save_data['metadata']['num_cells'] = current_stats['num_cells']
-        save_data['metadata']['year'] = self.year
-        
-        # Add gene metrics if requested
-        if include_gene_metrics:
-            save_data['metadata']['gene_jsds'] = current_stats.get('gene_jsds', [])
-            save_data['metadata']['gene_mean_methylation'] = current_stats.get('gene_mean_methylation', [])
-            save_data['metadata']['n_genes'] = self.n_genes
-        
-        # Add rate configuration and parameters
-        save_data['metadata']['gene_rate_groups'] = self.gene_rate_groups
-        save_data['metadata']['gene_size'] = self.gene_size
-        save_data['metadata']['n'] = self.n
-        save_data['metadata']['growth_phase'] = self.growth_phase
         
         return save_data
 

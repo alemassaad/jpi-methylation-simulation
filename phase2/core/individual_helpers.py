@@ -29,11 +29,10 @@ def create_individual(
     Returns:
         The created PetriDish object
     """
-    # Build metadata
+    # Build minimal metadata
     metadata = {
         'individual_id': individual_id,
-        'individual_type': individual_type,
-        'initial_year': 50  # Standard for phase2
+        'individual_type': individual_type
     }
     if additional_metadata:
         metadata.update(additional_metadata)
@@ -96,14 +95,10 @@ def mix_individual(
         seed=seed
     )
     
-    # Update metadata
+    # Update metadata - only essential fields
     if not hasattr(petri, 'metadata'):
         petri.metadata = {}
-    petri.metadata.update({
-        'mixed': True,
-        'mix_ratio': int(mix_ratio * 100),
-        'final_cells': total_cells
-    })
+    petri.metadata['mix_ratio'] = int(mix_ratio * 100)
     
     return total_cells
 

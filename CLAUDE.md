@@ -61,206 +61,262 @@ python run_analysis.py --config configs/quick_analysis.yaml \
 python plot_simulation.py ../phase1/data/*/simulation.json.gz
 ```
 
-## High-Level Architecture
+## Phase 2 Data Flow Architecture - Detailed Mechanisms
 
-### Three-Phase Architecture
-- **Phase 1**: Core simulation engine - generates cell populations over time
-- **Phase 2**: Data generation pipeline - creates structured datasets from phase1
-- **Phase 3**: Analysis pipeline - generates all plots and statistics from phase2 data
+### Overview
+Phase 2 transforms Phase 1 simulations into structured datasets through a 6-stage pipeline. The pipeline uses common mixing where all individuals receive identical snapshot cells for reproducible analysis.
 
-### Phase 2 Pipeline Architecture
+### Stage-by-Stage Data Flow
 
-#### Overview
-Phase 2 generates structured datasets from Phase 1 simulations through a 6-stage pipeline. All individuals receive common mixing (same snapshot cells) for reproducible analysis.
+#### Stage 1-2: Extract Snapshots (`extract_snapshots.py`)
 
-#### Pipeline Stages
+**Data Loading:**
+1. Loads Phase 1 simulation file using `smart_open()` (handles .json/.json.gz)
+2. Reads entire simulation into memory: `data = json.load(f)`
+3. Accesses history with string keys: `history = data['history']`
+4. Extracts specific year: `year_data = history[str(year)]` (e.g., `history["30"]`)
 
-##### Stage 1-2: Extract Snapshots (`extract_snapshots.py`)
-**Purpose**: Extract cells from two time points in the simulation as direct copies
+**Data Processing:**
+- Direct copy of year data - NO transformation
+- Preserves exact structure from Phase 1 including `cells` array and optional `gene_jsd`
 
-**Process**:
-1. Load simulation file
-2. Extract year data from history[year_str] (e.g., history["30"])
-3. Save as direct copy with year key wrapper
-4. Create metadata.json from simulation config
+**Data Writing:**
+```python
+# Snapshot format with year key wrapper
+snapshot_with_key = {
+    "30": {  # String year key
+        "cells": [...],      # Direct copy from Phase 1
+        "gene_jsd": [...]    # Preserved if present
+    }
+}
+```
 
-**Snapshot Format**:
+**Files Created:**
+- `snapshots/year30_snapshot.json[.gz]` - First snapshot with year key
+- `snapshots/year50_snapshot.json[.gz]` - Second snapshot with year key  
+- `snapshots/metadata.json` - Configuration from simulation
+
+**Metadata Structure:**
 ```json
 {
-  "30": {
-    "cells": [...],
-    "gene_jsd": [...]  // Preserved if present
-  }
+    "gene_rate_groups": [[50, 0.004], [50, 0.006]],
+    "n_sites": 1000,
+    "gene_size": 5,
+    "first_snapshot_year": 30,
+    "second_snapshot_year": 50,
+    "source_simulation": "../phase1/data/.../simulation.json",
+    "extraction_timestamp": "1234567890.123"
 }
 ```
 
-##### Stage 3-5: Simulate Individuals (`simulate_individuals.py`)
+#### Stage 3-5: Simulate Individuals (`simulate_individuals.py`)
 
-###### Stage 3: Create Initial Individuals
-**Mutant Creation**:
-- Uses quantile-based sampling for systematic coverage
-- Cells sorted by cell JSD, divided into quantiles
-- Sample specified cells per quantile
-- Creates `n_quantiles × cells_per_quantile` individuals
+##### Stage 3: Create Initial Individuals
 
-**Control1 Creation**:
-- Uses common random sampling
-- Creates same number as mutant individuals
-- No quantile structure, pure random selection
+**Data Loading:**
+1. Loads metadata: `metadata = json.load(open('snapshots/metadata.json'))`
+2. Loads first snapshot using `load_snapshot_cells()`:
+   - Opens file with `smart_open()`
+   - Detects year key wrapper: `if len(data) == 1 and list(data.keys())[0].isdigit()`
+   - Strips wrapper: `year_data = data[year_key]`
+   - Converts to Cell objects: `cells = [dict_to_cell(cd) for cd in year_data['cells']]`
 
-###### Stage 4: Grow Individuals
-1. Each individual grows for `timeline_duration` years
-2. Exponential growth for `growth_phase` years
-3. Homeostasis via random culling afterward
-4. Target population: 2^growth_phase cells
-5. Tracks full history during growth
-
-###### Stage 5: Mix Populations
-**Common Mixing Process**:
-1. **Normalize individuals**: All populations set to same size
-2. **Create common pool**: Select cells from second snapshot
-3. **Apply mixing**: Each individual gets identical snapshot cells
-4. **Final composition**: `mix_ratio%` from snapshot, rest from grown
-
-##### Stage 6: Create Control2 (`create_control2.py`)
-1. Determine count based on mutant/control1 populations
-2. Load common pool from `common_pool.json`
-3. Apply same common pool to all individuals
-4. Fill remaining slots with random sampling if needed
-5. No growth phase - pure snapshot cells
-
-### Key Data Structures
-
-#### Cell Object (from phase1)
+**Cell Object Reconstruction (`dict_to_cell`):**
 ```python
+# Each cell dictionary contains:
 {
-  "cpg_sites": [0, 0, 1, ...],           # Methylation state
-  "cell_jsd": 0.123,                      # Jensen-Shannon divergence
-  "age": 30,                              # Cell age in years
-  "gene_rate_groups": [[50, 0.004], ...], # Gene-specific rates
-  "cell_methylation_proportion": 0.15,    # Proportion methylated
-  "n_methylated": 150                     # Count methylated
+    "cpg_sites": [0, 1, 0, ...],           # Methylation state
+    "gene_rate_groups": [[50, 0.004], ...], # Embedded in each cell
+    "cell_jsd": 0.123,                      # Cell's JSD
+    "age": 30,                              # Cell age
+    "cell_methylation_proportion": 0.15,    # Cached calculation
+    "n_methylated": 150                     # Cached count
 }
 ```
 
-#### PetriDish Metadata
-```python
-{
-  "individual_id": 1,
-  "individual_type": "mutant",
-  "source_quantile": 3,           # For mutant only
-  "n_quantiles": 10,              # For mutant only
-  "initial_year": 30,
-  "mixed": true,
-  "mix_mode": "common",
-  "mix_ratio": 80,
-  "normalized": true,              # If size normalization applied
-  "normalization_threshold": 128
-}
-```
+**Sampling Process:**
+- **Mutant**: `sample_by_quantiles()` - sorts by cell_jsd, divides into quantiles
+- **Control1**: `sample_uniform()` - random sampling
 
-### Phase 2 Common Mixing System
+##### Stage 4: Grow Individuals
 
-#### Overview
-Phase 2 implements a sophisticated common mixing system where all individuals receive identical snapshot cells. This ensures reproducibility and eliminates sampling variation between individuals. The common pool is saved to a file for reuse by Control2.
+**Processing:**
+1. Each PetriDish grows for `timeline_duration` years
+2. Growth tracked in `petri.cell_history` dictionary
+3. Exponential phase: doubles each year for `growth_phase` years
+4. Homeostasis: divide → cull ~50% → methylate
 
-#### Mixing Implementation Flow
+**Memory Management:**
+- Full history maintained during growth
+- Deep copies of cells at each year
 
-##### Step 1: Mandatory Size Normalization
-**Location**: `phase2/core/pipeline_utils.py:1217-1351` (`normalize_populations()`)
+##### Stage 5: Mix Populations  
 
-**Algorithm**:
-```python
-threshold_size = median(all_sizes) - 0.5 * std_dev(all_sizes)
-```
-
-**Process**:
-1. Calculate median and standard deviation of all population sizes
-2. Set threshold = median - 0.5σ (excludes mild outliers)
+**Normalization (`normalize_populations`):**
+1. Calculate all population sizes
+2. Compute threshold: `median - 0.5 * std_dev`
 3. Process each individual:
-   - Size < threshold: EXCLUDE from dataset
-   - Size = threshold: KEEP AS IS
-   - Size > threshold: TRIM to threshold size (random sampling)
-4. Create deep copies to preserve originals
-5. Update metadata with normalization info
+   - Below threshold: EXCLUDE (remove from dataset)
+   - At threshold: KEEP as is
+   - Above threshold: TRIM to threshold (random sampling)
+4. Returns normalized copies and threshold size
 
-##### Step 2: Create and Save Common Mixing Pool
-**Location**: `phase2/core/pipeline_utils.py:991-1046` (`create_common_mixing_pool()`)
-
-**Key Features (2025-09-23)**:
-- No longer returns indices (only pool cells)
-- Throws `ValidationError` if insufficient cells (no sampling with replacement)
-- Pool is saved to `common_pool.json` file
-
-**Pool Size Calculation**:
+**Common Pool Creation (`create_common_mixing_pool`):**
 ```python
+# Pool size calculation
 if mix_ratio >= 1.0:
-    n_snapshot_cells = normalized_size  # Complete replacement
+    n_snapshot_cells = normalized_size
 else:
     target_total = int(normalized_size / (1 - mix_ratio))
     n_snapshot_cells = int(target_total * mix_ratio)
 ```
 
-##### Step 3: Apply Common Pool to All Individuals
-**Location**: `phase2/core/pipeline_utils.py:1172-1214` (`mix_petri_common()`)
-
-**Process**:
-1. Validate pool compatibility with target cells
-2. For 100% mix ratio: Replace all cells with snapshot
-3. Otherwise: Add entire common pool to normalized individual
-4. Shuffle cells for thorough mixing
-5. Update metadata with mixing parameters
-
-### Core Module Functions
-
-#### pipeline_utils.py (Key Functions)
-- `smart_open()`: Handle .json and .json.gz files
-- `dict_to_cell()`: Convert JSON to Cell objects with gene_rate_groups
-- `load_snapshot_cells()`: Load snapshots with year key handling
-- `sample_by_quantiles()`: Quantile-based sampling for mutants
-- `sample_common()`: Random common sampling for control1
-- `normalize_populations()`: Normalize to consistent size
-- `create_common_mixing_pool()`: Create shared pool of snapshot cells
-- `save_common_pool()`: Save common pool to file for Control2 reuse
-- `load_common_pool()`: Load common pool from saved file
-- `validate_pool_compatibility()`: Validate pool/target cell compatibility
-- `mix_petri_common()`: Apply common pool to individual
-- `create_control2_with_common_base()`: Control2 with common base
-
-#### individual_helpers.py
-- `create_individual()`: Initialize PetriDish
-- `grow_individual()`: Simulate growth with homeostasis
-- `process_batch_growth()`: Batch growth processing
-
-#### path_utils.py
-- `parse_phase1_simulation_path()`: Extract simulation parameters
-- `generate_phase2_output_dir()`: Create output path under Phase 1 directory with timestamp
-
-#### validation.py
-- `ValidationError`: Critical failures
-- `ValidationWarning`: Non-fatal issues
-- `ValidationConfig`: Configure strictness
-- `PipelineValidator`: Main validation orchestrator
-
-### Output Directory Structure (Sept 2025)
+**Pool Saving (`save_common_pool`):**
+```python
+# Saves as simple array of cell dictionaries
+pool_data = [cell.to_dict() for cell in pool]
+# Written to: individuals/common_pool.json[.gz]
 ```
-phase1/data/gene_rates_*/size*-seed*-{phase1_timestamp}/      # Phase 1 directory
-├── simulation.json                                           # Phase 1 simulation
-└── snap{Y1}to{Y2}-growth{G}-quant{Q}x{C}-mix{M}u-seed{S}-{phase2_timestamp}/
-    ├── snapshots/
-    │   ├── year30_snapshot.json[.gz]      # First snapshot cells
-    │   ├── year50_snapshot.json[.gz]      # Second snapshot cells
-    │   └── metadata.json                  # Gene rates, parameters
-    └── individuals/
-        ├── mutant/
-        │   └── individual_*.json[.gz]     # Mutant populations
-        ├── control1/
-        │   └── individual_*.json[.gz]     # Control1 populations
-        ├── control2/
-        │   └── individual_*.json[.gz]     # Control2 populations
-        ├── common_pool.json[.gz]          # Shared snapshot cells
-        └── mixing_metadata.json            # Mixing parameters
+
+**Mixing Process (`mix_petri_common`):**
+1. Validates compatibility with `validate_pool_compatibility()`
+2. For 100% ratio: replaces all cells
+3. Otherwise: adds entire pool to normalized individual
+4. Shuffles combined cells
+
+**Data Writing:**
+
+Each individual saved as PetriDish with `save_petri_dish()`:
+```json
+{
+    "cells": [...],           # Final mixed population
+    "metadata": {
+        // Essential identification
+        "individual_id": 1,
+        "individual_type": "mutant",  // or "control1", "control2"
+        
+        // Mutant-specific
+        "source_quantile": 3,         // Only for mutant
+        "n_quantiles": 10,            // Only for mutant
+        
+        // Growth parameters (mutant/control1 only)
+        "initial_year": 30,           // Starting snapshot year
+        "growth_phase": 6,            // Years of exponential growth
+        
+        // Mixing parameters (all types)
+        "mix_ratio": 80,              // Percentage from snapshot
+        "normalized_size": 128        // Size after normalization
+    },
+    "cell_history": {         # Optional, mutant/control1 only
+        "30": [...],
+        "31": [...],
+        ...
+    }
+}
 ```
+
+**Files Created:**
+- `individuals/mutant/individual_01.json[.gz]` through `individual_N.json[.gz]`
+- `individuals/control1/individual_01.json[.gz]` through `individual_N.json[.gz]`
+- `individuals/common_pool.json[.gz]` - Shared snapshot cells (array format)
+- `individuals/mixing_metadata.json` - Minimal mixing parameters: `{"mix_ratio": 80, "normalized_size": 128}`
+
+#### Stage 6: Create Control2 (`create_control2.py`)
+
+**Data Loading:**
+1. Loads mixing metadata: `mixing_metadata = json.load(open('individuals/mixing_metadata.json'))`
+2. Loads second snapshot cells
+3. Loads common pool: `common_pool = load_common_pool(base_dir)`
+   - Looks for `individuals/common_pool.json[.gz]`
+   - Converts back to Cell objects
+
+**Control2 Creation (`create_control2_with_common_base`):**
+1. Starts with entire common pool (deep copy)
+2. If need more cells: samples additional from snapshot
+3. Creates PetriDish with combined cells
+
+**Data Writing:**
+Same PetriDish format but without `cell_history` (no growth phase)
+
+### Key JSON Structures and Access Patterns
+
+#### Phase 1 Simulation Format
+```json
+{
+    "config": {
+        "gene_rate_groups": [[50, 0.004], [50, 0.006]],
+        "n": 1000,
+        "gene_size": 5,
+        "years": 100
+    },
+    "history": {
+        "0": {                    // String keys for years
+            "cells": [...],
+            "gene_jsd": [...]     // Optional
+        },
+        "30": {...},
+        "50": {...}
+    }
+}
+```
+
+#### Snapshot Format (Phase 2)
+```json
+{
+    "30": {                      // Year key wrapper (string)
+        "cells": [
+            {
+                "cpg_sites": [0, 1, ...],
+                "gene_rate_groups": [[50, 0.004], ...],
+                "cell_jsd": 0.123,
+                "age": 30
+            }
+        ],
+        "gene_jsd": [...]        // Optional, preserved from Phase 1
+    }
+}
+```
+
+#### Common Pool Format
+```json
+[                                // Direct array, no wrapper
+    {
+        "cpg_sites": [0, 1, ...],
+        "gene_rate_groups": [[50, 0.004], ...],
+        "cell_jsd": 0.456,
+        "age": 50
+    },
+    ...
+]
+```
+
+### Critical Implementation Details
+
+#### File I/O Pattern
+- Always use `smart_open()` for automatic .json/.json.gz handling
+- Text mode for all JSON operations (`'rt'`/`'wt'` for gzip)
+- Deep copies when loading/saving to avoid reference issues
+
+#### Year Key Convention
+- Phase 1 history uses string keys: `history["30"]`
+- Snapshots preserve year key wrapper: `{"30": {...}}`
+- Always convert: `year_str = str(year)`
+
+#### Cell Compatibility Validation
+- Every cell stores its own `gene_rate_groups`
+- `PetriDish.validate_cells_compatible()` ensures consistency
+- Validation at load, mix, and save points
+
+#### Memory Optimization
+- Snapshots cached within run (skip if exists)
+- Compression determined from first snapshot file
+- Deep copies only when necessary (mixing, normalization)
+
+#### Common Pool Lifecycle
+1. Created once during Stage 5
+2. Saved to `common_pool.json[.gz]`
+3. Loaded by Control2 in Stage 6
+4. Ensures identical base across all individual types
 
 ### Configuration System
 
@@ -274,12 +330,31 @@ Always loaded automatically. Key parameters:
 - `mix_ratio`: 85 (percentage)
 - `compress`: false
 - `seed`: 24
-- **Note**: Verbose output is always enabled in phase2 (no configuration option)
 
 #### Configuration Priority
 1. Default config loaded first
 2. Custom config file overrides defaults
 3. Command-line arguments override everything
+
+### Output Directory Structure
+```
+phase1/data/gene_rates_*/size*-seed*-{phase1_timestamp}/      # Phase 1 directory
+├── simulation.json                                           # Phase 1 simulation
+└── snap{Y1}to{Y2}-growth{G}-quant{Q}x{C}-mix{M}u-seed{S}-{phase2_timestamp}/
+    ├── snapshots/
+    │   ├── year30_snapshot.json[.gz]      # First snapshot with year key
+    │   ├── year50_snapshot.json[.gz]      # Second snapshot with year key
+    │   └── metadata.json                   # Extraction metadata
+    └── individuals/
+        ├── mutant/
+        │   └── individual_*.json[.gz]      # Mutant populations
+        ├── control1/
+        │   └── individual_*.json[.gz]      # Control1 populations
+        ├── control2/
+        │   └── individual_*.json[.gz]      # Control2 populations
+        ├── common_pool.json[.gz]           # Shared snapshot cells (array)
+        └── mixing_metadata.json            # Mixing parameters
+```
 
 ### Import Structure
 ```python
@@ -295,6 +370,13 @@ from cell import PetriDish, Cell
 sys.path.append(os.path.join(project_root, 'phase1'))
 sys.path.append(os.path.join(project_root, 'phase2'))
 ```
+
+## High-Level Architecture
+
+### Three-Phase Architecture
+- **Phase 1**: Core simulation engine - generates cell populations over time
+- **Phase 2**: Data generation pipeline - creates structured datasets from phase1
+- **Phase 3**: Analysis pipeline - generates all plots and statistics from phase2 data
 
 ## Project-Specific Instructions
 
@@ -344,34 +426,17 @@ Required dependencies:
 - Removed all test files as part of cleanup
 - Clear separation: phase1 = simulation, phase3 = visualization
 
-## JSON Format (Lean Format)
-```json
-{
-  "config": {
-    "gene_rate_groups": [[50, 0.004], [50, 0.006]],  // Gene-specific rates
-    "n": 1000,                  // CpG sites per cell
-    "gene_size": 5,             // Sites per gene
-    "growth_phase": 13,         // Growth duration
-    "years": 100,               // Total simulation time
-    "seed": 42
-  },
-  "history": {
-    "0": {
-      "cells": [
-        {
-          "cpg_sites": [0, 0, 1, ...],        // Methylation state
-          "cell_jsd": 0.0,                    // Cell's divergence
-          "age": 0,                            // Cell age
-          "gene_rate_groups": [[50, 0.004], [50, 0.006]],
-          "cell_methylation_proportion": 0.0,  // Proportion methylated
-          "n_methylated": 0                    // Count methylated
-        }
-      ],
-      "gene_jsd": [0.0, 0.0, ...]  // Optional: per-gene JSDs
-    }
-  }
-}
-```
+## Biological Concepts
+
+### CpG Sites
+Cytosine-guanine dinucleotides where methylation occurs in DNA:
+- Initially unmethylated (0)
+- Can become methylated (1) with probability `rate` per year
+- Once methylated, remain methylated (irreversible)
+
+### Jensen-Shannon Divergence (JSD)
+- **Cell-level JSD**: Measures individual cell divergence from baseline (0-1 range)
+- **Gene-level JSD**: Measures population heterogeneity per gene
 
 ## Common Issues and Solutions
 
@@ -404,42 +469,3 @@ Required dependencies:
 - Run stages individually for debugging
 - Generate data once, analyze multiple times with phase3
 - JSD calculations are always enabled (no performance flags needed)
-
-## Dictionary Key Convention
-All history dictionaries use STRING keys for years to ensure JSON compatibility:
-- Always use `str(year)` when accessing dictionary values
-- Convert to int for sorting, then back to string for access
-- Pattern: `years = sorted([int(y) for y in history.keys()])`
-
-## Biological Concepts
-
-### CpG Sites
-Cytosine-guanine dinucleotides where methylation occurs in DNA:
-- Initially unmethylated (0)
-- Can become methylated (1) with probability `rate` per year
-- Once methylated, remain methylated (irreversible)
-
-### Jensen-Shannon Divergence (JSD)
-- **Cell-level JSD**: Measures individual cell divergence from baseline (0-1 range)
-- **Gene-level JSD**: Measures population heterogeneity per gene
-
-## Critical Implementation Details
-
-### Common Mixing Implementation
-- Mandatory size normalization always applied
-- Uses median - 0.5σ threshold method
-- Excludes individuals below threshold
-- Trims larger individuals to threshold size
-- Ensures all individuals have exactly the same size
-
-### Extinction Handling
-- Natural extinction allowed during growth
-- Extinct individuals removed during normalization
-- Validation tracks extinction rate
-- Complete batch extinction triggers failure
-
-### Gene Rate Groups
-- Every cell stores its own gene_rate_groups
-- Validated at load time for consistency
-- Passed through entire pipeline
-- Critical for multi-rate simulations

@@ -38,14 +38,12 @@ def load_metadata(base_dir: str) -> Dict:
 def save_mixing_metadata(
     base_dir: str,
     mix_ratio: int,
-    normalized_size: int  # No longer optional
+    normalized_size: int
 ) -> None:
-    """Save mixing metadata for control2 creation."""
+    """Save minimal mixing metadata for control2 creation."""
     metadata = {
-        'common_mixing': True,  # Always true now
         'mix_ratio': mix_ratio,
-        'normalized_size': normalized_size,
-        'normalization_threshold': normalized_size  # Keep for backwards compat in Control2
+        'normalized_size': normalized_size
     }
     
     metadata_path = os.path.join(base_dir, "individuals", "mixing_metadata.json")
@@ -59,6 +57,7 @@ def create_mutant_individuals(
     n_quantiles: int,
     cells_per_quantile: int,
     growth_phase: int,
+    initial_year: int,
     seed: int
 ) -> List[PetriDish]:
     """Create mutant individuals using quantile sampling."""
@@ -77,7 +76,9 @@ def create_mutant_individuals(
         file_index = i + 1
         additional_metadata = {
             'source_quantile': quantile,
-            'n_quantiles': n_quantiles
+            'n_quantiles': n_quantiles,
+            'initial_year': initial_year,
+            'growth_phase': growth_phase
         }
         
         petri = create_individual(
@@ -97,6 +98,7 @@ def create_control1_individuals(
     snapshot_cells: List[Cell],
     n_individuals: int,
     growth_phase: int,
+    initial_year: int,
     seed: int
 ) -> List[PetriDish]:
     """Create control1 individuals using uniform sampling."""
@@ -112,7 +114,10 @@ def create_control1_individuals(
     
     for i, cell in enumerate(sampled_cells):
         file_index = i + 1
-        additional_metadata = {'source': 'uniform'}
+        additional_metadata = {
+            'initial_year': initial_year,
+            'growth_phase': growth_phase
+        }
         
         petri = create_individual(
             cell=cell,
@@ -234,6 +239,7 @@ def main():
         args.n_quantiles,
         args.cells_per_quantile,
         args.growth_phase,
+        first_year,
         args.seed
     )
     
@@ -242,6 +248,7 @@ def main():
         first_snapshot_cells,
         expected_individuals,
         args.growth_phase,
+        first_year,
         args.seed
     )
     
@@ -328,15 +335,13 @@ def main():
         if not hasattr(dish, 'metadata'):
             dish.metadata = {}
         dish.metadata['individual_id'] = new_id
-        dish.metadata['normalized'] = True
-        dish.metadata['normalization_threshold'] = normalized_size
+        dish.metadata['normalized_size'] = normalized_size
     
     for new_id, dish in enumerate(control1_dishes, 1):
         if not hasattr(dish, 'metadata'):
             dish.metadata = {}
         dish.metadata['individual_id'] = new_id
-        dish.metadata['normalized'] = True
-        dish.metadata['normalization_threshold'] = normalized_size
+        dish.metadata['normalized_size'] = normalized_size
     
     print(f"  Normalized all individuals to {normalized_size} cells")
     
@@ -368,8 +373,6 @@ def main():
         
         if not hasattr(petri, 'metadata'):
             petri.metadata = {}
-        petri.metadata['mixed'] = True
-        petri.metadata['mix_mode'] = 'common'
         petri.metadata['mix_ratio'] = args.mix_ratio
     
     for i, petri in enumerate(control1_dishes):
@@ -380,8 +383,6 @@ def main():
         
         if not hasattr(petri, 'metadata'):
             petri.metadata = {}
-        petri.metadata['mixed'] = True
-        petri.metadata['mix_mode'] = 'common'
         petri.metadata['mix_ratio'] = args.mix_ratio
     
     # Validate mixed populations
@@ -410,7 +411,7 @@ def main():
         batch_name='mutant',
         compress=use_compression,
         include_cell_history=True,
-        include_gene_metrics=True
+        include_gene_metrics=False  # No longer saving gene metrics
     )
     
     # Save control1 individuals
@@ -420,7 +421,7 @@ def main():
         batch_name='control1',
         compress=use_compression,
         include_cell_history=True,
-        include_gene_metrics=True
+        include_gene_metrics=False  # No longer saving gene metrics
     )
     
     # Save mixing metadata

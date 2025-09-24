@@ -328,8 +328,7 @@ def main():
         growth_phase=growth_phase
     )
     
-    # Enable history tracking (gene JSD is always tracked)
-    petri_dish.enable_history_tracking()
+    # History tracking is always enabled
     print("Cell and gene JSD tracking enabled")
     
     # Run simulation

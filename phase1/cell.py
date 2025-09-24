@@ -396,9 +396,7 @@ class PetriDish:
             self.cells = [Cell(n=n, gene_rate_groups=gene_rate_groups, gene_size=gene_size)]
             self.year = 0  # Fresh cell starts at age 0
         
-        # Cell history tracking (renamed for clarity)
-        self.track_cell_history = True  # Renamed from history_enabled
-        
+        # Cell history tracking (always enabled)
         # Gene JSD tracking (always enabled)
         self.gene_jsd_history = {}
         # Baseline must match gene_size + 1 bins
@@ -410,14 +408,9 @@ class PetriDish:
             year_key = str(self.year)
             self.cell_history = {year_key: [cell.to_dict() for cell in self.cells]}
             
-            # Initialize gene JSD at appropriate year
-            if self.year == 0:
-                # Only initialize as zeros if truly year 0
-                self.gene_jsd_history[year_key] = [0.0] * self.n_genes
-            else:
-                # Calculate actual gene JSDs for non-zero years
-                gene_jsds = self.calculate_gene_jsd()
-                self.gene_jsd_history[year_key] = gene_jsds
+            # Calculate gene JSD for all years (including year 0)
+            gene_jsds = self.calculate_gene_jsd()
+            self.gene_jsd_history[year_key] = gene_jsds
         else:
             self.cell_history = {}
         
@@ -582,11 +575,7 @@ class PetriDish:
             print(f"  Final count: {len(self.cells)} cells (random ~{self.target_population})")
             
         # Store current state after all operations
-        if self.track_cell_history:
-            self._record_history(self.year)
-        else:
-            # Always store in cell_history for backward compatibility
-            self.cell_history[str(self.year)] = [cell.to_dict() for cell in self.cells]
+        self._record_history(self.year)
         
         # Report statistics
         jsd_values = [cell.cell_jsd for cell in self.cells]
@@ -687,8 +676,7 @@ class PetriDish:
                 'gene_size': self.gene_size,
                 'growth_phase': self.growth_phase,
                 'years': self.year,
-                'seed': self.seed,
-                'track_cell_history': self.track_cell_history
+                'seed': self.seed
             },
             'history': {}
         }
@@ -729,27 +717,6 @@ class PetriDish:
     
     # ==================== Enhanced History Tracking Methods ====================
     
-    def enable_history_tracking(self, clear_history: bool = True) -> 'PetriDish':
-        """
-        Enable history tracking.
-        
-        Args:
-            clear_history: Whether to clear existing history
-            
-        Returns:
-            Self for method chaining
-        """
-        self.track_cell_history = True
-        if clear_history:
-            self.cell_history = {}
-            self.gene_jsd_history = {}
-        self._record_history()  # Record initial state
-        return self
-    
-    def disable_history_tracking(self) -> 'PetriDish':
-        """Disable history tracking to save memory."""
-        self.track_cell_history = False
-        return self
     
     def _record_history(self, year: int = None) -> None:
         """
@@ -761,9 +728,8 @@ class PetriDish:
         if year is None:
             year = self.year
         
-        # Record cell history if enabled
-        if self.track_cell_history:
-            self.cell_history[str(year)] = [cell.to_dict() for cell in self.cells]
+        # Record cell history (always enabled)
+        self.cell_history[str(year)] = [cell.to_dict() for cell in self.cells]
         
         # Record gene JSD (always enabled)
         gene_jsds = self.calculate_gene_jsd()

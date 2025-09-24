@@ -120,9 +120,7 @@ python run_simulation.py --rate 0.005 --no-jsds
     "gene_size": 5,
     "growth_phase": 13,
     "years": 100,
-    "seed": 42,
-    "track_cell_history": true,
-    "track_gene_jsd": true
+    "seed": 42
   },
   "history": {
     "0": {

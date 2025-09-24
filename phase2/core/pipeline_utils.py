@@ -399,14 +399,11 @@ def load_petri_dish(filepath: str, include_cell_history: bool = False, include_g
     # Restore cell history if requested and available
     if include_cell_history and 'cell_history' in data:
         petri.cell_history = data['cell_history']
-        petri.track_cell_history = True
     elif include_cell_history and 'history' in data:  # Backward compatibility
         petri.cell_history = data['history']
-        petri.track_cell_history = True
     else:
         # Clear any auto-initialized history if not loading it
         petri.cell_history = {}
-        petri.track_cell_history = False
     
     # Restore gene JSD history if requested and available
     if include_gene_jsd:

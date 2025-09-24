@@ -266,51 +266,66 @@ def save_petri_dish(petri: PetriDish, filepath: str, metadata: Optional[Dict] = 
                    include_gene_metrics: bool = False,
                    compress: bool = True) -> None:
     """
-    Save a PetriDish to JSON file (compressed or uncompressed), optionally with history.
+    Save a PetriDish using Phase 1's save_history method.
     
     Args:
         petri: PetriDish object
         filepath: Output path
-        metadata: Extra metadata dict
-        include_cell_history: Whether to save cell history
-        include_gene_jsd: Whether to save gene JSD history
-        include_gene_metrics: Deprecated, ignored (gene metrics no longer saved)
+        metadata: Extra metadata dict (will be added to config)
+        include_cell_history: Ignored - always included
+        include_gene_jsd: Ignored - always included
+        include_gene_metrics: Deprecated, ignored
         compress: If True, save as .json.gz; if False, save as .json
     """
-    os.makedirs(os.path.dirname(filepath), exist_ok=True)
+    dir_path = os.path.dirname(filepath)
+    if dir_path:  # Only create directory if there is one
+        os.makedirs(dir_path, exist_ok=True)
     
-    # Use prepare_for_save without gene_metrics (now ignored)
-    data = petri.prepare_for_save()
-    
-    # Add cell history if requested
-    if include_cell_history and hasattr(petri, 'cell_history') and petri.cell_history:
-        data["cell_history"] = petri.cell_history
-    
-    # Add gene JSD history if requested
-    if include_gene_jsd and hasattr(petri, 'gene_jsd_history') and petri.gene_jsd_history:
-        data["gene_jsd_history"] = petri.gene_jsd_history
-    
-    # Add custom metadata if provided
-    if metadata:
-        data["metadata"].update(metadata)
-    
-    # Adjust filepath based on compress flag
+    # Ensure filepath has correct extension
     if compress and not filepath.endswith('.gz'):
         if filepath.endswith('.json'):
             filepath = filepath + '.gz'
         else:
             filepath = filepath + '.json.gz'
     elif not compress and filepath.endswith('.gz'):
-        filepath = filepath[:-3]  # Remove .gz extension
+        filepath = filepath[:-3]  # Remove .gz
     
-    # Use smart_open which handles compression based on file extension
-    with smart_open(filepath, 'w') as f:
-        json.dump(data, f, indent=2)
+    # Convert to absolute path if not already
+    abs_filepath = os.path.abspath(filepath)
+    
+    # Use Phase 1's save_history method
+    # This saves config + complete history with cells and gene_jsd
+    actual_path = petri.save_history(
+        filename=abs_filepath,  # Pass the absolute filepath
+        directory="",  # Empty since filepath is absolute
+        compress=compress
+    )
+    
+    # If we have Phase 2 specific metadata, we need to add it to the saved file
+    if hasattr(petri, 'metadata') and petri.metadata:
+        # Load, add metadata, save again
+        with smart_open(actual_path, 'r') as f:
+            data = json.load(f)
+        
+        # Add Phase 2 specific metadata to config
+        data['config']['phase2_metadata'] = petri.metadata
+        
+        # Add individual_final with current state (post-mixing)
+        data['individual_final'] = {
+            'cells': [cell.to_dict() for cell in petri.cells],
+            'gene_jsd': petri.calculate_gene_jsd()
+        }
+        
+        with smart_open(actual_path, 'w') as f:
+            if compress:
+                json.dump(data, f, separators=(',', ':'))
+            else:
+                json.dump(data, f, indent=2)
 
 
 def load_petri_dish(filepath: str, include_cell_history: bool = False, include_gene_jsd: bool = False) -> PetriDish:
     """
-    Load a PetriDish from file, optionally with history.
+    Load a PetriDish from Phase 1 format file.
     Auto-detects whether file is compressed or not.
     
     Args:
@@ -325,9 +340,75 @@ def load_petri_dish(filepath: str, include_cell_history: bool = False, include_g
     with smart_open(filepath, 'r') as f:
         data = json.load(f)
     
+    # Handle control2 format (config + individual_final only, no history)
+    if 'config' in data and 'individual_final' in data and 'history' not in data:
+        # This is the simplified control2 format
+        config = data['config']
+        
+        # Convert cells from individual_final
+        cells = [dict_to_cell(cell_dict) for cell_dict in data['individual_final']['cells']]
+        
+        # Create PetriDish from cells
+        petri = PetriDish.from_cells(
+            cells,
+            growth_phase=config.get('growth_phase'),
+            metadata=config.get('phase2_metadata')
+        )
+        
+        # Set the year from config
+        petri.year = config.get('years', 0)
+        
+        # Restore Phase 2 metadata if present
+        if 'phase2_metadata' in config:
+            petri.metadata = config['phase2_metadata']
+        
+        return petri
+    
+    # Handle Phase 1 format (config + history)
+    elif 'config' in data and 'history' in data:
+        # This is Phase 1 format
+        config = data['config']
+        
+        # Get the last year's cells to recreate PetriDish
+        years = sorted([int(y) for y in data['history'].keys()])
+        last_year = str(max(years))
+        last_year_data = data['history'][last_year]
+        
+        # Convert cells from dict to Cell objects
+        cells = [dict_to_cell(cell_dict) for cell_dict in last_year_data['cells']]
+        
+        # Create PetriDish from cells
+        petri = PetriDish.from_cells(
+            cells,
+            growth_phase=config.get('growth_phase'),
+            gene_rate_groups=config.get('gene_rate_groups'),
+            seed=config.get('seed')
+        )
+        
+        # Set the correct year
+        petri.year = max(years)
+        
+        # Restore history if requested
+        if include_cell_history:
+            petri.cell_history = data['history']
+        
+        # Restore gene JSD history if requested
+        if include_gene_jsd:
+            petri.gene_jsd_history = {}
+            for year_str, year_data in data['history'].items():
+                if 'gene_jsd' in year_data:
+                    petri.gene_jsd_history[year_str] = year_data['gene_jsd']
+        
+        # Restore Phase 2 metadata if present
+        if 'phase2_metadata' in config:
+            petri.metadata = config['phase2_metadata']
+        
+        return petri
+    
+    # Handle old Phase 2 format for backward compatibility
     # Load cells first
     cells = []
-    if data['cells']:
+    if 'cells' in data and data['cells']:
         for cd in data['cells']:
             if 'gene_rate_groups' in cd:
                 # New format with gene_rate_groups in each cell
@@ -747,60 +828,28 @@ def grow_petri_for_years(petri: PetriDish, years: int, growth_phase: Optional[in
                         track_history: bool = False, 
                         start_year: Optional[int] = None) -> None:
     """
-    Grow a PetriDish for specified years with optional homeostasis after growth phase.
-    Now uses PetriDish's built-in grow_with_homeostasis method when history tracking is enabled.
+    Grow a PetriDish for specified years using Phase 1's growth methods.
     
     Args:
         petri: PetriDish to grow (modified in place)
         years: Total number of years to simulate
-        growth_phase: Years of exponential growth before homeostasis (None = pure exponential)
-        track_history: Enable cell history tracking
-        start_year: Starting year for history tracking
+        growth_phase: Years of exponential growth before homeostasis
+        track_history: Ignored - history is always tracked now
+        start_year: Ignored - PetriDish knows its starting year
     """
-    if growth_phase is not None and growth_phase > years:
-        raise ValueError(f"growth_phase ({growth_phase}) cannot exceed total years ({years})")
-    
-    # If history tracking is enabled, use PetriDish's new method
-    if track_history:
-        petri.enable_history_tracking()
-        petri.grow_with_homeostasis(years, growth_phase, verbose=True, record_history=True)
-        return
-    
-    # Otherwise, use the original implementation (for backward compatibility)
-    for year in range(years):
-        initial_count = len(petri.cells)
-        current_year = year + 1  # 1-indexed for clarity
+    if growth_phase is None:
+        # Pure exponential growth
+        petri.grow_exponentially(years, verbose=True)
+    elif growth_phase >= years:
+        # Only growth, no homeostasis
+        petri.grow_exponentially(years, verbose=True)
+    else:
+        # Growth followed by homeostasis
+        homeostasis_years = years - growth_phase
+        target_population = 2 ** growth_phase
         
-        if growth_phase is None or current_year <= growth_phase:
-            # Growth phase: divide + methylate
-            # Temporarily redirect print output
-            import io
-            from contextlib import redirect_stdout
-            
-            f = io.StringIO()
-            with redirect_stdout(f):
-                petri.divide_cells()
-                petri.methylate_cells()
-            
-            final_count = len(petri.cells)
-            print(f"      Year {current_year} (growth): {initial_count} → {final_count} cells")
-        else:
-            # Homeostasis phase: divide + cull + methylate
-            # Temporarily redirect print output
-            import io
-            from contextlib import redirect_stdout
-            
-            f = io.StringIO()
-            with redirect_stdout(f):
-                petri.divide_cells()
-                intermediate_count = len(petri.cells)
-                petri.random_cull_cells()
-                petri.methylate_cells()
-            
-            final_count = len(petri.cells)
-            print(f"      Year {current_year} (homeostasis): {initial_count} → {final_count} cells")
-        
-        petri.year += 1
+        petri.grow_exponentially(growth_phase, verbose=True)
+        petri.maintain_homeostasis(homeostasis_years, target_population=target_population, verbose=True)
 
 
 def get_petri_statistics(petri: PetriDish) -> Dict[str, float]:

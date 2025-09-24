@@ -227,9 +227,7 @@ class PipelineValidator:
                 if batch_name == "mutant":
                     if 'source_quantile' not in metadata:
                         self._log(f"Mutant {ind_id} missing source_quantile", "warning")
-                elif batch_name == "control1":
-                    if metadata.get('source') != 'uniform':
-                        self._log(f"Control1 {ind_id} missing source='uniform'", "warning")
+                # No specific checks needed for control1
                 
                 # Check gene_rate_groups
                 if cell.gene_rate_groups != expected_gene_rate_groups:

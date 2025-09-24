@@ -19,7 +19,7 @@ sys.path.append(os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__f
 from cell import PetriDish, Cell
 from core.pipeline_utils import (
     load_snapshot_cells, create_pure_snapshot_petri,
-    create_control2_with_common_base, save_petri_dish,
+    create_control2_with_common_base, smart_open,
     check_petri_files_state
 )
 from core.validation import PipelineValidator, ValidationError
@@ -188,14 +188,32 @@ def main():
         
         control2_dishes.append(petri)
         
-        # Save without history (control2 doesn't need it)
+        # Save control2 with simplified structure (config + individual_final only)
         filepath = os.path.join(control2_dir, f"individual_{file_index:02d}{ext}")
-        save_petri_dish(
-            petri, filepath,
-            include_cell_history=False,  # No history needed
-            include_gene_metrics=False,  # No longer saving gene metrics
-            compress=use_compression
-        )
+        
+        # Create simplified data structure for control2
+        control2_data = {
+            "config": {
+                "gene_rate_groups": gene_rate_groups,
+                "n": len(petri.cells[0].cpg_sites) if petri.cells else 0,
+                "gene_size": petri.cells[0].gene_size if petri.cells and hasattr(petri.cells[0], 'gene_size') else 5,
+                "growth_phase": None,  # Control2 has no growth
+                "years": second_year,
+                "seed": None,
+                "phase2_metadata": petri.metadata
+            },
+            "individual_final": {
+                "cells": [cell.to_dict() for cell in petri.cells],
+                "gene_jsd": petri.calculate_gene_jsd()
+            }
+        }
+        
+        # Write directly to JSON
+        with smart_open(filepath, 'w') as f:
+            if use_compression:
+                json.dump(control2_data, f, separators=(',', ':'))
+            else:
+                json.dump(control2_data, f, indent=2)
     
     print(f"\n✓ Created and saved {len(control2_dishes)} control2 individuals")
     

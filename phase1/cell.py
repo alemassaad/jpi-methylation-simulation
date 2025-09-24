@@ -389,12 +389,15 @@ class PetriDish:
                     )
                 # Set PetriDish year to match cell age
                 self.year = ages[0] if ages else 0
+                self.initial_year = self.year  # Track when this PetriDish started
             else:
                 self.year = 0
+                self.initial_year = 0  # Starting from year 0
         else:
             # Create initial cell - single path now
             self.cells = [Cell(n=n, gene_rate_groups=gene_rate_groups, gene_size=gene_size)]
             self.year = 0  # Fresh cell starts at age 0
+            self.initial_year = 0  # Starting from year 0
         
         # Cell history tracking (always enabled)
         # Gene JSD tracking (always enabled)
@@ -542,7 +545,7 @@ class PetriDish:
     def simulate_year(self) -> None:
         """
         Simulate one year of population dynamics.
-        Chooses appropriate aging strategy based on current year.
+        Chooses appropriate aging strategy based on years since initial_year.
         
         Raises:
             ValueError: If growth_phase is None (static population)
@@ -553,35 +556,97 @@ class PetriDish:
                 "Static PetriDishes are snapshots and cannot undergo growth or homeostasis."
             )
         
-        self.year += 1
-        print(f"\nYear {self.year}:")
+        # Determine if we should grow or maintain based on years since initial_year
+        if not hasattr(self, 'initial_year'):
+            self.initial_year = 0  # Backward compatibility
         
-        if self.year <= self.growth_phase:
-            # Growth phase: simple division and methylation
-            print(f"  Growth phase (year {self.year} of {self.growth_phase})")
-            self.age_cells_growth_phase()
-            # Show it's predictable during growth
-            expected = 2 ** self.year
-            actual = len(self.cells)
-            if actual == expected:
-                print(f"  Final count: {actual} cells (predictable: 2^{self.year})")
-            else:
-                print(f"  Final count: {actual} cells (expected: {expected})")
+        years_since_start = self.year - self.initial_year
+        
+        if years_since_start < self.growth_phase:
+            # Use exponential growth for one year
+            self.grow_exponentially(1, verbose=True)
         else:
-            # Steady state: division, culling, methylation
-            print(f"  Steady state phase")
-            self.age_cells_steady_state()
-            # Show it's random during steady state
-            print(f"  Final count: {len(self.cells)} cells (random ~{self.target_population})")
+            # Use homeostasis for one year
+            self.maintain_homeostasis(1, target_population=self.target_population, verbose=True)
+        
+    def grow_exponentially(self, n_years: int, verbose: bool = True) -> None:
+        """
+        Grow the population exponentially for n_years.
+        Cells divide and methylate each year without culling.
+        
+        Args:
+            n_years: Number of years to grow exponentially
+            verbose: Whether to print progress
+        """
+        for i in range(n_years):
+            self.year += 1
+            if verbose:
+                print(f"\nYear {self.year}:")
+                print(f"  Exponential growth (year {i+1} of {n_years})")
             
-        # Store current state after all operations
-        self._record_history(self.year)
+            # Growth phase operations
+            initial_count = len(self.cells)
+            self.divide_cells()
+            self.methylate_cells()
+            final_count = len(self.cells)
+            
+            if verbose:
+                print(f"  Final count: {final_count} cells (2^{i+1} = {2**(i+1)} expected)")
+            
+            # Record history (always enabled now)
+            self._record_history(self.year)
+            
+            # Report statistics
+            if verbose:
+                jsd_values = [cell.cell_jsd for cell in self.cells]
+                mean_jsd = statistics.mean(jsd_values) if jsd_values else 0.0
+                print(f"  Mean cell JSD: {mean_jsd:.4f}")
+    
+    def maintain_homeostasis(self, n_years: int, target_population: int = None, verbose: bool = True) -> None:
+        """
+        Maintain population in homeostasis for n_years.
+        Cells divide, then ~50% are culled, then methylate.
         
-        # Report statistics
-        jsd_values = [cell.cell_jsd for cell in self.cells]
-        mean_jsd = statistics.mean(jsd_values) if jsd_values else 0.0
-        print(f"  Mean cell JSD: {mean_jsd:.4f}")
+        Args:
+            n_years: Number of years to maintain homeostasis
+            target_population: Expected population size (for display only)
+            verbose: Whether to print progress
+        """
+        if target_population is None:
+            target_population = len(self.cells)
         
+        for i in range(n_years):
+            self.year += 1
+            if verbose:
+                print(f"\nYear {self.year}:")
+                print(f"  Homeostasis (year {i+1} of {n_years})")
+            
+            # Homeostasis operations
+            initial_count = len(self.cells)
+            self.divide_cells()
+            intermediate_count = len(self.cells)
+            self.random_cull_cells()
+            self.methylate_cells()
+            final_count = len(self.cells)
+            
+            if verbose:
+                print(f"  Final count: {final_count} cells (target ~{target_population})")
+            
+            # Check for extinction
+            if final_count == 0:
+                if verbose:
+                    print(f"  WARNING: Population extinct at year {self.year}")
+                # Still record the history even if extinct
+            
+            # Record history
+            self._record_history(self.year)
+            
+            # Report statistics
+            if verbose and self.cells:
+                jsd_values = [cell.cell_jsd for cell in self.cells]
+                mean_jsd = statistics.mean(jsd_values) if jsd_values else 0.0
+                print(f"  Mean cell JSD: {mean_jsd:.4f}")
+    
     def run_simulation(self, t_max: int = T_MAX) -> None:
         """
         Run complete simulation from year 0 to t_max.
@@ -613,11 +678,27 @@ class PetriDish:
         print(f"  Random seed: {self.seed}")
         print("="*60)
         
-        print(f"\nYear 0: Starting with 1 unmethylated cell")
+        print(f"\nYear {self.year}: Starting with {len(self.cells)} cell(s)")
         
-        while self.year < t_max:
-            self.simulate_year()
+        # Use the new methods based on growth_phase
+        if not hasattr(self, 'initial_year'):
+            self.initial_year = 0  # Backward compatibility
             
+        # Calculate remaining growth years
+        years_grown = self.year - self.initial_year
+        growth_years_remaining = max(0, self.growth_phase - years_grown)
+        total_years_to_simulate = t_max - self.year
+        homeostasis_years = max(0, total_years_to_simulate - growth_years_remaining)
+        
+        if growth_years_remaining > 0:
+            years_to_grow = min(growth_years_remaining, total_years_to_simulate)
+            print(f"\nGrowth phase: {years_to_grow} years")
+            self.grow_exponentially(years_to_grow)
+        
+        if homeostasis_years > 0 and self.year < t_max:
+            print(f"\nHomeostasis phase: {homeostasis_years} years")
+            self.maintain_homeostasis(homeostasis_years, target_population=self.target_population)
+        
         print("\n" + "="*60)
         print("Simulation complete!")
         print(f"Final population: {len(self.cells)} cells")
@@ -628,8 +709,9 @@ class PetriDish:
         Save simulation history to JSON file (compressed or uncompressed) using hierarchical structure.
         
         Args:
-            filename: Output filename (ignored, kept for compatibility)
-            directory: Base output directory
+            filename: If provided as absolute path, use it directly.
+                     Otherwise, auto-generate filename.
+            directory: Base output directory (ignored if filename is absolute)
             compress: If True, save as .json.gz; if False, save as .json
             
         Returns:
@@ -637,30 +719,39 @@ class PetriDish:
         """
         from datetime import datetime
         
-        # Generate hierarchical path
-        # Always use gene_rates format for consistency
-        groups_str = "_".join([f"{n}x{rate:.5f}" for n, rate in self.gene_rate_groups])
-        level1 = f"gene_rates_{groups_str}"[:50]  # Limit length
+        # Check if filename is an absolute path
+        if filename and os.path.isabs(filename):
+            # Use the provided absolute path directly
+            filepath = filename
+            dir_path = os.path.dirname(filepath)
+            if not os.path.exists(dir_path):
+                os.makedirs(dir_path, exist_ok=True)
+        else:
+            # Original hierarchical path generation
+            # Always use gene_rates format for consistency
+            groups_str = "_".join([f"{n}x{rate:.5f}" for n, rate in self.gene_rate_groups])
+            level1 = f"gene_rates_{groups_str}"[:50]  # Limit length
+            
+            # Level 2: Parameters with hyphen separators
+            seed_str = f"seed{self.seed}" if self.seed is not None else "noseed"
+            # Use size instead of grow for clarity (size = 2^growth_phase)
+            population_size = 2 ** self.growth_phase
+            params_str = f"size{population_size}-sites{self.n}-genesize{self.gene_size}-years{self.year}-{seed_str}"
         
-        # Level 2: Parameters with hyphen separators
-        seed_str = f"seed{self.seed}" if self.seed is not None else "noseed"
-        # Use size instead of grow for clarity (size = 2^growth_phase)
-        population_size = 2 ** self.growth_phase
-        params_str = f"size{population_size}-sites{self.n}-genesize{self.gene_size}-years{self.year}-{seed_str}"
+            # Add timestamp for uniqueness (YYYYMMDD-HHMMSS format)
+            timestamp = datetime.now().strftime("%Y%m%d-%H%M%S")
+            level2 = f"{params_str}-{timestamp}"
+            
+            # Create full directory path
+            dir_path = os.path.join(directory, level1, level2)
+            if not os.path.exists(dir_path):
+                os.makedirs(dir_path, exist_ok=True)
+                print(f"Created directory: {dir_path}")
+            
+            # Fixed filename with appropriate extension
+            extension = ".json.gz" if compress else ".json"
+            filepath = os.path.join(dir_path, f"simulation{extension}")
         
-        # Add timestamp for uniqueness (YYYYMMDD-HHMMSS format)
-        timestamp = datetime.now().strftime("%Y%m%d-%H%M%S")
-        level2 = f"{params_str}-{timestamp}"
-        
-        # Create full directory path
-        dir_path = os.path.join(directory, level1, level2)
-        if not os.path.exists(dir_path):
-            os.makedirs(dir_path, exist_ok=True)
-            print(f"Created directory: {dir_path}")
-        
-        # Fixed filename with appropriate extension
-        extension = ".json.gz" if compress else ".json"
-        filepath = os.path.join(dir_path, f"simulation{extension}")
         format_type = "compressed" if compress else "uncompressed"
         print(f"\nSaving {format_type} history to {filepath}")
         

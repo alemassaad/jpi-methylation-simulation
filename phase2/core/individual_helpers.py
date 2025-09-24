@@ -44,6 +44,12 @@ def create_individual(
         metadata=metadata
     )
     
+    # CRITICAL: Set the correct starting year
+    # The cell comes from a snapshot at a specific year
+    if additional_metadata and 'initial_year' in additional_metadata:
+        petri.year = additional_metadata['initial_year']
+        petri.initial_year = petri.year  # Ensure initial_year is also set for new growth methods
+    
     return petri
 
 
@@ -54,20 +60,16 @@ def grow_individual(
     start_year: Optional[int] = None
 ) -> None:
     """
-    Grow an individual for specified years (in-memory only).
+    Grow an individual for specified years using Phase 1's growth methods.
     
     Args:
         petri: PetriDish to grow
         years: Number of years to grow
-        growth_phase: Years of exponential growth
-        start_year: Starting year for history tracking
+        growth_phase: Number of years for exponential growth before homeostasis
+        start_year: Deprecated - PetriDish tracks its own year
     """
-    # Grow with history tracking
-    grow_petri_for_years(
-        petri, years, growth_phase,
-        track_history=True,
-        start_year=start_year
-    )
+    # Use the fixed grow_petri_for_years with the correct growth_phase
+    grow_petri_for_years(petri, years, growth_phase=growth_phase)
 
 
 def mix_individual(

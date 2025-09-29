@@ -126,7 +126,7 @@ python run_pipeline.py \
 # Output goes directly into Phase 1 directory:
 # data/gene_rates_*/size*-seed*-TIMESTAMP/          # Phase 1 dir
 #   ├── simulation.json                             # Phase 1 output
-#   └── snap30to50-growth7-quant10x3-mix80u-seed42-TIMESTAMP/  # Phase 2 output
+#   └── snap30to50-growth7-quant10x3-mix80-seed42-TIMESTAMP/  # Phase 2 output
 #       ├── snapshots/     # Extracted cell snapshots
 #       └── individuals/   # Mutant, Control1, Control2 populations
 ```
@@ -308,7 +308,7 @@ data/gene_rates_200x0.00500/size8192-sites1000-genesize5-years100-seed42-YYYYMMD
 ├── simulation.json.gz           # Phase 1: Complete simulation history
 ├── jsd_history.png             # Phase 1: Cell JSD timeline
 ├── methylation_history.png     # Phase 1: Methylation timeline
-└── snap30to50-growth7-quant10x3-mix80u-seed42-YYYYMMDDHHMMSS/  # Phase 2 output
+└── snap30to50-growth7-quant10x3-mix80-seed42-YYYYMMDDHHMMSS/  # Phase 2 output
     ├── snapshots/              # Extracted cell snapshots
     │   ├── year30_snapshot.json
     │   ├── year50_snapshot.json
@@ -372,7 +372,6 @@ petri.random_cull_cells()  # Homeostatic culling
 - All individuals receive the exact same set of snapshot cells
 - Reduces inter-individual variation from random sampling
 - Useful for focusing on biological variation rather than sampling noise
-- Directory suffix: 'u' (e.g., mix80u)
 
 #### Size Normalization (Always Applied)
 - Normalizes all individuals to the same cell count before mixing

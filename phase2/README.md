@@ -62,7 +62,7 @@ python run_pipeline.py --simulation ../data/gene_rates_*/size*-seed*-*/simulatio
   - Homeostasis with random culling
 - **Stage 5**: Mix with snapshot cells
   - Uniform mixing (all individuals get same cells)
-  - Optional size normalization
+  - Automatic size normalization
 
 ### Stage 6: Create Control2 (`create_control2.py`)
 - Pure snapshot populations (no growth)
@@ -81,7 +81,7 @@ python run_pipeline.py --simulation ../data/gene_rates_*/size*-seed*-*/simulatio
 ```
 data/gene_rates_*/size*-seed*-TIMESTAMP/            # Phase 1 directory
 ├── simulation.json                                 # Phase 1 simulation
-└── snap30to50-growth7-quant10x3-mix80u-seed42-TIMESTAMP/  # Phase 2 output
+└── snap30to50-growth7-quant10x3-mix80-seed42-TIMESTAMP/  # Phase 2 output
     ├── snapshots/
     │   ├── year30_snapshot.json
     │   ├── year50_snapshot.json
@@ -198,7 +198,6 @@ data/{rate_info}/snap{Y1}to{Y2}-growth{G}-quant{Q}x{C}-mix{M}-seed{S}-{timestamp
 - All individuals receive the exact same snapshot cells
 - Eliminates sampling variation between individuals
 - Focuses analysis on biological differences rather than sampling noise
-- Directory suffix always includes 'u' (e.g., mix80u)
 - Provides reproducible, comparable results across batches
 
 ## Size Normalization

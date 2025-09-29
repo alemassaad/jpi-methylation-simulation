@@ -107,7 +107,7 @@ def generate_phase2_output_dir(args, sim_params: Dict) -> str:
     Generate output directory for phase2 under the phase1 simulation directory.
     
     Structure:
-    {phase1_simulation_dir}/snap30to50-growth7-quant10x3-mix80u-seed42-TIMESTAMP/
+    {phase1_simulation_dir}/snap30to50-growth7-quant10x3-mix80-seed42-TIMESTAMP/
     
     Args:
         args: Command line arguments with pipeline parameters (must include simulation path)
@@ -121,13 +121,10 @@ def generate_phase2_output_dir(args, sim_params: Dict) -> str:
     simulation_dir = os.path.dirname(os.path.abspath(args.simulation))
     
     # Build phase2-specific directory name with parameters
-    # Build mix suffix: always 'u' for uniform (normalization is always on)
-    mix_suffix = "u"  # Always uniform now
-    
     params_str = (f"snap{args.first_snapshot}to{args.second_snapshot}-"
                   f"growth{args.individual_growth_phase}-"
                   f"quant{args.n_quantiles}x{args.cells_per_quantile}-"
-                  f"mix{args.mix_ratio}{mix_suffix}-"
+                  f"mix{args.mix_ratio}-"
                   f"seed{args.seed}")
     
     # Add timestamp for uniqueness (YYYYMMDDHHMMSS format)

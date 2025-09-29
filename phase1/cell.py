@@ -730,7 +730,7 @@ class PetriDish:
             # Original hierarchical path generation
             # Always use gene_rates format for consistency
             groups_str = "_".join([f"{n}x{rate:.5f}" for n, rate in self.gene_rate_groups])
-            level1 = f"gene_rates_{groups_str}"[:50]  # Limit length
+            level1 = f"gene_rates_{groups_str}"
             
             # Level 2: Parameters with hyphen separators
             seed_str = f"seed{self.seed}" if self.seed is not None else "noseed"

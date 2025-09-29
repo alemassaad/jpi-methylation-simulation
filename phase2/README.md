@@ -1,6 +1,6 @@
 # Phase 2: Data Generation Pipeline
 
-A modular pipeline for generating structured datasets from phase1 simulations. Phase2 creates cell populations with uniform mixing (all individuals receive the same snapshot cells) for reproducible analysis. All plotting and visualization has been moved to phase3.
+A modular pipeline for generating structured datasets from phase1 simulations. Phase2 creates cell populations with uniform mixing (all individuals receive the same snapshot cells) for reproducible analysis. All plotting and visualization is done in phase3.
 
 ## Current Structure (After Cleanup)
 
@@ -71,7 +71,7 @@ python run_pipeline.py --simulation ../data/gene_rates_*/size*-seed*-*/simulatio
 
 ### Next Step: Analysis (Phase 3)
 - Use phase3 to analyze the generated data
-- All plotting and visualization moved to phase3
+- All plotting and visualization in phase3
 - Multiple analyses possible on same phase2 data
 
 ## Output Directory Structure
@@ -165,7 +165,7 @@ python create_control2.py \
     --base-dir data/my_analysis \
     --seed 342
 
-# For analysis, use phase3 instead:
+# For analysis, use phase3:
 cd ../phase3
 python run_analysis.py \
     --phase2-dir ../phase2/data/my_analysis \
@@ -261,7 +261,7 @@ The new three-phase architecture is NOT backward compatible with old pipeline ru
 
 1. Re-run phase1 simulations if using old JSON format
 2. Use new phase2 `run_pipeline.py` for data generation only
-3. Use new phase3 `run_analysis.py` for all analysis and plotting
+3. Use phase3 `run_pipeline.py` for all analysis and plotting
 4. Update automation scripts to use phase2 + phase3 workflow
 5. Config files remain compatible within each phase
 

@@ -258,8 +258,8 @@ class Cell:
         Returns:
             Reconstructed Cell object
         """
-        # Get n from cpg_sites (new) or methylated (backward compatibility)
-        n = len(data.get('cpg_sites', data.get('methylated', [])))
+        # Get n from cpg_sites
+        n = len(data['cpg_sites'])
         
         # Use gene_rate_groups from data if available (new format)
         # Otherwise fall back to provided parameters (backward compatibility)
@@ -272,8 +272,8 @@ class Cell:
         
         # Let __init__ handle the conversion
         cell = cls(n=n, rate=rate, gene_rate_groups=gene_rate_groups, gene_size=gene_size)
-        # Handle both 'cpg_sites' (new standard) and 'methylated' (backward compatibility)
-        cell.cpg_sites = data.get('cpg_sites', data.get('methylated', []))[:]
+        # Set cpg_sites from data
+        cell.cpg_sites = data['cpg_sites'][:]
         # Handle both old and new naming for backward compatibility
         cell.cell_jsd = data.get('cell_jsd', data.get('cell_JSD', 0.0))
         cell.age = data.get('age', 0)  # Restore age (default to 0 for old data)
@@ -1149,19 +1149,7 @@ class PetriDish:
         return save_data
 
 
-# Plotting functionality has been moved to phase3
-# To use plotting, import from phase3:
-# from phase3.core.petri_dish_plotter import PetriDishPlotter
-
-def __getattr__(name):
-    """Provide helpful error message for moved plotting functionality."""
-    if name == 'PetriDishPlotter':
-        raise ImportError(
-            "PetriDishPlotter has been moved to phase3.\n"
-            "To use plotting functionality:\n"
-            "  1. cd phase3\n"
-            "  2. python plot_simulation.py ../phase1/data/*/simulation.json.gz\n"
-            "Or import directly:\n"
-            "  from phase3.core.petri_dish_plotter import PetriDishPlotter"
-        )
-    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
+# Plotting functionality is available in phase3
+# To visualize simulation data:
+#   cd phase3
+#   python run_pipeline.py --phase2-dir ../phase1/data/{phase1_dir}/{phase2_subdir}/

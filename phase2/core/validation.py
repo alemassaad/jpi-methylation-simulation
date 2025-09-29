@@ -311,8 +311,8 @@ class PipelineValidator:
                             # Get mean methylation, handling both empty lists and missing keys
                             methylation_values = []
                             for cell in cells_data:
-                                # Support both 'cpg_sites' (correct) and 'methylated' (legacy) keys
-                                cpg_sites = cell.get('cpg_sites') or cell.get('methylated', [])
+                                # Get cpg_sites from cell
+                                cpg_sites = cell['cpg_sites']
                                 if cpg_sites:  # Only include if not empty
                                     methylation_values.append(np.mean(cpg_sites))
                             

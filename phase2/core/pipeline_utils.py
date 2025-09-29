@@ -68,8 +68,8 @@ def dict_to_cell(cell_dict: Dict[str, Any]) -> Cell:
     # Convert to tuples
     gene_rate_groups = [tuple(group) for group in gene_rate_groups]
     
-    # Handle both 'cpg_sites' (new standard) and 'methylated' (backward compatibility)
-    sites = cell_dict.get('cpg_sites', cell_dict.get('methylated', []))
+    # Get cpg_sites from cell dictionary
+    sites = cell_dict['cpg_sites']
     
     # Create cell with gene_rate_groups only
     cell = Cell(
@@ -421,7 +421,7 @@ def load_petri_dish(filepath: str, include_cell_history: bool = False, include_g
                     # Convert from rate if available
                     rate = metadata.get('rate')
                     if rate:
-                        n = len(cd.get('cpg_sites', cd.get('methylated', [])))
+                        n = len(cd['cpg_sites'])
                         gene_size = metadata.get('gene_size', GENE_SIZE)
                         gene_rate_groups = rate_to_gene_rate_groups(rate, n, gene_size)
                     else:

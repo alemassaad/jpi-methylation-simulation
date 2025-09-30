@@ -124,6 +124,9 @@ def calculate_cell_metrics(petri: PetriDish) -> Dict[str, float]:
         cell_methylations.append(prop)
     metrics['cell_methylation_mean'] = float(np.mean(cell_methylations)) if cell_methylations else 0.0
 
+    # Add cell count
+    metrics['cell_count'] = len(petri.cells)
+
     return metrics
 
 
@@ -206,7 +209,8 @@ def extract_cell_comparison(individuals_dir: str, output_csv: str, verbose: bool
             'batch': batch_name,
             'individual_id': individual_id,
             'cell_jsd_mean': metrics['cell_jsd_mean'],
-            'cell_methylation_mean': metrics['cell_methylation_mean']
+            'cell_methylation_mean': metrics['cell_methylation_mean'],
+            'cell_count': metrics['cell_count']
         }
         csv_rows.append(row)
 
@@ -217,7 +221,7 @@ def extract_cell_comparison(individuals_dir: str, output_csv: str, verbose: bool
 
     # Write CSV
     if csv_rows:
-        fieldnames = ['batch', 'individual_id', 'cell_jsd_mean', 'cell_methylation_mean']
+        fieldnames = ['batch', 'individual_id', 'cell_jsd_mean', 'cell_methylation_mean', 'cell_count']
 
         with open(output_csv, 'w', newline='') as f:
             writer = csv.DictWriter(f, fieldnames=fieldnames)

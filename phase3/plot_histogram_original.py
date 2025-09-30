@@ -32,6 +32,7 @@ def plot_histogram_original(
     # Additional metadata for subtitle
     year: Optional[int] = None,
     n_cells: Optional[int] = None,
+    n_genes: Optional[int] = None,
     gene_rate_groups: Optional[List[Tuple[int, float]]] = None,
     
     # Plot type identifier
@@ -51,14 +52,19 @@ def plot_histogram_original(
         custom_stats: Pre-calculated statistics (if None, will calculate)
         output_path: Path to save the plot
         year: Year for display
-        n_cells: Number of cells for subtitle
+        n_cells: Number of cells for subtitle (mutually exclusive with n_genes)
+        n_genes: Number of genes for subtitle (mutually exclusive with n_cells)
         gene_rate_groups: Gene rate groups for subtitle
         plot_type: Type of plot ("methylation" or "jsd")
         
     Returns:
         Plotly figure object
     """
-    
+
+    # Validate that n_cells and n_genes are mutually exclusive
+    if n_cells is not None and n_genes is not None:
+        raise ValueError("Cannot specify both n_cells and n_genes - use only one")
+
     # Calculate statistics if not provided
     if custom_stats is None:
         mean_val = np.mean(data)
@@ -158,13 +164,19 @@ def plot_histogram_original(
             rate_text = f" | {rate_percentage:.1f}% methylation rate"
         else:
             rate_text = f" | {len(gene_rate_groups)} gene rate groups"
-    
-    cells_text = f"{n_cells} cells" if n_cells is not None else ""
+
+    # Generate count text based on whether it's cells or genes
+    if n_genes is not None:
+        count_text = f"{n_genes} genes"
+    elif n_cells is not None:
+        count_text = f"{n_cells} cells"
+    else:
+        count_text = ""
     
     fig.update_layout(
         title=dict(
             text=f"{title} Distribution at Year {display_year}<br>"
-                 f"<sub>{cells_text}{rate_text}</sub>",
+                 f"<sub>{count_text}{rate_text}</sub>",
             font=dict(size=16)
         ),
         xaxis_title=xlabel,
@@ -207,6 +219,7 @@ def plot_cell_jsd_histogram_original(
     bins: int = 200,
     year: Optional[int] = None,
     n_cells: Optional[int] = None,
+    n_genes: Optional[int] = None,
     gene_rate_groups: Optional[List[Tuple[int, float]]] = None,
     custom_stats: Optional[Dict[str, float]] = None
 ) -> go.Figure:
@@ -220,6 +233,7 @@ def plot_cell_jsd_histogram_original(
         bins: Number of histogram bins (default 200)
         year: Year for display
         n_cells: Number of cells for subtitle
+        n_genes: Number of genes for subtitle
         gene_rate_groups: Gene rate groups for subtitle
         custom_stats: Pre-calculated statistics
     """
@@ -235,6 +249,7 @@ def plot_cell_jsd_histogram_original(
         output_path=output_path,
         year=year,
         n_cells=n_cells,
+        n_genes=n_genes,
         gene_rate_groups=gene_rate_groups,
         plot_type="jsd"
     )
@@ -246,6 +261,7 @@ def plot_cell_methylation_histogram_original(
     bins: int = 200,
     year: Optional[int] = None,
     n_cells: Optional[int] = None,
+    n_genes: Optional[int] = None,
     gene_rate_groups: Optional[List[Tuple[int, float]]] = None,
     custom_stats: Optional[Dict[str, float]] = None
 ) -> go.Figure:
@@ -259,6 +275,7 @@ def plot_cell_methylation_histogram_original(
         bins: Number of histogram bins (default 200)
         year: Year for display
         n_cells: Number of cells for subtitle
+        n_genes: Number of genes for subtitle
         gene_rate_groups: Gene rate groups for subtitle
         custom_stats: Pre-calculated statistics
     """
@@ -274,6 +291,7 @@ def plot_cell_methylation_histogram_original(
         output_path=output_path,
         year=year,
         n_cells=n_cells,
+        n_genes=n_genes,
         gene_rate_groups=gene_rate_groups,
         plot_type="methylation"
     )

@@ -305,7 +305,7 @@ def main():
                                     bins=20,  # Only 20 genes
                                     output_path=gene_jsd_output,
                                     year=year,
-                                    n_cells=len(gene_jsd_values),
+                                    n_genes=len(gene_jsd_values),
                                     gene_rate_groups=gene_rate_groups,
                                     plot_type="jsd"
                                 )
@@ -323,7 +323,7 @@ def main():
                                     bins=20,  # Only 20 genes
                                     output_path=gene_meth_output,
                                     year=year,
-                                    n_cells=len(gene_meth_values),
+                                    n_genes=len(gene_meth_values),
                                     gene_rate_groups=gene_rate_groups,
                                     plot_type="methylation"
                                 )
@@ -433,34 +433,96 @@ def main():
 
             from plot_comparison_generic import plot_comparison_generic
 
+            # Read the cell comparison CSV to get actual cell counts
+            cell_count_stats = None
+            if comparison_cell_csv_path and os.path.exists(comparison_cell_csv_path):
+                try:
+                    df_cell = pd.read_csv(comparison_cell_csv_path)
+                    if 'cell_count' in df_cell.columns:
+                        # Calculate cell count statistics
+                        min_cells = int(df_cell['cell_count'].min())
+                        max_cells = int(df_cell['cell_count'].max())
+                        mean_cells = df_cell['cell_count'].mean()
+
+                        # Create informative label based on variation
+                        if max_cells - min_cells < 10:  # Very similar counts
+                            cell_count_label = f"{mean_cells:.0f}"
+                        else:  # Show range
+                            cell_count_label = f"{min_cells}-{max_cells}"
+
+                        cell_count_stats = {
+                            'min': min_cells,
+                            'max': max_cells,
+                            'mean': mean_cells,
+                            'label': cell_count_label
+                        }
+
+                        if args.verbose:
+                            print(f"  Cell counts: min={min_cells}, max={max_cells}, mean={mean_cells:.0f}")
+                except Exception as e:
+                    if args.verbose:
+                        print(f"  Note: Could not read cell counts from CSV: {e}")
+
+            # Use dynamic cell count if available, otherwise don't specify
+            cell_count_suffix = f" ({cell_count_stats['label']} cells per individual)" if cell_count_stats else ""
+
             # Define cell metrics to plot
             cell_metrics = [
                 {
                     'column': 'cell_jsd_mean',
                     'title': 'Mean Cell JSD per Individual Across Batches',
-                    'ylabel': 'Mean Cell JSD (averaged over ~288 cells)',
+                    'ylabel': f'Mean Cell JSD{cell_count_suffix}',
                     'filename': 'cell_jsd_mean_comparison.png'
                 },
                 {
                     'column': 'cell_methylation_mean',
                     'title': 'Mean Cell Methylation per Individual Across Batches',
-                    'ylabel': 'Mean Cell Methylation (averaged over ~288 cells)',
+                    'ylabel': f'Mean Cell Methylation{cell_count_suffix}',
                     'filename': 'cell_methylation_mean_comparison.png'
                 }
             ]
+
+            # Read gene comparison CSV to get actual number of genes
+            n_genes = None
+            if comparison_gene_csv_path and os.path.exists(comparison_gene_csv_path):
+                try:
+                    df_gene = pd.read_csv(comparison_gene_csv_path)
+                    if 'gene_index' in df_gene.columns:
+                        n_genes = df_gene['gene_index'].nunique()
+                        if args.verbose:
+                            print(f"  Number of genes: {n_genes}")
+                    else:
+                        raise ValueError(f"Column 'gene_index' not found in {comparison_gene_csv_path}. "
+                                       f"Available columns: {df_gene.columns.tolist()}")
+                except pd.errors.EmptyDataError:
+                    raise ValueError(f"Gene comparison CSV is empty: {comparison_gene_csv_path}")
+                except FileNotFoundError:
+                    raise ValueError(f"Gene comparison CSV file not found: {comparison_gene_csv_path}")
+                except Exception as e:
+                    raise ValueError(f"Error reading gene count from CSV {comparison_gene_csv_path}: {e}")
+
+            # Require gene count to be determined from data - no fallback
+            if n_genes is None:
+                if comparison_gene_csv_path:
+                    raise ValueError(f"Could not determine number of genes from {comparison_gene_csv_path}. "
+                                   f"The CSV must contain a 'gene_index' column with valid data.")
+                else:
+                    raise ValueError("Gene comparison CSV path not available. Cannot determine number of genes.")
+
+            gene_count_label = str(n_genes)
 
             # Define gene metrics to plot
             gene_metrics = [
                 {
                     'column': 'gene_jsd',
                     'title': 'Mean Gene JSD per Individual Across Batches',
-                    'ylabel': 'Mean Gene JSD (averaged over 20 genes)',
+                    'ylabel': f'Mean Gene JSD (averaged over {gene_count_label} genes)',
                     'filename': 'gene_jsd_mean_comparison.png'
                 },
                 {
                     'column': 'gene_methylation',
                     'title': 'Mean Gene Methylation per Individual Across Batches',
-                    'ylabel': 'Mean Gene Methylation (averaged over 20 genes)',
+                    'ylabel': f'Mean Gene Methylation (averaged over {gene_count_label} genes)',
                     'filename': 'gene_methylation_mean_comparison.png'
                 }
             ]
@@ -505,13 +567,13 @@ def main():
                     {
                         'column': 'gene_jsd',
                         'title': 'Gene JSD Standard Deviation per Individual Across Batches',
-                        'ylabel': 'Std Dev of Gene JSD (across 20 genes)',
+                        'ylabel': f'Std Dev of Gene JSD (across {gene_count_label} genes)',
                         'filename': 'gene_jsd_std_comparison.png'
                     },
                     {
                         'column': 'gene_methylation',
                         'title': 'Gene Methylation Standard Deviation per Individual Across Batches',
-                        'ylabel': 'Std Dev of Gene Methylation (across 20 genes)',
+                        'ylabel': f'Std Dev of Gene Methylation (across {gene_count_label} genes)',
                         'filename': 'gene_methylation_std_comparison.png'
                     }
                 ]

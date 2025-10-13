@@ -87,7 +87,7 @@ python plot_simulation_timeline.py results/tables/
 ```
 phase1/data/gene_rates_*/size*-seed*-{timestamp}/              # Phase 1 output
 ├── simulation.json[.gz]                                       # Complete simulation
-└── snap{Y1}to{Y2}-growth{G}-quant{Q}x{C}-mix{M}u-seed{S}-{timestamp}/  # Phase 2 output
+└── snap{Y1}to{Y2}-growth{G}-quant{Q}x{C}-mix{M}-seed{S}-{timestamp}/  # Phase 2 output
     ├── snapshots/
     │   ├── year{N}_snapshot.json[.gz]
     │   └── metadata.json

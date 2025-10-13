@@ -290,7 +290,7 @@ class Phase2Pipeline:
         subdir_name = (f"snap{self.first_year}to{self.second_year}-"
                       f"growth{self.growth_phase}-"
                       f"quant{self.n_quantiles}x{self.cells_per_quantile}-"
-                      f"mix{self.mix_ratio}u-"
+                      f"mix{self.mix_ratio}-"
                       f"seed{self.seed}-{timestamp}")
 
         return os.path.join(sim_dir, subdir_name)

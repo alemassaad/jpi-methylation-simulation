@@ -62,7 +62,7 @@ Phase 2 outputs are created as subdirectories within the Phase 1 simulation dire
 ```
 phase1/data/gene_rates_*/size*-seed*-TIMESTAMP/            # Phase 1 directory
 ├── simulation.json.gz                                     # Phase 1 simulation
-└── snap30to50-growth7-quant10x3-mix80u-seed42-TIMESTAMP/  # Phase 2 output
+└── snap30to50-growth7-quant10x3-mix80-seed42-TIMESTAMP/  # Phase 2 output
     ├── snapshots/
     │   ├── year30_snapshot.json
     │   ├── year50_snapshot.json

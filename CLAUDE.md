@@ -12,7 +12,7 @@ python run_simulation.py --config config_default.yaml
 
 # 2. Generate Phase 2 datasets (outputs to Phase 1 directory)
 cd ../phase2
-python run_pipeline.py --simulation ../phase1/data/gene_rates_*/simulation.json.gz
+python phase2_pipeline.py --simulation ../phase1/data/gene_rates_*/simulation.json.gz
 
 # 3. Extract and plot with Phase 3 analysis
 cd ../phase3
@@ -42,16 +42,15 @@ python run_simulation.py --gene-rate-groups "5:0.004,5:0.005,5:0.006,5:0.007" --
 cd phase2
 
 # Complete pipeline - outputs directly to Phase 1 directory
-python run_pipeline.py --simulation ../phase1/data/gene_rates_*/size*-seed*-*/simulation.json
+python phase2_pipeline.py --simulation ../phase1/data/gene_rates_*/size*-seed*-*/simulation.json
 
 # With custom parameters (override config defaults)
-python run_pipeline.py --simulation ../phase1/data/gene_rates_*/size*-seed*-*/simulation.json \
+python phase2_pipeline.py --simulation ../phase1/data/gene_rates_*/size*-seed*-*/simulation.json \
     --n-quantiles 10 --cells-per-quantile 3 --mix-ratio 80
 
-# Run individual stages (for debugging/custom workflows)
-python extract_snapshots.py --simulation ../phase1/data/*/simulation.json.gz --output-dir data/my_run
-python simulate_individuals.py --base-dir data/my_run --n-quantiles 10 --cells-per-quantile 3
-python create_control2.py --base-dir data/my_run
+# Quick test (smaller parameters)
+python phase2_pipeline.py --simulation ../phase1/data/gene_rates_*/size*-seed*-*/simulation.json \
+    --n-quantiles 4 --cells-per-quantile 2 --individual-growth-phase 6
 ```
 
 ### Phase 3: Analysis Pipeline
@@ -77,7 +76,7 @@ python plot_simulation_timeline.py results/tables/
 
 ### Three-Phase Pipeline
 1. **Phase 1**: Core simulation engine - generates cell populations over time with methylation dynamics
-2. **Phase 2**: Data generation pipeline - creates structured datasets from phase1 simulations
+2. **Phase 2**: Single-file data generation pipeline - creates structured datasets from phase1 simulations (no subprocesses, in-memory processing)
 3. **Phase 3**: Analysis pipeline - extracts data tables and generates comprehensive plots
 
 ### Key Classes
@@ -200,6 +199,8 @@ petri = PetriDish.from_cells(cells, growth_phase=7)
 - Cell ages track years since creation
 
 ### Phase 2 Specifics
+- **Single-file pipeline** (`phase2_pipeline.py`) - no subprocesses, direct function calls
+- **In-memory processing** - data passed between stages without temporary files
 - **Outputs directly to Phase 1 directory** (no separate phase2/data folder)
 - Snapshot extraction preserves year wrapper: `{"23": {...}}`
 - Mutant: quantile-based sampling (sorts by cell_jsd)
@@ -207,6 +208,7 @@ petri = PetriDish.from_cells(cells, growth_phase=7)
 - Control2: pure second snapshot populations
 - Normalization: median - 0.5σ threshold applied
 - All cells in a PetriDish must have identical gene_rate_groups
+- ~10x faster than old multi-script version
 
 ### Phase 3 Specifics
 - CSV-first workflow: extract once, plot many times
@@ -241,10 +243,10 @@ if 'history' in data:
 cd phase1
 python run_simulation.py --years 5 --sites 20 --growth-phase 3  # Quick test
 
-# Test phase2 with existing simulation
+# Test phase2 with existing simulation (quick test)
 cd phase2
-python extract_snapshots.py --simulation ../phase1/data/*/simulation.json.gz \
-    --first-snapshot 2 --second-snapshot 4 --output-dir test_snapshots
+python phase2_pipeline.py --simulation ../phase1/data/*/simulation.json.gz \
+    --n-quantiles 2 --cells-per-quantile 1 --individual-growth-phase 3
 
 # Test phase3 histogram generation
 cd phase3
@@ -277,6 +279,7 @@ python plot_histogram_original.py --phase2-dir ../phase1/data/{dir}/{subdir}/ \
 - **Insufficient cells**: Snapshot too small for sampling
 - **Memory issues**: Reduce `n_quantiles` or `cells_per_quantile`
 - **Output location confusion**: Phase 2 outputs to Phase 1 directory, not phase2/data
+- **Pipeline faster but same results**: New single-file version ~10x faster, output format unchanged
 
 ### General Issues
 - **ImportError**: Check sys.path additions for phase1

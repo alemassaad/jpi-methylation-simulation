@@ -36,7 +36,7 @@ The complete pipeline is now organized into three distinct phases:
 - Extract snapshots from phase1 simulations
 - Create and grow individual cell populations
 - Implement quantile-based sampling strategies
-- Generate mutant and control populations
+- Generate test and control populations
 - Full reproducibility with comprehensive seeding
 - **Outputs directly to Phase 1 simulation directory** (no separate data folder)
 
@@ -128,7 +128,7 @@ python run_pipeline.py \
 #   ├── simulation.json                             # Phase 1 output
 #   └── snap30to50-growth7-quant10x3-mix80-seed42-TIMESTAMP/  # Phase 2 output
 #       ├── snapshots/     # Extracted cell snapshots
-#       └── individuals/   # Mutant, Control1, Control2 populations
+#       └── individuals/   # Test2, Test1, Control populations
 ```
 
 ### Phase 3: Analysis and Visualization
@@ -243,8 +243,8 @@ python run_pipeline.py \
    - Validate gene rate group consistency
    
 2. **Create Initial Individuals** (`simulate_individuals.py`)
-   - Mutant: Quantile-based sampling (e.g., 3 from each decile)
-   - Control1: Uniform random sampling
+   - Test 2: Quantile-based sampling (e.g., 3 from each decile)
+   - Test 1: Uniform random sampling
    
 3. **Grow Populations**
    - Exponential growth for individual-growth-phase years
@@ -256,7 +256,7 @@ python run_pipeline.py \
    - Default: 80% snapshot, 20% grown
    - Optional uniform mixing and size normalization
    
-5. **Create Control2** (`create_control2.py`)
+5. **Create Control** (`create_control.py`)
    - Pure second snapshot populations
    - Same total count as mixed populations
    - Uses uniform pool if uniform mixing was applied
@@ -285,7 +285,7 @@ python run_analysis.py \
    - Statistical overlays (mean, median, SD, CV, percentiles)
    
 2. **Population Comparisons**
-   - Compare mutant vs control1 vs control2
+   - Compare Control vs Test 1 vs Test 2
    - Statistical significance testing
    - Batch-level comparison plots
    
@@ -314,9 +314,9 @@ data/gene_rates_200x0.00500/size8192-sites1000-genesize5-years100-seed42-YYYYMMD
     │   ├── year50_snapshot.json
     │   └── metadata.json
     └── individuals/            # Generated populations
-        ├── mutant/
-        ├── control1/
-        ├── control2/
+        ├── test2/              # Test 2 (quantile sampling)
+        ├── test1/              # Test 1 (random sampling)
+        ├── control/            # Control (pure snapshot)
         ├── uniform_pool.json   # Shared snapshot cells
         └── mixing_metadata.json
 

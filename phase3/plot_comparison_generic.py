@@ -86,9 +86,9 @@ def plot_comparison_generic(
     # Default colors matching phase3 style
     if batch_colors is None:
         batch_colors = {
-            'mutant': '#1f77b4',    # Blue
-            'control1': '#ff7f0e',   # Orange
-            'control2': '#2ca02c'    # Green
+            'control': '#2ca02c',   # Green (pure snapshot)
+            'test1': '#ff7f0e',     # Orange (random sampling)
+            'test2': '#1f77b4'      # Blue (quantile sampling)
         }
 
     # Read CSV or accept DataFrame directly
@@ -140,8 +140,8 @@ def plot_comparison_generic(
     # Create figure
     fig = go.Figure()
 
-    # Process each batch
-    batch_positions = {'mutant': 0, 'control1': 1, 'control2': 2}
+    # Process each batch (Control, Test 1, Test 2 from left to right)
+    batch_positions = {'control': 0, 'test1': 1, 'test2': 2}
     all_stats = {}
     all_values = []  # Collect all data values for range calculation
 
@@ -160,11 +160,18 @@ def plot_comparison_generic(
         # Add points with jitter
         x_jittered = np.ones(len(batch_data)) * x_pos + np.random.normal(0, 0.02, len(batch_data))
 
+        # Map batch names to display names for legend
+        legend_names = {
+            'control': 'Control (Pure)',
+            'test1': 'Test 1 (Random)',
+            'test2': 'Test 2 (Quantile)'
+        }
+
         fig.add_trace(go.Scatter(
             x=x_jittered,
             y=batch_data,
             mode='markers',
-            name=batch_name.capitalize(),
+            name=legend_names.get(batch_name, batch_name),
             marker=dict(
                 color=batch_colors[batch_name],
                 size=10,
@@ -235,11 +242,19 @@ def plot_comparison_generic(
             line=dict(color=batch_colors[batch_name], width=3)
         )
 
-    # Add statistics annotations below the plot in three columns
-    x_positions = {'mutant': 0.2, 'control1': 0.5, 'control2': 0.8}  # Three columns
+    # Add statistics annotations below the plot in three columns (Control, Test 1, Test 2)
+    x_positions = {'control': 0.2, 'test1': 0.5, 'test2': 0.8}  # Three columns
+
+    # Map batch names to display names
+    display_names = {
+        'control': 'Control',
+        'test1': 'Test 1',
+        'test2': 'Test 2'
+    }
+
     for batch_name, stats in all_stats.items():
         annotation_text = (
-            f"<b>{batch_name.capitalize()}</b><br>"
+            f"<b>{display_names.get(batch_name, batch_name)}</b><br>"
             f"n={stats['n']}<br>"
             f"Mean: {stats['mean']:.4f}<br>"
             f"Median: {stats['median']:.4f}<br>"
@@ -344,7 +359,9 @@ def plot_comparison_generic(
             title='',  # No x-axis title
             tickmode='array',
             tickvals=[0, 1, 2],
-            ticktext=['Mutant', 'Control1', 'Control2'],
+            ticktext=['Control<br><sub>(Pure Snapshot)</sub>',
+                      'Test 1<br><sub>(Random Sampling)</sub>',
+                      'Test 2<br><sub>(Quantile Sampling)</sub>'],
             showgrid=True,
             gridwidth=1,
             gridcolor='lightgray',

@@ -151,21 +151,21 @@ def sample_uniform(cells: List[Cell], n_samples: int, seed: int) -> List[Cell]:
     return [copy.deepcopy(cells[idx]) for idx in sample_indices]
 
 
-def normalize_populations(mutant_dishes: List[PetriDish],
-                         control1_dishes: List[PetriDish],
+def normalize_populations(test2_dishes: List[PetriDish],
+                         test1_dishes: List[PetriDish],
                          seed: int) -> Tuple[List[PetriDish], List[PetriDish], int]:
     """Normalize populations using median - 0.5σ threshold."""
     random.seed(seed)
     np.random.seed(seed)
 
-    all_dishes = mutant_dishes + control1_dishes
+    all_dishes = test2_dishes + test1_dishes
     all_sizes = [len(dish.cells) for dish in all_dishes]
 
     if not all_sizes:
         return [], [], 0
 
     if len(all_sizes) == 1:
-        return mutant_dishes, control1_dishes, all_sizes[0]
+        return test2_dishes, test1_dishes, all_sizes[0]
 
     # Calculate threshold
     median_size = np.median(all_sizes)
@@ -177,41 +177,41 @@ def normalize_populations(mutant_dishes: List[PetriDish],
 
     print(f"\n  Normalization: median={median_size:.1f}, σ={std_size:.1f}, threshold={threshold_size}")
 
-    # Process mutant
-    normalized_mutant = []
-    for i, dish in enumerate(mutant_dishes):
+    # Process test2 (quantile sampling)
+    normalized_test2 = []
+    for i, dish in enumerate(test2_dishes):
         size = len(dish.cells)
         if size < threshold_size:
-            print(f"    Mutant {i+1:02d}: {size} cells - EXCLUDED")
+            print(f"    Test2 {i+1:02d}: {size} cells - EXCLUDED")
         elif size == threshold_size:
-            normalized_mutant.append(dish)
-            print(f"    Mutant {i+1:02d}: {size} cells - kept")
+            normalized_test2.append(dish)
+            print(f"    Test2 {i+1:02d}: {size} cells - kept")
         else:
             new_dish = copy.deepcopy(dish)
             new_dish.cells = random.sample(new_dish.cells, threshold_size)
-            normalized_mutant.append(new_dish)
-            print(f"    Mutant {i+1:02d}: {size} → {threshold_size} cells")
+            normalized_test2.append(new_dish)
+            print(f"    Test2 {i+1:02d}: {size} → {threshold_size} cells")
 
-    # Process control1
-    normalized_control1 = []
-    for i, dish in enumerate(control1_dishes):
+    # Process test1 (random sampling)
+    normalized_test1 = []
+    for i, dish in enumerate(test1_dishes):
         size = len(dish.cells)
         if size < threshold_size:
-            print(f"    Control1 {i+1:02d}: {size} cells - EXCLUDED")
+            print(f"    Test1 {i+1:02d}: {size} cells - EXCLUDED")
         elif size == threshold_size:
-            normalized_control1.append(dish)
-            print(f"    Control1 {i+1:02d}: {size} cells - kept")
+            normalized_test1.append(dish)
+            print(f"    Test1 {i+1:02d}: {size} cells - kept")
         else:
             new_dish = copy.deepcopy(dish)
             new_dish.cells = random.sample(new_dish.cells, threshold_size)
-            normalized_control1.append(new_dish)
-            print(f"    Control1 {i+1:02d}: {size} → {threshold_size} cells")
+            normalized_test1.append(new_dish)
+            print(f"    Test1 {i+1:02d}: {size} → {threshold_size} cells")
 
-    total_kept = len(normalized_mutant) + len(normalized_control1)
-    total_orig = len(mutant_dishes) + len(control1_dishes)
+    total_kept = len(normalized_test2) + len(normalized_test1)
+    total_orig = len(test2_dishes) + len(test1_dishes)
     print(f"  Retained: {total_kept}/{total_orig} ({100*total_kept/total_orig:.1f}%)")
 
-    return normalized_mutant, normalized_control1, threshold_size
+    return normalized_test2, normalized_test1, threshold_size
 
 
 def save_petri_dish(petri: PetriDish, filepath: str, compress: bool = True) -> None:
@@ -276,9 +276,9 @@ class Phase2Pipeline:
         self.snapshots_dir = os.path.join(self.output_dir, "snapshots")
         self.individuals_dir = os.path.join(self.output_dir, "individuals")
         os.makedirs(self.snapshots_dir, exist_ok=True)
-        os.makedirs(os.path.join(self.individuals_dir, "mutant"), exist_ok=True)
-        os.makedirs(os.path.join(self.individuals_dir, "control1"), exist_ok=True)
-        os.makedirs(os.path.join(self.individuals_dir, "control2"), exist_ok=True)
+        os.makedirs(os.path.join(self.individuals_dir, "test2"), exist_ok=True)
+        os.makedirs(os.path.join(self.individuals_dir, "test1"), exist_ok=True)
+        os.makedirs(os.path.join(self.individuals_dir, "control"), exist_ok=True)
 
     def _generate_output_dir(self) -> str:
         """Generate output directory path."""
@@ -362,16 +362,16 @@ class Phase2Pipeline:
         return snapshot1_cells, snapshot2_cells
 
     def create_individuals(self, snapshot1_cells: List[Cell]) -> Tuple[List[PetriDish], List[PetriDish]]:
-        """Create initial individuals (mutant and control1)."""
+        """Create initial individuals (test2 and test1)."""
         print("\n" + "="*60)
         print("STAGE 3: Create Initial Individuals")
         print("="*60)
 
         expected_count = self.n_quantiles * self.cells_per_quantile
 
-        # Create mutant individuals (quantile sampling)
-        print(f"\n  Creating mutant individuals (quantile sampling)...")
-        mutant_dishes = []
+        # Create test2 individuals (quantile sampling)
+        print(f"\n  Creating Test 2 individuals (quantile sampling)...")
+        test2_dishes = []
         sampled = sample_by_quantiles(snapshot1_cells, self.n_quantiles,
                                      self.cells_per_quantile, self.seed)
 
@@ -381,20 +381,20 @@ class Phase2Pipeline:
                 growth_phase=self.growth_phase,
                 metadata={
                     'individual_id': i + 1,
-                    'individual_type': 'mutant',
+                    'individual_type': 'test2',
                     'source_quantile': quantile,
                     'n_quantiles': self.n_quantiles,
                     'initial_year': self.first_year,
                     'growth_phase': self.growth_phase
                 }
             )
-            mutant_dishes.append(petri)
+            test2_dishes.append(petri)
 
-        print(f"    Created {len(mutant_dishes)} mutant individuals")
+        print(f"    Created {len(test2_dishes)} Test 2 individuals")
 
-        # Create control1 individuals (uniform sampling)
-        print(f"\n  Creating control1 individuals (uniform sampling)...")
-        control1_dishes = []
+        # Create test1 individuals (random sampling)
+        print(f"\n  Creating Test 1 individuals (random sampling)...")
+        test1_dishes = []
         sampled_cells = sample_uniform(snapshot1_cells, expected_count, self.seed + 1000)
 
         for i, cell in enumerate(sampled_cells):
@@ -403,19 +403,19 @@ class Phase2Pipeline:
                 growth_phase=self.growth_phase,
                 metadata={
                     'individual_id': i + 1,
-                    'individual_type': 'control1',
+                    'individual_type': 'test1',
                     'initial_year': self.first_year,
                     'growth_phase': self.growth_phase
                 }
             )
-            control1_dishes.append(petri)
+            test1_dishes.append(petri)
 
-        print(f"    Created {len(control1_dishes)} control1 individuals")
+        print(f"    Created {len(test1_dishes)} Test 1 individuals")
 
-        return mutant_dishes, control1_dishes
+        return test2_dishes, test1_dishes
 
-    def grow_populations(self, mutant_dishes: List[PetriDish],
-                        control1_dishes: List[PetriDish]) -> None:
+    def grow_populations(self, test2_dishes: List[PetriDish],
+                        test1_dishes: List[PetriDish]) -> None:
         """Grow individuals over time."""
         print("\n" + "="*60)
         print(f"STAGE 4: Grow Individuals ({self.second_year - self.first_year} years)")
@@ -423,19 +423,19 @@ class Phase2Pipeline:
 
         timeline_duration = self.second_year - self.first_year
 
-        # Grow mutant
-        print("\n  Growing mutant individuals...")
-        for i, petri in enumerate(mutant_dishes):
-            print(f"    Individual {i+1}/{len(mutant_dishes)}")
+        # Grow test2 (quantile sampling)
+        print("\n  Growing Test 2 individuals...")
+        for i, petri in enumerate(test2_dishes):
+            print(f"    Individual {i+1}/{len(test2_dishes)}")
             petri.grow_exponentially(min(self.growth_phase, timeline_duration), verbose=False)
             if timeline_duration > self.growth_phase:
                 homeostasis_years = timeline_duration - self.growth_phase
                 petri.maintain_homeostasis(homeostasis_years, verbose=False)
 
-        # Grow control1
-        print("\n  Growing control1 individuals...")
-        for i, petri in enumerate(control1_dishes):
-            print(f"    Individual {i+1}/{len(control1_dishes)}")
+        # Grow test1 (random sampling)
+        print("\n  Growing Test 1 individuals...")
+        for i, petri in enumerate(test1_dishes):
+            print(f"    Individual {i+1}/{len(test1_dishes)}")
             petri.grow_exponentially(min(self.growth_phase, timeline_duration), verbose=False)
             if timeline_duration > self.growth_phase:
                 homeostasis_years = timeline_duration - self.growth_phase
@@ -443,8 +443,8 @@ class Phase2Pipeline:
 
         print(f"\n  Growth complete")
 
-    def normalize_and_mix(self, mutant_dishes: List[PetriDish],
-                         control1_dishes: List[PetriDish],
+    def normalize_and_mix(self, test2_dishes: List[PetriDish],
+                         test1_dishes: List[PetriDish],
                          snapshot2_cells: List[Cell]) -> Tuple[List[PetriDish], List[PetriDish], List[Cell], int]:
         """Normalize populations and mix with snapshot."""
         print("\n" + "="*60)
@@ -453,16 +453,16 @@ class Phase2Pipeline:
 
         # Normalize
         print("\n  Applying size normalization (median - 0.5σ)...")
-        mutant_dishes, control1_dishes, normalized_size = normalize_populations(
-            mutant_dishes, control1_dishes, self.seed + 5000
+        test2_dishes, test1_dishes, normalized_size = normalize_populations(
+            test2_dishes, test1_dishes, self.seed + 5000
         )
 
         # Update metadata with individual IDs after normalization
-        for i, dish in enumerate(mutant_dishes, 1):
+        for i, dish in enumerate(test2_dishes, 1):
             dish.metadata['individual_id'] = i
             dish.metadata['normalized_size'] = normalized_size
 
-        for i, dish in enumerate(control1_dishes, 1):
+        for i, dish in enumerate(test1_dishes, 1):
             dish.metadata['individual_id'] = i
             dish.metadata['normalized_size'] = normalized_size
 
@@ -500,7 +500,7 @@ class Phase2Pipeline:
         # Mix all individuals
         print(f"\n  Mixing individuals with common pool...")
 
-        for i, petri in enumerate(mutant_dishes):
+        for i, petri in enumerate(test2_dishes):
             if mix_ratio_fraction >= 1.0:
                 size = len(petri.cells)
                 petri.cells = [copy.deepcopy(cell) for cell in common_pool[:size]]
@@ -511,9 +511,9 @@ class Phase2Pipeline:
                 random.shuffle(petri.cells)
 
             petri.metadata['mix_ratio'] = self.mix_ratio
-            print(f"    Mutant {i+1:02d}: {len(petri.cells)} cells")
+            print(f"    Test2 {i+1:02d}: {len(petri.cells)} cells")
 
-        for i, petri in enumerate(control1_dishes):
+        for i, petri in enumerate(test1_dishes):
             if mix_ratio_fraction >= 1.0:
                 size = len(petri.cells)
                 petri.cells = [copy.deepcopy(cell) for cell in common_pool[:size]]
@@ -524,7 +524,7 @@ class Phase2Pipeline:
                 random.shuffle(petri.cells)
 
             petri.metadata['mix_ratio'] = self.mix_ratio
-            print(f"    Control1 {i+1:02d}: {len(petri.cells)} cells")
+            print(f"    Test1 {i+1:02d}: {len(petri.cells)} cells")
 
         # Save mixing metadata
         mixing_metadata = {
@@ -534,18 +534,18 @@ class Phase2Pipeline:
         with open(os.path.join(self.individuals_dir, 'mixing_metadata.json'), 'w') as f:
             json.dump(mixing_metadata, f, indent=2)
 
-        return mutant_dishes, control1_dishes, common_pool, normalized_size
+        return test2_dishes, test1_dishes, common_pool, normalized_size
 
-    def create_control2(self, snapshot2_cells: List[Cell], common_pool: List[Cell],
-                       target_size: int, num_individuals: int) -> List[PetriDish]:
-        """Create control2 individuals."""
+    def create_control(self, snapshot2_cells: List[Cell], common_pool: List[Cell],
+                      target_size: int, num_individuals: int) -> List[PetriDish]:
+        """Create control individuals (pure snapshot)."""
         print("\n" + "="*60)
-        print("STAGE 6: Create Control2")
+        print("STAGE 6: Create Control")
         print("="*60)
 
-        print(f"\n  Creating {num_individuals} control2 individuals...")
+        print(f"\n  Creating {num_individuals} control individuals (pure snapshot)...")
 
-        control2_dishes = []
+        control_dishes = []
         for i in range(num_individuals):
             # Start with common pool
             combined_cells = [copy.deepcopy(cell) for cell in common_pool]
@@ -572,50 +572,50 @@ class Phase2Pipeline:
 
             petri.metadata = {
                 'individual_id': i + 1,
-                'individual_type': 'control2',
+                'individual_type': 'control',
                 'mix_ratio': self.mix_ratio,
                 'normalized_size': target_size
             }
 
-            control2_dishes.append(petri)
-            print(f"    Control2 {i+1:02d}: {len(petri.cells)} cells")
+            control_dishes.append(petri)
+            print(f"    Control {i+1:02d}: {len(petri.cells)} cells")
 
-        return control2_dishes
+        return control_dishes
 
-    def save_outputs(self, mutant_dishes: List[PetriDish],
-                    control1_dishes: List[PetriDish],
-                    control2_dishes: List[PetriDish]) -> None:
+    def save_outputs(self, test2_dishes: List[PetriDish],
+                    test1_dishes: List[PetriDish],
+                    control_dishes: List[PetriDish]) -> None:
         """Save all individuals to disk."""
         print("\n" + "="*60)
         print("Saving Outputs")
         print("="*60)
 
-        # Save mutant
-        mutant_dir = os.path.join(self.individuals_dir, "mutant")
-        for petri in mutant_dishes:
+        # Save test2 (quantile sampling)
+        test2_dir = os.path.join(self.individuals_dir, "test2")
+        for petri in test2_dishes:
             individual_id = petri.metadata['individual_id']
-            filepath = os.path.join(mutant_dir, f"individual_{individual_id:02d}.json")
+            filepath = os.path.join(test2_dir, f"individual_{individual_id:02d}.json")
             save_petri_dish(petri, filepath, self.compress)
-        print(f"  Saved {len(mutant_dishes)} mutant individuals")
+        print(f"  Saved {len(test2_dishes)} Test 2 individuals")
 
-        # Save control1
-        control1_dir = os.path.join(self.individuals_dir, "control1")
-        for petri in control1_dishes:
+        # Save test1 (random sampling)
+        test1_dir = os.path.join(self.individuals_dir, "test1")
+        for petri in test1_dishes:
             individual_id = petri.metadata['individual_id']
-            filepath = os.path.join(control1_dir, f"individual_{individual_id:02d}.json")
+            filepath = os.path.join(test1_dir, f"individual_{individual_id:02d}.json")
             save_petri_dish(petri, filepath, self.compress)
-        print(f"  Saved {len(control1_dishes)} control1 individuals")
+        print(f"  Saved {len(test1_dishes)} Test 1 individuals")
 
-        # Save control2 (special format)
-        control2_dir = os.path.join(self.individuals_dir, "control2")
+        # Save control (special format)
+        control_dir = os.path.join(self.individuals_dir, "control")
         ext = ".json.gz" if self.compress else ".json"
 
-        for petri in control2_dishes:
+        for petri in control_dishes:
             individual_id = petri.metadata['individual_id']
-            filepath = os.path.join(control2_dir, f"individual_{individual_id:02d}{ext}")
+            filepath = os.path.join(control_dir, f"individual_{individual_id:02d}{ext}")
 
-            # Create simplified structure for control2
-            control2_data = {
+            # Create simplified structure for control
+            control_data = {
                 "config": {
                     "gene_rate_groups": petri.cells[0].gene_rate_groups,
                     "n": petri.cells[0].n,
@@ -633,11 +633,11 @@ class Phase2Pipeline:
 
             with smart_open(filepath, 'w') as f:
                 if self.compress:
-                    json.dump(control2_data, f, separators=(',', ':'))
+                    json.dump(control_data, f, separators=(',', ':'))
                 else:
-                    json.dump(control2_data, f, indent=2)
+                    json.dump(control_data, f, indent=2)
 
-        print(f"  Saved {len(control2_dishes)} control2 individuals")
+        print(f"  Saved {len(control_dishes)} control individuals")
 
     def run(self) -> None:
         """Execute complete pipeline."""
@@ -657,17 +657,17 @@ class Phase2Pipeline:
 
         # Execute stages
         snapshot1_cells, snapshot2_cells = self.extract_snapshots()
-        mutant_dishes, control1_dishes = self.create_individuals(snapshot1_cells)
-        self.grow_populations(mutant_dishes, control1_dishes)
-        mutant_dishes, control1_dishes, common_pool, normalized_size = \
-            self.normalize_and_mix(mutant_dishes, control1_dishes, snapshot2_cells)
+        test2_dishes, test1_dishes = self.create_individuals(snapshot1_cells)
+        self.grow_populations(test2_dishes, test1_dishes)
+        test2_dishes, test1_dishes, common_pool, normalized_size = \
+            self.normalize_and_mix(test2_dishes, test1_dishes, snapshot2_cells)
 
-        # Determine control2 count
-        num_control2 = (len(mutant_dishes) + len(control1_dishes)) // 2
-        control2_dishes = self.create_control2(snapshot2_cells, common_pool,
-                                               normalized_size, num_control2)
+        # Determine control count
+        num_control = (len(test2_dishes) + len(test1_dishes)) // 2
+        control_dishes = self.create_control(snapshot2_cells, common_pool,
+                                             normalized_size, num_control)
 
-        self.save_outputs(mutant_dishes, control1_dishes, control2_dishes)
+        self.save_outputs(test2_dishes, test1_dishes, control_dishes)
 
         # Summary
         elapsed = time.time() - start_time
@@ -677,9 +677,9 @@ class Phase2Pipeline:
         print(f"Total time: {elapsed:.2f} seconds")
         print(f"Output directory: {self.output_dir}")
         print(f"Created:")
-        print(f"  - {len(mutant_dishes)} mutant individuals")
-        print(f"  - {len(control1_dishes)} control1 individuals")
-        print(f"  - {len(control2_dishes)} control2 individuals")
+        print(f"  - {len(test2_dishes)} Test 2 individuals (quantile sampling)")
+        print(f"  - {len(test1_dishes)} Test 1 individuals (random sampling)")
+        print(f"  - {len(control_dishes)} Control individuals (pure snapshot)")
         print("\nNext step: Run phase3 for analysis")
         print(f"  cd ../phase3")
         print(f"  python run_pipeline.py --phase2-dir {self.output_dir}")

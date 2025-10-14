@@ -92,9 +92,9 @@ phase1/data/gene_rates_*/size*-seed*-{timestamp}/              # Phase 1 output
     │   ├── year{N}_snapshot.json[.gz]
     │   └── metadata.json
     └── individuals/
-        ├── mutant/          # Quantile-sampled populations
-        ├── control1/        # Random-sampled populations
-        ├── control2/        # Pure snapshot populations
+        ├── test2/           # Test 2: Quantile-sampled populations
+        ├── test1/           # Test 1: Random-sampled populations
+        ├── control/         # Control: Pure snapshot populations
         ├── common_pool.json[.gz]
         └── mixing_metadata.json
 ```
@@ -203,9 +203,9 @@ petri = PetriDish.from_cells(cells, growth_phase=7)
 - **In-memory processing** - data passed between stages without temporary files
 - **Outputs directly to Phase 1 directory** (no separate phase2/data folder)
 - Snapshot extraction preserves year wrapper: `{"23": {...}}`
-- Mutant: quantile-based sampling (sorts by cell_jsd)
-- Control1: random uniform sampling
-- Control2: pure second snapshot populations
+- Test 2: quantile-based sampling (sorts by cell_jsd)
+- Test 1: random uniform sampling
+- Control: pure second snapshot populations
 - Normalization: median - 0.5σ threshold applied
 - All cells in a PetriDish must have identical gene_rate_groups
 - ~10x faster than old multi-script version

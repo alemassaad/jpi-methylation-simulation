@@ -137,7 +137,7 @@ def _process_individuals(individuals_dir: str, verbose: bool = True) -> List[Tup
     Helper function to load all individuals from batches.
 
     Args:
-        individuals_dir: Directory containing mutant/, control1/, control2/ subdirectories
+        individuals_dir: Directory containing test2/, test1/, control/ subdirectories
         verbose: Whether to print progress
 
     Returns:
@@ -152,8 +152,8 @@ def _process_individuals(individuals_dir: str, verbose: bool = True) -> List[Tup
 
     all_individuals = []
 
-    # Process each batch
-    for batch_name in ['mutant', 'control1', 'control2']:
+    # Process each batch (Control, Test 1, Test 2 order)
+    for batch_name in ['control', 'test1', 'test2']:
         batch_dir = os.path.join(individuals_dir, batch_name)
 
         if not os.path.exists(batch_dir):
@@ -186,7 +186,7 @@ def extract_cell_comparison(individuals_dir: str, output_csv: str, verbose: bool
     Extract cell-level comparison data from all individuals and save to CSV.
 
     Args:
-        individuals_dir: Directory containing mutant/, control1/, control2/ subdirectories
+        individuals_dir: Directory containing test2/, test1/, control/ subdirectories
         output_csv: Path to output CSV file for cell metrics
         verbose: Whether to print progress
     """
@@ -241,7 +241,7 @@ def extract_gene_comparison(individuals_dir: str, output_csv: str, verbose: bool
     Outputs the full distribution: one row per gene per individual (20 rows per individual).
 
     Args:
-        individuals_dir: Directory containing mutant/, control1/, control2/ subdirectories
+        individuals_dir: Directory containing test2/, test1/, control/ subdirectories
         output_csv: Path to output CSV file for gene metrics
         verbose: Whether to print progress
     """
@@ -323,7 +323,7 @@ if __name__ == "__main__":
 
     parser = argparse.ArgumentParser(description="Extract batch comparison data to separate cell and gene CSV files")
     parser.add_argument('--individuals-dir', required=True,
-                       help='Directory containing mutant/control1/control2 subdirectories')
+                       help='Directory containing test2/test1/control subdirectories')
     parser.add_argument('--cell-csv', required=False,
                        help='Output CSV file path for cell metrics only')
     parser.add_argument('--gene-csv', required=False,

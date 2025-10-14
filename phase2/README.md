@@ -41,10 +41,10 @@ python phase2_pipeline.py \
 ### Pipeline Stages (executed sequentially in memory)
 
 1. **Extract Snapshots**: Load simulation, extract two time points
-2. **Create Individuals**: Sample cells (quantile-based for mutant, uniform for control1)
+2. **Create Individuals**: Sample cells (quantile-based for Test 2, uniform for Test 1)
 3. **Grow Populations**: Exponential growth + homeostasis
 4. **Normalize & Mix**: Size normalization + mix with common snapshot pool
-5. **Create Control2**: Pure snapshot populations
+5. **Create Control**: Pure snapshot populations
 6. **Save Outputs**: Write all individuals to disk
 
 ### Key Features
@@ -68,9 +68,9 @@ phase1/data/gene_rates_*/size*-seed*-TIMESTAMP/            # Phase 1 directory
     │   ├── year50_snapshot.json
     │   └── metadata.json
     └── individuals/
-        ├── mutant/          # Quantile-sampled populations
-        ├── control1/        # Random-sampled populations
-        ├── control2/        # Pure snapshot populations
+        ├── test2/           # Test 2: Quantile-sampled populations
+        ├── test1/           # Test 1: Random-sampled populations
+        ├── control/         # Control: Pure snapshot populations
         ├── common_pool.json # Shared snapshot cells
         └── mixing_metadata.json
 ```
@@ -87,7 +87,7 @@ Multiple Phase 2 runs get their own timestamped subdirectories, preventing colli
 - `--second-snapshot`: Second year to extract (default: 50)
 
 ### Sampling Parameters
-- `--n-quantiles`: Number of quantiles for mutant sampling (default: 4)
+- `--n-quantiles`: Number of quantiles for Test 2 sampling (default: 4)
 - `--cells-per-quantile`: Cells per quantile (default: 2)
 
 ### Growth Parameters
@@ -132,9 +132,9 @@ Use with: `python phase2_pipeline.py --config my_config.yaml --simulation ../pha
 - Typically retains ~67% of individuals
 
 ### Three Population Types
-1. **Mutant**: Quantile-based sampling (captures full JSD spectrum)
-2. **Control1**: Uniform random sampling (baseline comparison)
-3. **Control2**: Pure second snapshot (no growth, mixing reference)
+1. **Test 2**: Quantile-based sampling (captures full JSD spectrum)
+2. **Test 1**: Uniform random sampling (baseline comparison)
+3. **Control**: Pure second snapshot (no growth, mixing reference)
 
 ## Integration with Phase 3
 

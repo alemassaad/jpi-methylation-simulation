@@ -118,7 +118,7 @@ def load_petri_dish(filepath):
     with smart_open(filepath, 'r') as f:
         data = json.load(f)
 
-    # CRITICAL: Use 'individual_final' (~288 cells after mixing)
+    # CRITICAL: Use 'individual_final' (~210 cells after mixing with default config)
     # NOT 'history' (only ~68 cells pre-mixing)
     if 'individual_final' in data:
         cells = data['individual_final']['cells']  # CORRECT
@@ -269,7 +269,7 @@ python plot_histogram_original.py --phase2-dir ../phase1/data/{dir}/{subdir}/ \
 ### Phase 3 Issues
 - **Wrong cell count in histograms**: Ensure using `individual_final` not `history`
   - `history` only has pre-mixing cells (~68)
-  - `individual_final` has post-mixing cells (~288)
+  - `individual_final` has post-mixing cells (~210 with default config)
 - **Missing timeline plots**: Check Phase 1 simulation exists in parent directory
 - **Gene CSV wrong rows**: Should be 180 (9 individuals × 20 genes)
 - **KeyError in plot_histogram_original.py**: Missing or incorrect data structure

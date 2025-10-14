@@ -445,7 +445,7 @@ class Phase2Pipeline:
 
     def normalize_and_mix(self, test2_dishes: List[PetriDish],
                          test1_dishes: List[PetriDish],
-                         snapshot2_cells: List[Cell]) -> Tuple[List[PetriDish], List[PetriDish], List[Cell], int]:
+                         snapshot2_cells: List[Cell]) -> Tuple[List[PetriDish], List[PetriDish], List[Cell], int, int]:
         """Normalize populations and mix with snapshot."""
         print("\n" + "="*60)
         print("STAGE 5: Normalize and Mix Populations")
@@ -534,7 +534,7 @@ class Phase2Pipeline:
         with open(os.path.join(self.individuals_dir, 'mixing_metadata.json'), 'w') as f:
             json.dump(mixing_metadata, f, indent=2)
 
-        return test2_dishes, test1_dishes, common_pool, normalized_size
+        return test2_dishes, test1_dishes, common_pool, normalized_size, target_total
 
     def create_control(self, snapshot2_cells: List[Cell], common_pool: List[Cell],
                       target_size: int, num_individuals: int) -> List[PetriDish]:
@@ -574,7 +574,7 @@ class Phase2Pipeline:
                 'individual_id': i + 1,
                 'individual_type': 'control',
                 'mix_ratio': self.mix_ratio,
-                'normalized_size': target_size
+                'target_total': target_size
             }
 
             control_dishes.append(petri)
@@ -659,13 +659,13 @@ class Phase2Pipeline:
         snapshot1_cells, snapshot2_cells = self.extract_snapshots()
         test2_dishes, test1_dishes = self.create_individuals(snapshot1_cells)
         self.grow_populations(test2_dishes, test1_dishes)
-        test2_dishes, test1_dishes, common_pool, normalized_size = \
+        test2_dishes, test1_dishes, common_pool, normalized_size, target_total = \
             self.normalize_and_mix(test2_dishes, test1_dishes, snapshot2_cells)
 
         # Determine control count
         num_control = (len(test2_dishes) + len(test1_dishes)) // 2
         control_dishes = self.create_control(snapshot2_cells, common_pool,
-                                             normalized_size, num_control)
+                                             target_total, num_control)
 
         self.save_outputs(test2_dishes, test1_dishes, control_dishes)
 

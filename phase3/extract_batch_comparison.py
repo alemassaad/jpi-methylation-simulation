@@ -49,8 +49,8 @@ def load_petri_dish(filepath: str) -> PetriDish:
         cells = [dict_to_cell(cell_dict) for cell_dict in individual_data['cells']]
 
         # Log cell count for validation
-        if len(cells) < 100:
-            print(f"    Warning: Only {len(cells)} cells in individual_final (expected ~288 after mixing)")
+        if len(cells) < 150:
+            print(f"    Warning: Only {len(cells)} cells in individual_final (expected ~210 with default config)")
 
     elif 'history' in data:
         # FALLBACK: Use the last year in history (WARNING: this is pre-mixing!)

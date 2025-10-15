@@ -18,7 +18,7 @@ cells_per_quantile: 5            # Cells sampled per quantile
 mix_ratio: 80                    # Percentage of snapshot cells in final mix (0-100)
 
 # Output configuration
-compress: false                  # Save as .json.gz if true, .json if false
+compress: true                  # Save as .json.gz if true, .json if false
 
 # Other settings
 seed: 24                         # Random seed (use -1 or null for random)

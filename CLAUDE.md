@@ -10,13 +10,13 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 cd phase1
 python run_simulation.py --config config_default.yaml
 
-# 2. Generate Phase 2 datasets (outputs to Phase 1 directory)
+# 2. Generate Phase 2 datasets (outputs to root data directory)
 cd ../phase2
-python phase2_pipeline.py --simulation ../phase1/data/gene_rates_*/simulation.json.gz
+python phase2_pipeline.py --simulation ../data/gene_rates_*/simulation.json.gz
 
 # 3. Extract and plot with Phase 3 analysis
 cd ../phase3
-python run_pipeline.py --phase2-dir ../phase1/data/{phase1_dir}/{phase2_subdir}/
+python run_pipeline.py --phase2-dir ../data/{phase1_dir}/{phase2_subdir}/
 ```
 
 ## Commands - Detailed
@@ -41,15 +41,15 @@ python run_simulation.py --gene-rate-groups "5:0.004,5:0.005,5:0.006,5:0.007" --
 ```bash
 cd phase2
 
-# Complete pipeline - outputs directly to Phase 1 directory
-python phase2_pipeline.py --simulation ../phase1/data/gene_rates_*/size*-seed*-*/simulation.json
+# Complete pipeline - outputs directly to root data directory
+python phase2_pipeline.py --simulation ../data/gene_rates_*/size*-seed*-*/simulation.json
 
 # With custom parameters (override config defaults)
-python phase2_pipeline.py --simulation ../phase1/data/gene_rates_*/size*-seed*-*/simulation.json \
+python phase2_pipeline.py --simulation ../data/gene_rates_*/size*-seed*-*/simulation.json \
     --n-quantiles 10 --cells-per-quantile 3 --mix-ratio 80
 
 # Quick test (smaller parameters)
-python phase2_pipeline.py --simulation ../phase1/data/gene_rates_*/size*-seed*-*/simulation.json \
+python phase2_pipeline.py --simulation ../data/gene_rates_*/size*-seed*-*/simulation.json \
     --n-quantiles 4 --cells-per-quantile 2 --individual-growth-phase 6
 ```
 
@@ -58,15 +58,15 @@ python phase2_pipeline.py --simulation ../phase1/data/gene_rates_*/size*-seed*-*
 cd phase3
 
 # Run complete analysis pipeline (6 stages)
-python run_pipeline.py --phase2-dir ../phase1/data/{phase1_dir}/{phase2_subdir}/
+python run_pipeline.py --phase2-dir ../data/{phase1_dir}/{phase2_subdir}/
 
 # Useful options
-python run_pipeline.py --phase2-dir ../phase1/data/{phase1_dir}/{phase2_subdir}/ --skip-plots  # Extract CSVs only
-python run_pipeline.py --phase2-dir ../phase1/data/{phase1_dir}/{phase2_subdir}/ --skip-gene-comparison  # Skip 40 per-gene plots
+python run_pipeline.py --phase2-dir ../data/{phase1_dir}/{phase2_subdir}/ --skip-plots  # Extract CSVs only
+python run_pipeline.py --phase2-dir ../data/{phase1_dir}/{phase2_subdir}/ --skip-gene-comparison  # Skip 40 per-gene plots
 
 # Run individual analysis tools
-python extract_simulation_timeline.py --simulation ../phase1/data/*/simulation.json.gz --output-dir tables/
-python extract_batch_comparison.py --individuals-dir ../phase1/data/{phase1_dir}/{phase2_subdir}/individuals
+python extract_simulation_timeline.py --simulation ../data/*/simulation.json.gz --output-dir tables/
+python extract_batch_comparison.py --individuals-dir ../data/{phase1_dir}/{phase2_subdir}/individuals
 python plot_comparison_generic.py --csv tables/batch_comparison_cell.csv --column cell_jsd_mean --output plots/cell_jsd.png
 python plot_comparison_by_gene.py --csv tables/batch_comparison_gene.csv --output-dir plots/per_gene/
 python plot_simulation_timeline.py results/tables/
@@ -85,7 +85,7 @@ python plot_simulation_timeline.py results/tables/
 
 ### Directory Structure
 ```
-phase1/data/gene_rates_*/size*-seed*-{timestamp}/              # Phase 1 output
+data/gene_rates_*/size*-seed*-{timestamp}/                     # Phase 1 output (at repo root)
 ├── simulation.json[.gz]                                       # Complete simulation
 └── snap{Y1}to{Y2}-growth{G}-quant{Q}x{C}-mix{M}-seed{S}-{timestamp}/  # Phase 2 output
     ├── snapshots/
@@ -169,8 +169,8 @@ petri = PetriDish.from_cells(cells, growth_phase=7)
 ```
 
 ### CSV Data Formats
-- **Cell CSV** (9 rows): `individual_id,batch,cell_jsd_mean,cell_methylation_mean,cell_count`
-- **Gene CSV** (180 rows): `individual_id,batch,gene_index,gene_jsd,gene_methylation`
+- **Cell CSV** (N rows, where N = total individuals across batches): `individual_id,batch,cell_jsd_mean,cell_methylation_mean,cell_count`
+- **Gene CSV** (N × 20 rows): `individual_id,batch,gene_index,gene_jsd,gene_methylation`
 - **Timeline CSV**: `year,value_0,value_1,...` (cells) or `year,gene_0,gene_1,...` (genes)
 - **P-values CSV** (18 rows): `metric,comparison,students_t_pvalue,welchs_t_pvalue`
 - **ANOVA CSV** (12 rows): `metric,test_type,f_statistic,df1,df2,p_value`
@@ -192,7 +192,10 @@ P-values should be added in `phase3/plot_comparison_generic.py` where batch comp
 ### Key Implementation Points
 
 #### Data Structure
-- Each batch (control, test1, test2) contains 3 individuals
+- Each batch (control, test1, test2) contains a variable number of individuals
+  - Initial: `n_quantiles × cells_per_quantile` per batch (from config)
+  - Final: After normalization filtering (median - 0.5σ threshold)
+  - Typical: ~40 individuals per batch with default config (10 quantiles × 5 cells)
 - Cell metrics: `cell_jsd_mean`, `cell_methylation_mean` per individual
 - Gene metrics: `gene_jsd`, `gene_methylation` (20 values per individual, aggregated as mean or std)
 
@@ -207,25 +210,28 @@ In `plot_comparison_generic.py`:
 from scipy import stats
 
 # For comparing two batches (e.g., control vs test1)
-def calculate_pvalue(batch1_data, batch2_data):
-    """
-    Calculate p-value between two batches.
-    Uses Mann-Whitney U test (non-parametric) for small samples.
-    """
-    # With only 3 samples per batch, use non-parametric test
-    statistic, pvalue = stats.mannwhitneyu(
-        batch1_data,
-        batch2_data,
-        alternative='two-sided'
-    )
-    return pvalue
-
-# Alternative: Welch's t-test (if assuming normality)
 def calculate_pvalue_ttest(batch1_data, batch2_data):
+    """
+    Calculate p-value using Welch's t-test.
+    Appropriate for samples with potentially unequal variances.
+    """
     statistic, pvalue = stats.ttest_ind(
         batch1_data,
         batch2_data,
         equal_var=False  # Welch's t-test
+    )
+    return pvalue
+
+# Alternative: Mann-Whitney U test (non-parametric)
+def calculate_pvalue_nonparametric(batch1_data, batch2_data):
+    """
+    Calculate p-value using Mann-Whitney U test.
+    Non-parametric alternative when normality is questionable.
+    """
+    statistic, pvalue = stats.mannwhitneyu(
+        batch1_data,
+        batch2_data,
+        alternative='two-sided'
     )
     return pvalue
 ```
@@ -293,7 +299,7 @@ python calculate_pvalues.py \
 
 ### Important Notes
 - **Bonferroni correction**: Should be applied when interpreting p-values (multiply by number of comparisons)
-- **Small sample sizes**: With n=3 per batch, non-parametric tests might be more appropriate for publication
+- **Sample sizes**: Number of individuals per batch determined by config (`n_quantiles × cells_per_quantile`) and normalization
 - **ANOVA interpretation**: Significant ANOVA indicates at least one batch differs, use pairwise tests to identify which ones
 
 ## Configuration System
@@ -338,7 +344,7 @@ python calculate_pvalues.py \
 - CSV-first workflow: extract once, plot many times
 - Auto-detects Phase 1 simulation in parent directory
 - Gene aggregation: mean or std across 20 genes per individual
-- Batch comparison: 9 individuals (3 per batch type)
+- Batch comparison: Variable number of individuals per batch (determined by Phase 2 config and normalization)
 - Timeline plots include percentile bands (5-95%, 25-75%)
 - Must use `individual_final` for mixed populations, not `history`
 
@@ -369,12 +375,12 @@ python run_simulation.py --years 5 --sites 20 --growth-phase 3  # Quick test
 
 # Test phase2 with existing simulation (quick test)
 cd phase2
-python phase2_pipeline.py --simulation ../phase1/data/*/simulation.json.gz \
+python phase2_pipeline.py --simulation ../data/*/simulation.json.gz \
     --n-quantiles 2 --cells-per-quantile 1 --individual-growth-phase 3
 
 # Test phase3 histogram generation
 cd phase3
-python plot_histogram_original.py --phase2-dir ../phase1/data/{dir}/{subdir}/ \
+python plot_histogram_original.py --phase2-dir ../data/{dir}/{subdir}/ \
     --year 38 --output test_histogram.png
 ```
 
@@ -386,7 +392,7 @@ python plot_histogram_original.py --phase2-dir ../phase1/data/{dir}/{subdir}/ \
 - Year keys are always strings: `year_str = str(year)`
 - Deep copies when necessary to avoid reference issues
 - **Dictation note**: "jean" or "gin" means "gene"
-- Phase 2 outputs go directly into Phase 1 simulation directory
+- Phase 2 outputs go directly into root data directory alongside Phase 1 simulation
 
 ## Common Issues & Solutions
 
@@ -395,14 +401,14 @@ python plot_histogram_original.py --phase2-dir ../phase1/data/{dir}/{subdir}/ \
   - `history` only has pre-mixing cells (~68)
   - `individual_final` has post-mixing cells (~210 with default config)
 - **Missing timeline plots**: Check Phase 1 simulation exists in parent directory
-- **Gene CSV wrong rows**: Should be 180 (9 individuals × 20 genes)
+- **Gene CSV rows**: Should be N × 20 where N = total individuals (varies by config)
 - **KeyError in plot_histogram_original.py**: Missing or incorrect data structure
 
 ### Phase 2 Issues
 - **Gene rate groups mismatch**: All cells must have identical gene_rate_groups
 - **Insufficient cells**: Snapshot too small for sampling
 - **Memory issues**: Reduce `n_quantiles` or `cells_per_quantile`
-- **Output location confusion**: Phase 2 outputs to Phase 1 directory, not phase2/data
+- **Output location confusion**: Phase 2 outputs to root data/ directory, not phase2/data
 - **Pipeline faster but same results**: New single-file version ~10x faster, output format unchanged
 
 ### General Issues

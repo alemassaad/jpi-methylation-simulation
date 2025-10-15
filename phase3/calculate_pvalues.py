@@ -140,7 +140,7 @@ def calculate_anova_for_metric(
     # Fisher's ANOVA (assumes equal variances)
     f_stat_fisher, p_val_fisher = stats.f_oneway(data_control, data_test1, data_test2)
     df1 = k_groups - 1  # 2
-    df2_fisher = n_total - k_groups  # typically 6 for 9 individuals
+    df2_fisher = n_total - k_groups  # e.g., ~117 for ~120 individuals (default config)
     results['fisher'] = (f_stat_fisher, (df1, df2_fisher), p_val_fisher)
 
     # Welch's ANOVA (does not assume equal variances)

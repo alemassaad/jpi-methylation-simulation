@@ -38,7 +38,10 @@ The Student's t-test is a parametric statistical test used to determine whether 
 - **Group 2 data**: Array of numerical values from the second batch (e.g., test1)
 
 In our implementation:
-- Each group contains n=3 individuals
+- Each group contains a variable number of individuals (depends on Phase 2 config)
+  - Initial: `n_quantiles × cells_per_quantile` (e.g., 10 × 5 = 50)
+  - Final: After normalization filtering (median - 0.5σ threshold)
+  - Typical: ~40 individuals per batch with default config
 - Values represent aggregated metrics (e.g., mean JSD across cells)
 
 ### Outputs
@@ -64,7 +67,7 @@ Welch's t-test is an adaptation of Student's t-test that does not assume equal p
 - **Group 2 data**: Array of numerical values from the second batch
 
 In our implementation:
-- Each group contains n=3 individuals
+- Each group contains a variable number of individuals (~40 with default config)
 - Values represent aggregated metrics
 
 ### Outputs
@@ -89,15 +92,19 @@ The test compares the variance between groups to the variance within groups. A l
 3. **Independent Samples**: Observations within and between groups are independent
 
 ### Inputs
-- **Group 1 data**: Array of numerical values from control batch (n=3)
-- **Group 2 data**: Array of numerical values from test1 batch (n=3)
-- **Group 3 data**: Array of numerical values from test2 batch (n=3)
+- **Group 1 data**: Array of numerical values from control batch
+- **Group 2 data**: Array of numerical values from test1 batch
+- **Group 3 data**: Array of numerical values from test2 batch
+
+In our implementation:
+- Each batch typically contains ~40 individuals (varies based on config and normalization)
 
 ### Outputs
 - **F-statistic**: Ratio of between-group variance to within-group variance
 - **Degrees of freedom**:
   - **df1** = k - 1 = 2 (number of groups minus one)
-  - **df2** = N - k = 6 (total sample size minus number of groups)
+  - **df2** = N - k (total sample size minus number of groups)
+    - Example with default config: ~120 - 3 = ~117
 - **p-value**: Probability of observing the F-statistic (or larger) if all group means are equal
 
 **Implementation**: `scipy.stats.f_oneway(data_control, data_test1, data_test2)`
@@ -117,9 +124,12 @@ Welch's ANOVA is a generalization of Welch's t-test to three or more groups. It 
 3. **NO equal variance assumption**: Groups can have different variances
 
 ### Inputs
-- **Group 1 data**: Array of numerical values from control batch (n=3)
-- **Group 2 data**: Array of numerical values from test1 batch (n=3)
-- **Group 3 data**: Array of numerical values from test2 batch (n=3)
+- **Group 1 data**: Array of numerical values from control batch
+- **Group 2 data**: Array of numerical values from test1 batch
+- **Group 3 data**: Array of numerical values from test2 batch
+
+In our implementation:
+- Each batch typically contains ~40 individuals (varies based on config and normalization)
 
 ### Outputs
 - **F-statistic**: Modified F-statistic that accounts for unequal variances using weighted group means
@@ -167,13 +177,19 @@ The statistical tests generate two CSV files in `results/tables/`:
 
 ---
 
-## Small Sample Size Considerations
+## Sample Size Considerations
 
-Our study design uses **n=3 individuals per batch**, which is a small sample size for parametric tests. Considerations:
+Our study design uses a **variable number of individuals per batch** determined by:
+1. Phase 2 config parameters: `n_quantiles × cells_per_quantile`
+2. Normalization filtering (median - 0.5σ threshold)
 
-1. **Limited power**: Small samples have reduced ability to detect true effects
-2. **Normality assumption**: Harder to verify with only 3 observations
-3. **Alternative approaches**: Non-parametric tests (Mann-Whitney U, Kruskal-Wallis) may be more appropriate if normality is questionable
-4. **Interpretation**: Use p-values cautiously and consider effect sizes alongside significance
+With the **default config** (10 quantiles × 5 cells), we typically get **~40 individuals per batch** (~120 total).
 
-Despite these limitations, parametric tests are implemented as they are widely used and provide a foundation for statistical inference in this simulation study.
+### Statistical Implications
+
+1. **Adequate power**: Sample sizes ~40 per batch provide good statistical power for detecting moderate to large effects
+2. **Normality assumption**: With n≈40, the Central Limit Theorem suggests sample means will be approximately normal
+3. **Parametric tests appropriate**: Both t-tests and ANOVA are appropriate for these sample sizes
+4. **Alternative approaches**: Non-parametric alternatives (Mann-Whitney U, Kruskal-Wallis) remain available if distribution assumptions are violated
+
+The parametric tests implemented (Student's t-test, Welch's t-test, Fisher's ANOVA, Welch's ANOVA) are statistically sound for these sample sizes.

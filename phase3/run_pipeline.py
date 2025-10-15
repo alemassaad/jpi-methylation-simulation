@@ -423,12 +423,82 @@ def main():
                 print("   Skipping batch comparison extraction")
 
         # ====================================================================
-        # Stage 5: Generate Comparison Plots
+        # Stage 5: Calculate Statistical Tests (Pairwise t-tests and ANOVA)
+        # ====================================================================
+        if not args.skip_comparison and comparison_cell_csv_path and comparison_gene_csv_path:
+            print("\n" + "=" * 60)
+            print("Stage 5: Calculate Statistical Tests")
+            print("=" * 60)
+
+            from calculate_pvalues import (
+                calculate_pvalues_for_metric,
+                calculate_anova_for_metric,
+                print_comparison_table,
+                print_anova_table,
+                save_pvalues_to_csv,
+                save_anova_to_csv
+            )
+
+            try:
+                # Read the comparison CSVs
+                df_cell = pd.read_csv(comparison_cell_csv_path)
+                df_gene = pd.read_csv(comparison_gene_csv_path)
+
+                # Calculate pairwise t-tests for all 6 metrics
+                all_pvalue_results = {}
+
+                metrics_config = [
+                    ('Cell JSD Mean', df_cell, 'cell_jsd_mean', None),
+                    ('Cell Methylation Mean', df_cell, 'cell_methylation_mean', None),
+                    ('Gene JSD Mean', df_gene, 'gene_jsd', 'mean'),
+                    ('Gene Methylation Mean', df_gene, 'gene_methylation', 'mean'),
+                    ('Gene JSD Std Dev', df_gene, 'gene_jsd', 'std'),
+                    ('Gene Methylation Std Dev', df_gene, 'gene_methylation', 'std')
+                ]
+
+                for metric_name, df, column, aggregation in metrics_config:
+                    pvalue_results = calculate_pvalues_for_metric(df, column, aggregation)
+                    all_pvalue_results[metric_name] = pvalue_results
+
+                # Calculate ANOVA for all 6 metrics
+                all_anova_results = {}
+                for metric_name, df, column, aggregation in metrics_config:
+                    anova_results = calculate_anova_for_metric(df, column, aggregation)
+                    all_anova_results[metric_name] = anova_results
+
+                # Print tables if not quiet
+                if args.verbose:
+                    print("\n  Pairwise Comparison Tests (t-tests):")
+                    for metric_name in all_pvalue_results:
+                        print_comparison_table(metric_name, all_pvalue_results[metric_name])
+
+                    print("\n  Omnibus Tests (ANOVA):")
+                    print_anova_table(all_anova_results)
+
+                # Save to CSV files
+                pvalues_csv_path = os.path.join(tables_dir, 'pvalues.csv')
+                anova_csv_path = os.path.join(tables_dir, 'anova_results.csv')
+
+                save_pvalues_to_csv(all_pvalue_results, pvalues_csv_path)
+                save_anova_to_csv(all_anova_results, anova_csv_path)
+
+                print(f"✓ Statistical tests completed")
+                print(f"  - Pairwise t-tests: {pvalues_csv_path}")
+                print(f"  - ANOVA results: {anova_csv_path}")
+
+            except Exception as e:
+                print(f"⚠️ Error calculating statistical tests: {str(e)}")
+                if args.verbose:
+                    import traceback
+                    traceback.print_exc()
+
+        # ====================================================================
+        # Stage 6: Generate Comparison Plots
         # ====================================================================
         comparison_plot_count = 0
         if not args.skip_comparison and not args.skip_plots and (comparison_cell_csv_path or comparison_gene_csv_path):
             print("\n" + "=" * 60)
-            print("Stage 5: Generate Comparison Plots")
+            print("Stage 6: Generate Comparison Plots")
             print("=" * 60)
 
             from plot_comparison_generic import plot_comparison_generic
@@ -597,12 +667,12 @@ def main():
             print(f"\n✓ Generated {comparison_plot_count} comparison plots")
 
         # ====================================================================
-        # Stage 6: Generate Per-Gene Comparison Plots
+        # Stage 7: Generate Per-Gene Comparison Plots
         # ====================================================================
         per_gene_plot_count = 0
         if not args.skip_comparison and not args.skip_gene_comparison and not args.skip_plots and comparison_gene_csv_path:
             print("\n" + "=" * 60)
-            print("Stage 6: Generate Per-Gene Comparison Plots")
+            print("Stage 7: Generate Per-Gene Comparison Plots")
             print("=" * 60)
 
             from plot_comparison_by_gene import plot_comparison_by_gene

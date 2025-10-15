@@ -105,8 +105,9 @@ Stage 1: Extract timeline from simulation → 4 CSV files
 Stage 2: Generate 4 histogram plots (2 years × 2 metrics)
 Stage 3: Generate 4 timeline plots from CSVs
 Stage 4: Extract batch comparisons → 2 CSV files
-Stage 5: Generate 6 comparison plots (4 mean + 2 std)
-Stage 6: Generate 40 per-gene plots (20 genes × 2 metrics)
+Stage 5: Calculate statistical tests → 2 CSV files (pairwise t-tests + ANOVA)
+Stage 6: Generate 6 comparison plots (4 mean + 2 std)
+Stage 7: Generate 40 per-gene plots (20 genes × 2 metrics)
 ```
 
 ## Key Implementation Patterns
@@ -168,9 +169,132 @@ petri = PetriDish.from_cells(cells, growth_phase=7)
 ```
 
 ### CSV Data Formats
-- **Cell CSV** (9 rows): `individual_id,batch,cell_jsd_mean,cell_methylation_mean`
+- **Cell CSV** (9 rows): `individual_id,batch,cell_jsd_mean,cell_methylation_mean,cell_count`
 - **Gene CSV** (180 rows): `individual_id,batch,gene_index,gene_jsd,gene_methylation`
 - **Timeline CSV**: `year,value_0,value_1,...` (cells) or `year,gene_0,gene_1,...` (genes)
+- **P-values CSV** (18 rows): `metric,comparison,students_t_pvalue,welchs_t_pvalue`
+- **ANOVA CSV** (12 rows): `metric,test_type,f_statistic,df1,df2,p_value`
+
+## Phase 3 Comparison Plots with P-Values
+
+### Overview
+Phase 3 generates 6 comparison plots in Stage 5 (phase3/run_pipeline.py:425-598):
+1. Cell JSD mean comparison
+2. Cell methylation mean comparison
+3. Gene JSD mean comparison
+4. Gene methylation mean comparison
+5. Gene JSD standard deviation comparison
+6. Gene methylation standard deviation comparison
+
+### P-Value Implementation Location
+P-values should be added in `phase3/plot_comparison_generic.py` where batch comparisons are visualized. The function `plot_comparison_generic()` handles all 6 plots.
+
+### Key Implementation Points
+
+#### Data Structure
+- Each batch (control, test1, test2) contains 3 individuals
+- Cell metrics: `cell_jsd_mean`, `cell_methylation_mean` per individual
+- Gene metrics: `gene_jsd`, `gene_methylation` (20 values per individual, aggregated as mean or std)
+
+#### Where to Add P-Values
+In `plot_comparison_generic.py`:
+1. **After line 201** where statistics are calculated - add statistical tests
+2. **Around lines 256-280** where annotations are displayed - add p-value display
+3. Consider adding p-value calculation helper function
+
+#### Statistical Test Recommendations
+```python
+from scipy import stats
+
+# For comparing two batches (e.g., control vs test1)
+def calculate_pvalue(batch1_data, batch2_data):
+    """
+    Calculate p-value between two batches.
+    Uses Mann-Whitney U test (non-parametric) for small samples.
+    """
+    # With only 3 samples per batch, use non-parametric test
+    statistic, pvalue = stats.mannwhitneyu(
+        batch1_data,
+        batch2_data,
+        alternative='two-sided'
+    )
+    return pvalue
+
+# Alternative: Welch's t-test (if assuming normality)
+def calculate_pvalue_ttest(batch1_data, batch2_data):
+    statistic, pvalue = stats.ttest_ind(
+        batch1_data,
+        batch2_data,
+        equal_var=False  # Welch's t-test
+    )
+    return pvalue
+```
+
+#### Display Format
+P-values should be shown:
+1. As annotations on the plot (e.g., horizontal lines with asterisks)
+2. In the statistics text below each batch
+3. Format: `p < 0.001***`, `p = 0.023*`, `p = 0.456 (ns)`
+
+#### Comparison Pairs
+For each metric, calculate p-values for:
+- Control vs Test 1
+- Control vs Test 2
+- Test 1 vs Test 2
+
+### Implementation Checklist
+- [ ] Import scipy.stats in plot_comparison_generic.py
+- [ ] Add p-value calculation function
+- [ ] Calculate p-values for all three batch pairs
+- [ ] Add visual indicators (lines/brackets) between compared groups
+- [ ] Include p-values in text annotations
+- [ ] Handle edge cases (identical values, insufficient data)
+- [ ] Add p-value significance thresholds (*, **, ***)
+
+### P-Value Significance Conventions
+- `***` : p < 0.001
+- `**`  : p < 0.01
+- `*`   : p < 0.05
+- `ns`  : p ≥ 0.05 (not significant)
+
+## Phase 3 Statistical Tests (Automatic)
+
+### Overview
+Phase 3 pipeline **automatically** generates comprehensive statistical tests in Stage 5:
+- **Pairwise t-tests**: Compare each pair of batches (control vs test1, control vs test2, test1 vs test2)
+- **ANOVA**: Overall test across all 3 batches
+
+### Tests Performed
+For each of the 6 metrics (Cell JSD Mean, Cell Methylation Mean, Gene JSD Mean, Gene Methylation Mean, Gene JSD Std Dev, Gene Methylation Std Dev):
+
+#### Pairwise Tests (3 comparisons × 6 metrics = 18 rows)
+1. **Student's t-test** - Assumes equal variance between groups
+2. **Welch's t-test** - Does not assume equal variance (more robust)
+
+#### Omnibus Tests (2 tests × 6 metrics = 12 rows)
+1. **Fisher's ANOVA** - Standard one-way ANOVA, assumes equal variance
+2. **Welch's ANOVA** - Heteroscedastic one-way ANOVA, does not assume equal variance
+
+### Output Files
+Generated automatically in `results/tables/`:
+- **pvalues.csv** - All pairwise t-test results
+- **anova_results.csv** - All ANOVA results with F-statistics and degrees of freedom
+
+### Standalone Usage
+The statistical tests can also be run independently:
+```bash
+cd phase3
+python calculate_pvalues.py \
+  --cell-csv path/to/batch_comparison_cell.csv \
+  --gene-csv path/to/batch_comparison_gene.csv \
+  --output-csv path/to/pvalues.csv \
+  --anova-csv path/to/anova_results.csv
+```
+
+### Important Notes
+- **Bonferroni correction**: Should be applied when interpreting p-values (multiply by number of comparisons)
+- **Small sample sizes**: With n=3 per batch, non-parametric tests might be more appropriate for publication
+- **ANOVA interpretation**: Significant ANOVA indicates at least one batch differs, use pairwise tests to identify which ones
 
 ## Configuration System
 

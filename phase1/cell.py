@@ -364,6 +364,8 @@ class PetriDish:
         
         if seed is not None:
             random.seed(seed)
+            if HAS_NUMPY:
+                np.random.seed(seed)
         
         self.gene_rate_groups = gene_rate_groups  # Only store this
         self.n = n

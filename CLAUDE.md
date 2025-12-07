@@ -302,6 +302,165 @@ python calculate_pvalues.py \
 - **Sample sizes**: Number of individuals per batch determined by config (`n_quantiles × cells_per_quantile`) and normalization
 - **ANOVA interpretation**: Significant ANOVA indicates at least one batch differs, use pairwise tests to identify which ones
 
+## Linear Mixed-Effects Models (LMEM) for Phase 3
+
+### Overview
+Linear Mixed-Effects Models (LMEM) are being added to Phase 3 to better account for the hierarchical structure of the methylation simulation data. Unlike t-tests and ANOVA which treat all observations as independent, LMEMs can properly model the nested and correlated nature of the data.
+
+### Data Structure & Hierarchical Nature
+
+The simulation has multiple levels of hierarchy:
+1. **Batch level** (3 groups): control, test1, test2
+2. **Individual level** (~40 per batch): Each individual is a PetriDish with ~210 cells
+3. **Cell level** (~210 per individual): Each cell has methylation measurements
+4. **Gene level** (20 per cell): Each cell has 20 genes with distinct methylation patterns
+
+#### Key Hierarchical Relationships
+- **Cells within individuals**: Cells from the same individual share a common origin and growth history, making them more similar to each other than to cells from other individuals
+- **Genes within cells**: The 20 genes have different baseline methylation rates (4 groups of 5 genes each)
+- **Repeated measurements**: Gene-level measurements (20 per individual) are nested within individuals
+
+### Why LMEM is Suitable
+
+#### Current Limitations of t-tests/ANOVA
+1. **Independence assumption violated**: Current tests treat all individuals as independent, but cells within individuals are correlated
+2. **Loss of information**: Aggregating gene measurements to means/std loses the within-individual variation
+3. **No accounting for gene-specific effects**: Different genes have different methylation rates by design
+4. **Sample size inflation**: With gene-level data, we have 20 measurements per individual, but current tests either aggregate or treat them as independent
+
+#### LMEM Advantages
+1. **Handles hierarchical data**: Explicitly models the nested structure
+2. **Accounts for correlations**: Models within-individual correlations through random effects
+3. **Uses all data points**: No need to aggregate, preserving information
+4. **Separates variance components**: Can quantify how much variation comes from batch vs individual vs gene levels
+5. **More statistical power**: Better use of the repeated measurements structure
+
+### Recommended LMEM Types for This Simulation
+
+#### 1. Random Intercepts Model (Simplest, Recommended to Start)
+```python
+# Model: Value ~ Batch + (1|Individual)
+# Fixed effect: Batch (control, test1, test2)
+# Random effect: Random intercept for each individual
+```
+**Use case**: Cell-level metrics where we have one measurement per individual
+**Interpretation**: Accounts for baseline differences between individuals
+
+#### 2. Nested Random Effects Model (For Gene Data)
+```python
+# Model: Value ~ Batch + GeneGroup + (1|Individual) + (1|Individual:Gene)
+# Fixed effects: Batch, GeneGroup (the 4 methylation rate groups)
+# Random effects: Individual, Gene nested within Individual
+```
+**Use case**: Gene-level metrics with 20 measurements per individual
+**Interpretation**: Accounts for individual differences and gene-specific variation within individuals
+
+#### 3. Random Slopes Model (If Growth Trajectories Matter)
+```python
+# Model: Value ~ Batch * Time + (1 + Time|Individual)
+# Fixed effects: Batch, Time, Batch:Time interaction
+# Random effects: Random intercept and slope for Time per individual
+```
+**Use case**: If analyzing growth trajectories over time
+**Interpretation**: Allows each individual to have its own baseline and growth rate
+
+#### 4. Crossed Random Effects Model (Most Complex)
+```python
+# Model: Value ~ Batch + (1|Individual) + (1|GeneID)
+# Fixed effect: Batch
+# Random effects: Individual (grouping factor), GeneID (crossed factor)
+```
+**Use case**: When genes are consistent across individuals and we want to model gene-specific effects
+**Interpretation**: Separates individual variation from gene-specific variation
+
+### Implementation Strategy
+
+#### Python Libraries
+```python
+# Option 1: statsmodels (simpler, good for basic models)
+import statsmodels.formula.api as smf
+model = smf.mixedlm("value ~ batch", data=df, groups=df["individual_id"])
+
+# Option 2: pymer4 (R's lme4 wrapper, more features)
+from pymer4 import Lmer
+model = Lmer("value ~ batch + (1|individual_id)", data=df)
+
+# Option 3: nlme (if need more complex variance structures)
+# Requires rpy2 interface to R
+```
+
+#### Data Preparation
+1. **Long format required**: Current CSVs are already in long format (good!)
+2. **Factor coding**: Ensure batch is treated as categorical
+3. **Centering**: Consider centering continuous predictors
+4. **Check for convergence**: LMEMs can have convergence issues with complex models
+
+### Recommended Implementation Path
+
+#### Phase 1: Basic Random Intercepts Model
+Start with the simplest model for cell-level data:
+```python
+# File: phase3/calculate_lmem.py
+def fit_basic_lmem(df_cell, metric='cell_jsd_mean'):
+    """
+    Fit random intercepts model: metric ~ batch + (1|individual_id)
+
+    This accounts for the fact that we have multiple individuals per batch,
+    treating individual as a random effect.
+    """
+    formula = f"{metric} ~ C(batch) + (1|individual_id)"
+    # Implementation here
+```
+
+#### Phase 2: Gene-Level Nested Model
+Extend to handle gene-level data:
+```python
+def fit_gene_lmem(df_gene):
+    """
+    Fit nested model: value ~ batch + gene_group + (1|individual_id)
+
+    This accounts for both individual-level and gene-level variation.
+    Gene groups are the 4 different methylation rate categories.
+    """
+    # Add gene_group based on gene_index (0-4: group1, 5-9: group2, etc.)
+    df_gene['gene_group'] = df_gene['gene_index'] // 5
+    formula = "gene_jsd ~ C(batch) + C(gene_group) + (1|individual_id)"
+    # Implementation here
+```
+
+#### Phase 3: Diagnostic and Validation
+1. **Model diagnostics**: Check residuals, random effects distribution
+2. **Variance components**: Report % variance explained at each level
+3. **Model comparison**: Use AIC/BIC to compare with simpler models
+4. **Effect sizes**: Report fixed effects with confidence intervals
+
+### Expected Insights from LMEM
+
+1. **Variance partitioning**: Quantify how much variation is between-batch vs between-individual vs within-individual
+2. **True batch effects**: After accounting for individual-level clustering, are batch differences still significant?
+3. **Gene group effects**: Confirm that genes with different methylation rates behave differently
+4. **Individual variability**: Identify if some individuals are more variable than others
+5. **Improved power**: Detect smaller effects by properly accounting for the data structure
+
+### Output Format Recommendations
+
+New CSV file: `lmem_results.csv`
+```csv
+model,metric,effect,estimate,std_error,ci_lower,ci_upper,p_value
+random_intercepts,cell_jsd_mean,batch[test1],0.023,0.005,0.013,0.033,0.0001
+random_intercepts,cell_jsd_mean,batch[test2],0.031,0.005,0.021,0.041,<0.0001
+random_intercepts,cell_jsd_mean,var_individual,0.0012,,,,,
+random_intercepts,cell_jsd_mean,var_residual,0.0034,,,,,
+```
+
+### Important Considerations
+
+1. **Convergence**: LMEMs may not converge with complex models and limited data
+2. **Model selection**: Start simple, add complexity only if justified by AIC/BIC
+3. **Assumptions**: Still assumes normality of residuals and random effects
+4. **Interpretation**: Fixed effects similar to ANOVA, but now accounting for clustering
+5. **Software requirements**: Will need additional Python packages (statsmodels or pymer4)
+
 ## Configuration System
 
 ### Default Configurations
